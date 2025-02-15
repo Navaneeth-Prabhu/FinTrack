@@ -3,10 +3,12 @@ import { Platform, useColorScheme } from 'react-native';
 import { useCallback } from 'react';
 // import * as NavigationBar from 'expo-navigation-bar';
 import { lightTheme, darkTheme, tokens } from '@/constants/theme';
+import useThemeStore from '@/stores/themeStore';
 
 export function useTheme() {
     const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { theme } = useThemeStore();
+    const isDark = theme == 'dark' || (theme === 'system' && colorScheme === 'dark');
     const colors = isDark ? darkTheme : lightTheme;
 
     // Get semantic color with fallback

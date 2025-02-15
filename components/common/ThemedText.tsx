@@ -21,7 +21,7 @@ interface TypographyProps {
   children: React.ReactNode;
 }
 
-export function Text({
+export function ThemedText({
   variant = 'body1',
   color,
   align,

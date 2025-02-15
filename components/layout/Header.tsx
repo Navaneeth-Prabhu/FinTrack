@@ -1,8 +1,8 @@
 // components/layout/Header.tsx
 import { useRouter } from 'expo-router';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text } from '../common/Typography';
 import { useTheme } from '@/hooks/useTheme';
+import { ThemedText } from '../common/ThemedText';
 
 interface HeaderProps {
   title: string;
@@ -41,9 +41,9 @@ export function Header({
         {leftAction}
       </View>
 
-      <Text variant="h4" style={styles.title}>
+      <ThemedText variant="h4" style={styles.title}>
         {title}
-      </Text>
+      </ThemedText>
 
       <View style={styles.right}>{rightAction}</View>
     </View>
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    // paddingHorizontal: 16,
   },
   left: {
     width: 40,

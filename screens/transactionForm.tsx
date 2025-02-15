@@ -218,9 +218,9 @@ export const TransactionForm: React.FC = () => {
                 lastModified: Date.now().toString(),
                 source: { type: 'manual' },
             };
-            saveTransaction(transactionData);
-            router.back();
-            // const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
+
+
+            const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
 
             // if (isRecurring) {
             //     const recurringData: RecurringSchedule = {
@@ -258,10 +258,10 @@ export const TransactionForm: React.FC = () => {
             //     }
 
             //     router.back();
-            } catch (error) {
-                console.error('Failed to save transaction:', error);
+            // } catch (error) {
+            //     console.error('Failed to save transaction:', error);
             }
-        }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, router]);
+        }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, dispatch, router]);
 
     const handleAmountDetected = (detectedAmount) => {
         // setAmount(detectedAmount);
