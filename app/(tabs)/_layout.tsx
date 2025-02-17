@@ -2,9 +2,6 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,17 +13,13 @@ export default function TabLayout() {
         animation: 'none',
         tabBarActiveTintColor: colors.primary,
         headerShown: false,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {
-            backgroundColor: colors.background,
-            height: 80,
-          },
-        }),
-      }}>
+        tabBarShowLabel: false, 
+        tabBarStyle: {
+          backgroundColor: colors.background,
+        }
+        
+      }}
+      >
       <Tabs.Screen
         name="index"
         options={{

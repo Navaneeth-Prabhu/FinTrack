@@ -1,94 +1,89 @@
-// components/common/Typography.tsx
-import { useTheme } from '@/hooks/useTheme';
 import { Text as RNText, TextStyle, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
+import { fontSizes } from '@/constants/theme';
 
-type TypographyVariant =
+type TextVariant = 
   | 'h1'
   | 'h2'
   | 'h3'
-  | 'h4'
+  | 'subtitle'
   | 'body1'
   | 'body2'
-  | 'caption'
-  | 'button'
-  | 'overline';
+  | 'caption';
 
-interface TypographyProps {
-  variant?: TypographyVariant;
+interface TextProps {
+  variant?: TextVariant;
   color?: string;
   align?: 'auto' | 'left' | 'right' | 'center' | 'justify';
-  style?: TextStyle;
+  style?: TextStyle | TextStyle[];
   children: React.ReactNode;
 }
+``
+const createTextStyles = (scale: number) => ({
+  fontSize: fontSizes[`FONT${scale}`],
+  lineHeight: fontSizes[`FONT${scale + 8}`], // Add 8 to fontSize for lineHeight
+});
 
 export function ThemedText({
-  variant = 'body1',
+  variant = 'body',
   color,
   align,
   style,
   children,
   ...props
-}: TypographyProps) {
+}: TextProps) {
   const { colors } = useTheme();
 
   const getVariantStyles = (): TextStyle => {
-    const variants: Record<TypographyVariant, TextStyle> = {
+    const variants: Record<TextVariant, TextStyle> = {
       h1: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        lineHeight: 40,
+        ...createTextStyles(48),
+        fontFamily: 'Poppins-SemiBold',
       },
       h2: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        lineHeight: 36,
+        ...createTextStyles(24),
+        // fontFamily: 'Poppins-SemiBold',
+        fontWeight: '500',
       },
       h3: {
-        fontSize: 24,
+        ...createTextStyles(20),
+        // fontFamily: 'Poppins-SemiBold',
         fontWeight: '600',
-        lineHeight: 32,
       },
-      h4: {
-        fontSize: 20,
-        fontWeight: '600',
-        lineHeight: 28,
+      subtitle: {
+        ...createTextStyles(18),
+        // fontFamily: 'Poppins-Medium',
+        color: colors.subtitle,
+        fontWeight: '500'
       },
       body1: {
-        fontSize: 16,
-        lineHeight: 24,
+        ...createTextStyles(16),
+        // fontFamily: 'Poppins-Regular',
+        color: colors.subtitle,
       },
       body2: {
-        fontSize: 14,
-        lineHeight: 20,
+        ...createTextStyles(14),
+        // fontFamily: 'Poppins-Regular',
+        color: colors.subtitle,
       },
       caption: {
-        fontSize: 12,
-        lineHeight: 16,
-      },
-      button: {
-        fontSize: 16,
-        fontWeight: '600',
-        lineHeight: 24,
-      },
-      overline: {
-        fontSize: 10,
-        fontWeight: '500',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
+        ...createTextStyles(12),
+        fontFamily: 'Poppins-Regular',
       },
     };
     return variants[variant];
   };
 
+  const styles = StyleSheet.create({
+    text: {
+      ...getVariantStyles(),
+      color: color || colors.text,
+      textAlign: align || 'left',
+    },
+  });
+
   return (
-    <RNText
-      style={[
-        getVariantStyles(),
-        { color: color || colors.text },
-        align && { textAlign: align },
-        style,
-      ]}
-      {...props}>
+    <RNText style={[styles.text, style]} {...props}>
       {children}
     </RNText>
   );

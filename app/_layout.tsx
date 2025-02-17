@@ -8,12 +8,14 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useTheme } from '@/hooks/useTheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { colors } = useTheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -31,9 +33,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <StatusBar style={'inverted'} />
         <Stack screenOptions={{ headerShown: false, }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false, }} />
           <Stack.Screen name="+not-found" />
+          <Stack.Screen name="(routes)/transaction/transactionForm"
+            options={{
+              headerShown: false,
+              presentation: 'containedTransparentModal',
+              animation: 'fade',
+            }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

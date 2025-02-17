@@ -29,6 +29,9 @@ export const lightTheme = {
     info: '#3B82F6',
     infoForeground: '#FFFFFF',
 
+    income: '#4CAF50',
+    expense: '#FF5252',
+
     // Border & Shadow
     border: 'rgba(0, 0, 0, 0.1)',
     shadowLight: 'rgba(0, 0, 0, 0.05)',
@@ -56,8 +59,11 @@ export const darkTheme = {
     // Semantic colors
     accent: '#2C2C2E',
     accentForeground: '#FFFFFF',
-    muted: '#2C2C2E',
+    muted: '#A2A2AB',
     mutedForeground: '#A1A1AA',
+
+    income: '#4CAF50',
+    expense: '#FF5252',
 
     // State colors
     success: '#22C55E',
@@ -124,13 +130,13 @@ export const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export const windowWidth = (width: DimensionValue): number => {
     if (!width) {
-      return 0;
+        return 0;
     }
     let tempWidth = SCREEN_WIDTH * (parseFloat(width.toString()) / 480);
     return PixelRatio.roundToNearestPixel(tempWidth);
-  };
-  
-  export const fontSizes = {
+};
+
+export const fontSizes = {
     FONT6: windowWidth(6),
     FONT7: windowWidth(7),
     FONT8: windowWidth(8),
@@ -157,4 +163,5 @@ export const windowWidth = (width: DimensionValue): number => {
     FONT30: windowWidth(30),
     FONT32: windowWidth(32),
     FONT35: windowWidth(35),
-  };
+    FONT48: windowWidth(48),
+};

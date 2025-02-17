@@ -11,23 +11,13 @@ interface CardProps {
 export function Card({ variant = 'default', children, style }: CardProps) {
     const { colors, tokens, getShadow } = useTheme();
 
-    // const getCardStyle = createVariant(
-    //   {
-    //     padding: tokens.spacing.md,
-    //     borderRadius: tokens.borderRadius.md,
-    //     backgroundColor: colors.card,
-    //   },
-    //   {
-    //     default: {},
-    //     elevated: {
-    //       ...getShadow(4),
-    //     },
-    //     outlined: {
-    //       borderWidth: 1,
-    //       borderColor: colors.border,
-    //     },
-    //   }
-    // );
-
-    return <View style={[style]}>{children}</View>;
+    return (
+        <View style={[style, {
+            backgroundColor: colors.card,
+            padding: tokens.spacing.md,
+            borderRadius: tokens.borderRadius.md,
+        }]}>
+            {children}
+        </View>
+    );
 }

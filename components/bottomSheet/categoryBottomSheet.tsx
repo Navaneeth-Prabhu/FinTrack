@@ -34,7 +34,6 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     useEffect(() => {
         fetchCategories();
     }, [])
-    const snapPoints = useMemo(() => ['60%', '75%'], []);
 
     useEffect(() => {
         setFilter(type);
@@ -138,7 +137,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
             <BottomSheetModal
                 ref={bottomSheetModalRef}
                 index={0}
-                snapPoints={['60%', '75%']}
+                snapPoints={['60%']}
                 onChange={handleSheetChanges}
                 backdropComponent={renderBackdrop}
                 enablePanDownToClose

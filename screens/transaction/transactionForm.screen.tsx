@@ -13,6 +13,8 @@ import { useTransactionStore } from '@/stores/transactionStore';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBottomSheet from '@/components/bottomSheet/categoryBottomSheet';
+import { Header } from '@/components/layout/Header';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 interface mode {
@@ -57,7 +59,7 @@ const INITIAL_RECURRING_SCHEDULE: RecurringScheduleType = {
     endDate: undefined,
     dayOfMonth: undefined,
 };
-export const TransactionForm: React.FC = () => {
+const TransactionFormScreen: React.FC = () => {
     const router = useRouter();
     const { colors } = useTheme();
     const { editMode, transactionId, recurringId } = useLocalSearchParams();
@@ -218,9 +220,9 @@ export const TransactionForm: React.FC = () => {
                 lastModified: Date.now().toString(),
                 source: { type: 'manual' },
             };
-
-
-            const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
+            saveTransaction(transactionData);
+            router.back();
+            // const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
 
             // if (isRecurring) {
             //     const recurringData: RecurringSchedule = {
@@ -258,10 +260,10 @@ export const TransactionForm: React.FC = () => {
             //     }
 
             //     router.back();
-            // } catch (error) {
-            //     console.error('Failed to save transaction:', error);
-            }
-        }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, dispatch, router]);
+        } catch (error) {
+            console.error('Failed to save transaction:', error);
+        }
+    }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, router]);
 
     const handleAmountDetected = (detectedAmount) => {
         // setAmount(detectedAmount);
@@ -270,7 +272,7 @@ export const TransactionForm: React.FC = () => {
     };
 
     return (
-        <BottomSheetModalProvider>
+        <SafeAreaView style={{ flex: 1 }}>
             {/* {
                 showScanner && (
                     <OfflineTransactionScanner
@@ -279,10 +281,21 @@ export const TransactionForm: React.FC = () => {
                     />
                 )
             } */}
+            <Header showBack title={editMode ? 'Edit Transaction' : 'New Transaction'} />
             <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+                    <View>
+                        <ThemedText variant='h2'>Add New
+                            <Text style={{
+                                color: formState.type === 'income' ? colors.income : colors.expense,
+                                backgroundColor: colors.card,
+                                borderRadius: 5
+
+                            }}>  {(formState.type === 'income' ? 'Income' : 'Expense')}  </Text>
+                        </ThemedText>
+                    </View>
                     {/* Type Selector */}
-                    <Animated.View style={[styles.typeContainer,
+                    {/* <Animated.View style={[styles.typeContainer,
                         detailAnimatedStyle]}>
                         <TouchableOpacity
                             style={[
@@ -318,24 +331,30 @@ export const TransactionForm: React.FC = () => {
                                 Expense
                             </ThemedText>
                         </TouchableOpacity>
-                    </Animated.View>
+                    </Animated.View> */}
 
-                    {/* Category Selection */}
-                    <TouchableOpacity
-                        style={[styles.input, {
-                            justifyContent: 'center',
-                            borderColor: colors.border,
-                            backgroundColor: colors.card
-                        }]}
-                        onPress={() => setBottomSheetState(prev => ({ ...prev, isCategoryVisible: true }))}
-                    >
-                        <Text style={{ color: formState.category ? colors.text : colors.subtitle }}>
-                            {formState.category ? `${formState.category.icon} ${formState.category.name}` : 'Select Category'}
-                        </Text>
-                    </TouchableOpacity>
+
 
                     {/* Amount Input */}
                     <View style={[styles.amountContainer, { borderColor: colors.border }]}>
+                        {
+                            formState.category && 
+                            <View style={{
+                                backgroundColor: colors.card,
+                                borderRadius: 10,
+                                marginRight: 10,
+                                padding: 10,
+                                borderWidth: 2,
+                                borderColor: formState.category ? formState.category.color : colors.subtitle
+                            }}>
+                                <Text style={{
+                                    color: formState.category ? colors.text : colors.subtitle,
+                                    fontSize: 25
+                                }}>
+                                    {formState.category.icon}
+                                </Text>
+                            </View>
+                        }
                         <ThemedText style={styles.currencySymbol}>₹</ThemedText>
                         <TextInput
                             ref={amountInputRef}
@@ -352,6 +371,20 @@ export const TransactionForm: React.FC = () => {
                         </TouchableOpacity>
                     </View>
 
+                    {/* Category Selection */}
+                    <TouchableOpacity
+                        style={[styles.input, {
+                            justifyContent: 'center',
+                            borderColor: colors.border,
+                            backgroundColor: colors.card
+                        }]}
+                        onPress={() => setBottomSheetState(prev => ({ ...prev, isCategoryVisible: true }))}
+                    >
+                        <Text style={{ color: formState.category ? colors.text : colors.subtitle }}>
+                            {formState.category ? `${formState.category.icon} ${formState.category.name}` : 'Select Category'}
+                        </Text>
+                    </TouchableOpacity>
+
                     {/* Date Picker */}
                     {/* <CustomDateTimePicker
                         value={formState.date}
@@ -360,10 +393,12 @@ export const TransactionForm: React.FC = () => {
 
                     {/* Paid By/To Input */}
                     <TextInput
-                        style={[styles.input, {
+                        style={[styles.input,
+                        {
                             color: colors.text,
                             borderColor: colors.border,
-                            marginTop: 10
+                            marginTop: 10,
+                            backgroundColor: colors.card
                         }]}
                         placeholder={formState.type === 'income' ? "Paid By" : "Paid To"}
                         placeholderTextColor={colors.text}
@@ -508,7 +543,7 @@ export const TransactionForm: React.FC = () => {
                 type={formState.type}
                 setType={(type) => handleFormChange('type', type)}
             />
-        </BottomSheetModalProvider>
+        </SafeAreaView>
     );
 };
 
@@ -645,4 +680,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default TransactionForm;
+export default TransactionFormScreen;
