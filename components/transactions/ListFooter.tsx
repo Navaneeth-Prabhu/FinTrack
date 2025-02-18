@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface ListFooterProps {
   totals: {
-    income: number;
+    expense: number;
   };
   count: number;
 }
@@ -17,7 +17,7 @@ export const ListFooter: React.FC<ListFooterProps> = ({ totals, count }) => {
   return (
     <View style={styles.container}>
       <ThemedText style={[styles.text, { color: colors.muted }]}>
-        total cash flow ${totals.income.toLocaleString()}
+        total cash flow ${totals.expense.toLocaleString()}
       </ThemedText>
       <ThemedText style={[styles.text, { color: colors.muted }]}>
         {count} transactions

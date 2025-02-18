@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '../common/ThemedText';
+import { Ionicons } from '@expo/vector-icons';
 
 interface HeaderProps {
   title: string;
@@ -35,13 +36,13 @@ export function Header({
       <View style={styles.left}>
         {showBack && !leftAction && (
           <Pressable onPress={() => router.back()}>
-            {/* <BackIcon color={colors.text} /> */}
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
         )}
         {leftAction}
       </View>
 
-      <ThemedText variant="h4" style={styles.title}>
+      <ThemedText variant="h3" style={styles.title}>
         {title}
       </ThemedText>
 

@@ -32,7 +32,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
 
         return (
             <Pressable
-                // onPress={() => router.push(`/transactions/${transaction.id}`)}
+                onPress={() => router.push(`(routes)/transaction/${transaction.id}`)}
                 style={[styles.container]}
             >
                 <Animated.View
