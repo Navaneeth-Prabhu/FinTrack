@@ -2,24 +2,25 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#F9F9F9',
-    secondaryBackground: '#FFFFFF',
+    background: '#F8F9FC',           // Slightly blue-tinted white for depth
+    secondaryBackground: '#FFFFFF',   // Pure white for secondary areas
     foreground: '#000000',
     card: '#FFFFFF',
+    secondarycard: '#F8F9FC',                // Pure white for cards
     cardForeground: '#000000',
     primary: '#8F85FF',
     primaryForeground: '#FFFFFF',
     secondary: '#8F85FF',
-    text: '#000000',
-    subtitle: '#72727A',
+    text: '#1A1A1A',                // Slightly softer than pure black
+    subtitle: '#6B7280',            // Warmer gray for better readability
 
     // Semantic colors
-    accent: '#F6F6F7',
+    accent: '#F3F4F8',              // Slightly blueish for accent
     accentForeground: '#1F1F1F',
-    muted: '#F1F1F1',
-    mutedForeground: '#737373',
+    muted: '#F1F5F9',              // Softer muted background
+    mutedForeground: '#64748B',     // Warmer muted text
 
-    // State colors
+    // State colors (kept the same as they work well)
     success: '#22C55E',
     successForeground: '#FFFFFF',
     warning: '#F59E0B',
@@ -33,14 +34,14 @@ export const lightTheme = {
     expense: '#FF5252',
 
     // Border & Shadow
-    border: 'rgba(0, 0, 0, 0.1)',
-    shadowLight: 'rgba(0, 0, 0, 0.05)',
-    shadowMedium: 'rgba(0, 0, 0, 0.1)',
+    border: 'rgba(0, 0, 0, 0.08)',   // Lighter border
+    shadowLight: 'rgba(0, 0, 0, 0.03)',
+    shadowMedium: 'rgba(0, 0, 0, 0.05)',
 
     // Input & Form
     input: '#FFFFFF',
     inputForeground: '#000000',
-    ring: 'rgba(143, 133, 255, 0.3)', // Based on primary color
+    ring: 'rgba(143, 133, 255, 0.3)',
 } as const;
 
 export const darkTheme = {
@@ -49,24 +50,25 @@ export const darkTheme = {
     secondaryBackground: '#1E1E1E',
     foreground: '#FFFFFF',
     card: '#1E1E1E',
+    secondarycard: '#111111',
     cardForeground: '#FFFFFF',
     primary: '#8F85FF',
     primaryForeground: '#FFFFFF',
     secondary: '#8F85FF',
-    text: '#FAFAFA',
-    subtitle: '#A2A2AB',
+    text: '#F2F2F7',               // Slightly softer white
+    subtitle: '#A2A2AB',           // Kept the same - works well
 
     // Semantic colors
-    accent: '#2C2C2E',
+    accent: '#27272A',             // Slightly warmer accent
     accentForeground: '#FFFFFF',
-    muted: '#A2A2AB',
-    mutedForeground: '#A1A1AA',
+    muted: '#8E8E93',             // Adjusted for better contrast
+    mutedForeground: '#A1A1AA',    // Kept the same - works well
 
-    income: '#4CAF50',
-    expense: '#FF5252',
+    income: '#4CAF50',            // Kept the same
+    expense: '#FF5252',           // Kept the same
 
     // State colors
-    success: '#22C55E',
+    success: '#22C55E',           // Kept the same - works well
     successForeground: '#FFFFFF',
     warning: '#F59E0B',
     warningForeground: '#FFFFFF',
@@ -76,14 +78,14 @@ export const darkTheme = {
     infoForeground: '#FFFFFF',
 
     // Border & Shadow
-    border: 'rgba(255, 255, 255, 0.1)',
-    shadowLight: 'rgba(0, 0, 0, 0.3)',
-    shadowMedium: 'rgba(0, 0, 0, 0.4)',
+    border: 'rgba(255, 255, 255, 0.08)', // Reduced opacity for subtlety
+    shadowLight: 'rgba(0, 0, 0, 0.4)',
+    shadowMedium: 'rgba(0, 0, 0, 0.5)',
 
     // Input & Form
-    input: '#2C2C2E',
+    input: '#27272A',              // Slightly adjusted for better contrast
     inputForeground: '#FFFFFF',
-    ring: 'rgba(143, 133, 255, 0.3)', // Based on primary color
+    ring: 'rgba(143, 133, 255, 0.3)',
 } as const;
 
 type ThemeType = typeof lightTheme;

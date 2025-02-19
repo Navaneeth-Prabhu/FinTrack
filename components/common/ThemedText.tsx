@@ -25,7 +25,7 @@ const createTextStyles = (scale: number) => ({
 });
 
 export function ThemedText({
-  variant = 'body',
+  variant = 'body1',
   color,
   align,
   style,

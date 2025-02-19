@@ -220,7 +220,7 @@ const TransactionFormScreen: React.FC = () => {
                 lastModified: Date.now().toString(),
                 source: { type: 'manual' },
             };
-            saveTransaction(transactionData);
+            editMode ? updateTransaction(transactionData) : saveTransaction(transactionData);
             router.back();
             // const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
 
@@ -338,7 +338,7 @@ const TransactionFormScreen: React.FC = () => {
                     {/* Amount Input */}
                     <View style={[styles.amountContainer, { borderColor: colors.border }]}>
                         {
-                            formState.category && 
+                            formState.category &&
                             <View style={{
                                 backgroundColor: colors.card,
                                 borderRadius: 10,
