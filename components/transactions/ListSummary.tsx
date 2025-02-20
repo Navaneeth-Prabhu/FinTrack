@@ -2,10 +2,10 @@ import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import { ThemedText } from '../common/ThemedText'
 
-const ListSummary = () => {
+const ListSummary = ({ totals: { expense } }: { totals: { expense: number } }) => {
     return (
         <View style={{
-            height: 200, 
+            height: 200,
             // backgroundColor: 'black',
             alignItems: 'center',
             justifyContent: 'center'

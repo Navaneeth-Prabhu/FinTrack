@@ -16,10 +16,10 @@ export const ListFooter: React.FC<ListFooterProps> = ({ totals, count }) => {
 
   return (
     <View style={styles.container}>
-      <ThemedText style={[styles.text, { color: colors.muted }]}>
+      <ThemedText style={[styles.text, { color: colors.subtitle }]}>
         total cash flow ${totals.expense.toLocaleString()}
       </ThemedText>
-      <ThemedText style={[styles.text, { color: colors.muted }]}>
+      <ThemedText style={[styles.text, { color: colors.subtitle }]}>
         {count} transactions
       </ThemedText>
     </View>

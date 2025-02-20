@@ -91,13 +91,13 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     );
 
     const handleEditCategory = () => {
-        router.push('/category/categoryList');
+        router.push('category/categoryList');
         onClose();
     }
     const renderFooter = useCallback(
         (props: any) => (
             <BottomSheetFooter {...props} bottomInset={0}>
-                <View style={[styles.filterContainer, { backgroundColor: colors.background }]}>
+                <View style={[styles.filterContainer, { backgroundColor: colors.card }]}>
                     <View style={[styles.filterButtons, { borderColor: colors.border }]}>
                         <TouchableOpacity
                             onPress={() => applyFilter('income')}
@@ -141,11 +141,11 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                 onChange={handleSheetChanges}
                 backdropComponent={renderBackdrop}
                 enablePanDownToClose
-                backgroundStyle={{ backgroundColor: colors.background }}
+                backgroundStyle={{ backgroundColor: colors.card }}
                 handleIndicatorStyle={{ display: 'none' }}
                 footerComponent={renderFooter}
             >
-                <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
+                <View style={[styles.contentContainer, { backgroundColor: colors.card }]}>
                     <View style={styles.header}>
                         <View style={styles.titleContainer}>
                             <ThemedText style={[styles.title, { color: colors.text }]}>

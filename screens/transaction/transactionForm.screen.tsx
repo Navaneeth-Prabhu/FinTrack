@@ -126,7 +126,7 @@ const TransactionFormScreen: React.FC = () => {
 
     // Load existing transaction data for editing
     useEffect(() => {
-        if (editMode && currentTransaction) {
+        if (editMode === 'true' && currentTransaction) {
             setFormState(prevState => ({
                 ...prevState,
                 amount: currentTransaction.amount.toString(),
@@ -207,7 +207,7 @@ const TransactionFormScreen: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, Platform.OS === 'ios' ? 300 : 100));
 
             const transactionData = {
-                id: editMode ? (Array.isArray(transactionId) ? transactionId[0] : transactionId) : Date.now().toString(),
+                id: editMode === 'true' ? (Array.isArray(transactionId) ? transactionId[0] : transactionId) : Date.now().toString(),
                 amount: parseFloat(formState.amount),
                 note: formState.note,
                 category: formState.category,
@@ -216,11 +216,11 @@ const TransactionFormScreen: React.FC = () => {
                 paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : undefined,
                 paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : undefined,
                 mode: formState.transactionType,
-                createdAt: editMode ? (Array.isArray(currentTransaction?.createdAt) ? currentTransaction?.createdAt[0] : transactionId) : Date.now().toString(),
+                createdAt: editMode === 'true' ? (Array.isArray(currentTransaction?.createdAt) ? currentTransaction?.createdAt[0] : transactionId) : Date.now().toString(),
                 lastModified: Date.now().toString(),
                 source: { type: 'manual' },
             };
-            editMode ? updateTransaction(transactionData) : saveTransaction(transactionData);
+            editMode === 'true' ? updateTransaction(transactionData) : saveTransaction(transactionData);
             router.back();
             // const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
 

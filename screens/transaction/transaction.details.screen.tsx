@@ -9,7 +9,7 @@ import { router, useNavigation } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTransactionStore } from '@/stores/transactionStore'
 interface TransactionDetailScreenProps {
-    transactionId: string
+    transactionId?: string
 }
 
 const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ transactionId }) => {
@@ -39,7 +39,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 <TouchableOpacity
                     onPress={() => router.push({
                         pathname: '/transaction/transactionForm',
-                        params: { editMode: true, transactionId: transaction.id }
+                        params: { editMode: "true", transactionId: transaction?.id }
                     })}
                     style={{ marginRight: 15 }}
                 >
@@ -52,7 +52,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
         <View style={{ flex: 1, gap: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 20 }}>
                 <View style={{
-                    borderColor: transaction.category.color,
+                    borderColor: transaction?.category.color,
                     borderWidth: 2,
                     width: 60,
                     height: 60,
@@ -60,17 +60,17 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     justifyContent: 'center',
                     alignItems: 'center',
                 }}>
-                    <ThemedText variant='h2'>{transaction.category.icon}
+                    <ThemedText variant='h2'>{transaction?.category.icon}
                     </ThemedText>
                 </View>
                 <View style={{ flex: 1 }}>
-                    <ThemedText variant='h2'>{transaction.paidTo}</ThemedText>
-                    <ThemedText variant='subtitle' style={{ color: colors.subtitle }}>{transaction.category.name}</ThemedText>
+                    <ThemedText variant='h2'>{transaction?.paidTo}</ThemedText>
+                    <ThemedText variant='subtitle' style={{ color: colors.subtitle }}>{transaction?.category.name}</ThemedText>
                 </View>
             </View>
             <View>
-                <ThemedText variant='h1'>${transaction.amount.toFixed(2)}</ThemedText>
-                <ThemedText variant='body1' style={{ color: colors.subtitle }}>{transaction.date}</ThemedText>
+                <ThemedText variant='h1'>${transaction?.amount.toFixed(2)}</ThemedText>
+                <ThemedText variant='body1' style={{ color: colors.subtitle }}>{transaction?.date}</ThemedText>
             </View>
             {/* <LinearGradient
                 // Button Linear Gradient
@@ -79,7 +79,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 style={styles.button}>
                 <ThemedText style={styles.text}>Sign in with Facebook</ThemedText>
             </LinearGradient> */}
-            <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction.id}`)}>
+            <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction?.id}`)}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <ThemedText variant='body1'>Transaction Type</ThemedText>
                     <ThemedText variant='body1'>{merchantLoyaltyScore || 'N/A'}</ThemedText>

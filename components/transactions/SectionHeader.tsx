@@ -21,26 +21,25 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ section }) => {
   const formattedDate = section.isUpcoming
     ? 'UPCOMING'
     : formatDateString(section.title, {
-        dateFormat: 'MMM dd, yyyy',
-        includeTime: false,
-        excludeYearIfCurrent: true,
-      });
+      dateFormat: 'MMM dd, yyyy',
+      includeTime: false,
+      excludeYearIfCurrent: true,
+    });
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
           borderBottomColor: colors.subtitle,
         },
       ]}
     >
-      <ThemedText style={[styles.date, { color: colors.subtitle }]}>
+      <ThemedText variant="body2" style={[{ fontWeight: 'bold', color: colors.subtitle }]}>
         {formattedDate}
       </ThemedText>
       <View style={styles.balanceContainer}>
-        <ThemedText style={[styles.balance, { color: colors.subtitle }]}>
+        <ThemedText variant="body2" style={[{ fontWeight: 'bold', color: colors.subtitle }]}>
           ${netBalance.toFixed(2)}
         </ThemedText>
       </View>
@@ -54,19 +53,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    marginBottom: 8,
-  },
-  date: {
-    fontSize: 12,
-    fontWeight: 'bold',
     marginVertical: 8,
+    paddingVertical: 4,
   },
   balanceContainer: {
     flexDirection: 'row',
     gap: 10,
-  },
-  balance: {
-    fontWeight: '600',
-    fontSize: 12,
   },
 });

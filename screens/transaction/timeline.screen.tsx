@@ -13,6 +13,7 @@ import { useTransactionFilters } from './hooks/useTransactionFilters';
 import { getDateRange } from '@/utils/date';
 import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
+import { ThemedText } from '@/components/common/ThemedText';
 
 export default function TimeLineScreen() {
     const { transactions, fetchTransactions } = useTransactionStore()
@@ -79,6 +80,11 @@ export default function TimeLineScreen() {
 
     return (
         <Screen scroll={false} style={styles.container}>
+            <TouchableOpacity
+                onPress={() => router.push('/transaction/searchTransaction')}
+            >
+                <ThemedText>search</ThemedText>
+            </TouchableOpacity>
             {/* <DateNavigator
                 currentDate={currentDate}
                 selectedView={selectedView}

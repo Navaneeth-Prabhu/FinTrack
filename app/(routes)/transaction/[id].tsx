@@ -13,12 +13,11 @@ const TransactionDetails = () => {
     const { transactions } = useTransactionStore();
     const { colors } = useTheme();
     const transaction = useMemo(() => transactions.find(t => t.id === id), [id, transactions]);
-    console.log(id, transaction, 'idid');
     return (
         <Screen >
             {
                 transaction &&
-                <TransactionDetailScreen transactionId={id} />
+                <TransactionDetailScreen transactionId={id as string} />
             }
         </Screen>
     )

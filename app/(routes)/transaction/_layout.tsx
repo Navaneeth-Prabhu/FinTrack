@@ -26,6 +26,15 @@ export default function TransactionLayout() {
                     contentStyle: { backgroundColor: 'transparent' }
                 }}
             />
+            <Stack.Screen
+                name="searchTransaction"
+                options={{
+                    headerShown: false,
+                    presentation: 'containedTransparentModal',
+                    animation: 'fade',
+                    contentStyle: { backgroundColor: 'transparent' }
+                }}
+            />
         </Stack>
     );
 }
