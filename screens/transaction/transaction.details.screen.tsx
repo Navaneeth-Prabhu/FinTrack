@@ -103,7 +103,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     <ThemedText variant='body1'>{transaction?.mode?.name || 'N/A'}</ThemedText>
                 </View>
             </Card>
-            <Card>
+            <Card variant='outlined' style={{ flex: 1, gap: 10, borderWidth: 1, borderColor: colors.border }}>
                 <View style={{ flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
                     <ThemedText variant='body1'>Note</ThemedText>
                     <ThemedText variant='body1'>{transaction?.note || 'tab to add'}</ThemedText>

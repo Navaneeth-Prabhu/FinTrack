@@ -78,7 +78,6 @@ const CategoryListScreen = () => {
                         style={{
                             backgroundColor: colors.card,
                             padding: 10,
-                            marginVertical: 1,
                             flexDirection: 'row',
                             gap: 20,
                             alignItems: 'center',
@@ -119,7 +118,7 @@ const CategoryListScreen = () => {
                 keyExtractor={item => item.id}
                 onDragEnd={({ data }) => handleReorder(data)}
                 showsVerticalScrollIndicator={false}
-                style={styles.list}
+                ItemSeparatorComponent={() => <View style={{ height: StyleSheet.hairlineWidth }} />}
                 ListFooterComponent={() => <View style={{ height: 100 }} />}
                 ListHeaderComponent={() => <View style={{ height: 100 }} />}
             />
@@ -157,7 +156,5 @@ const styles = StyleSheet.create({
     },
     activeFilter: {
         backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    },
-    list: {
     },
 })

@@ -5,9 +5,7 @@ import VisitedHistoryScreen from '@/screens/transaction/visitedHistory.screen'
 
 const visitedHistory = () => {
     return (
-        <Screen>
-            <VisitedHistoryScreen />
-        </Screen>
+        <VisitedHistoryScreen />
     )
 }
 

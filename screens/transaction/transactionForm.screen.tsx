@@ -265,11 +265,11 @@ const TransactionFormScreen: React.FC = () => {
         }
     }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, router]);
 
-    const handleAmountDetected = (detectedAmount) => {
-        // setAmount(detectedAmount);
-        console.log(detectedAmount);
-        setShowScanner(false);
-    };
+    // const handleAmountDetected = (detectedAmount) => {
+    //     // setAmount(detectedAmount);
+    //     console.log(detectedAmount);
+    //     setShowScanner(false);
+    // };
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
@@ -378,7 +378,7 @@ const TransactionFormScreen: React.FC = () => {
                             borderColor: colors.border,
                             backgroundColor: colors.card
                         }]}
-                        onPress={() => setBottomSheetState(prev => ({ ...prev, isCategoryVisible: true }))}
+                        onPress={() => setBottomSheetState((prev: any) => ({ ...prev, isCategoryVisible: true }))}
                     >
                         <Text style={{ color: formState.category ? colors.text : colors.subtitle }}>
                             {formState.category ? `${formState.category.icon} ${formState.category.name}` : 'Select Category'}
@@ -474,7 +474,7 @@ const TransactionFormScreen: React.FC = () => {
                                     borderColor: colors.border,
                                     backgroundColor: colors.card
                                 }]}
-                                onPress={() => setBottomSheetState(prev => ({ ...prev, isTagsVisible: true }))}
+                                onPress={() => setBottomSheetState((prev: any) => ({ ...prev, isTagsVisible: true }))}
                             >
                                 {/* <Text style={{
                   color: formState.selectedTags.length > 0 ? colors.text : colors.subtitle

@@ -1,6 +1,6 @@
 // src/app/transactions.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 // import { TimeView } from '../types';
 // import { DateNavigator } from './DateNavigator';
@@ -98,6 +98,7 @@ export default function TimeLineScreen() {
                     filters={activeFilters}
                     onRemove={handleRemoveFilter}
                     label="Active Filters" /> */}
+                    <Text>Active Filters</Text>
             </View>
             <TransactionList
                 transactions={transactions}

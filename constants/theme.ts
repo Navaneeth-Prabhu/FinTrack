@@ -2,17 +2,18 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#F8F9FC',           // Slightly blue-tinted white for depth
-    secondaryBackground: '#FFFFFF',   // Pure white for secondary areas
+    background: '#F5F5F5',
+    // background: '#F7F7F9',
+    secondaryBackground: '#FFFFFF',
     foreground: '#000000',
     card: '#FFFFFF',
-    secondarycard: '#F8F9FC',                // Pure white for cards
+    secondarycard: '#F8F9FC',
     cardForeground: '#000000',
     primary: '#8F85FF',
     primaryForeground: '#FFFFFF',
     secondary: '#8F85FF',
-    text: '#1A1A1A',                // Slightly softer than pure black
-    subtitle: '#6B7280',            // Warmer gray for better readability
+    text: '#1A1A1A',
+    subtitle: '#6B7280',
 
     // Semantic colors
     accent: '#F3F4F8',              // Slightly blueish for accent
@@ -34,7 +35,8 @@ export const lightTheme = {
     expense: '#FF5252',
 
     // Border & Shadow
-    border: 'rgba(0, 0, 0, 0.08)',   // Lighter border
+    border: '#d9d9d9',   // Lighter border
+    // border: 'rgba(0, 0, 0, 0.08)',   // Lighter border
     shadowLight: 'rgba(0, 0, 0, 0.03)',
     shadowMedium: 'rgba(0, 0, 0, 0.05)',
 
@@ -47,10 +49,10 @@ export const lightTheme = {
 export const darkTheme = {
     // Base colors
     background: '#111111',
-    secondaryBackground: '#1E1E1E',
+    secondaryBackground: '#111111',
     foreground: '#FFFFFF',
     card: '#1E1E1E',
-    secondarycard: '#111111',
+    secondarycard: '#1E1E1E',
     cardForeground: '#FFFFFF',
     primary: '#8F85FF',
     primaryForeground: '#FFFFFF',

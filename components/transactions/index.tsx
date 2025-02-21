@@ -1,6 +1,6 @@
 // src/components/transactions/TransactionList/index.tsx
 import React, { useMemo } from 'react';
-import { SectionList, View } from 'react-native';
+import { SectionList, Text, View } from 'react-native';
 import { Transaction, RecurringTransaction } from '@/types';
 import { TransactionItem } from './TransactionItem';
 import { ThemedText } from '@/components/common/ThemedText';
@@ -32,8 +32,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         );
     }
 
+    console.log(sections, 'sections');
     return (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingHorizontal: 4 }}>
             <SectionList
                 sections={sections}
                 keyExtractor={(item, index) => item.id + index}
