@@ -7,7 +7,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 // import * as ImagePicker from 'expo-image-picker';
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
-// import OfflineTransactionScanner from '@/src/components/OfflineTransactionScanner';
 import { Category } from '@/types';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useTheme } from '@/hooks/useTheme';
@@ -15,6 +14,7 @@ import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBottomSheet from '@/components/bottomSheet/categoryBottomSheet';
 import { Header } from '@/components/layout/Header';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBudgetStore } from '@/stores/budgetStore';
 
 
 interface mode {
@@ -66,6 +66,7 @@ const TransactionFormScreen: React.FC = () => {
     const amountInputRef = useRef<TextInput>(null);
     const [showScanner, setShowScanner] = useState(false);
     const { transactions, saveTransaction, updateTransaction } = useTransactionStore();
+    const { budgets, updateBudget } = useBudgetStore()
 
     const detailAnimatedStyle = useAnimatedStyle(() => {
         return {
@@ -138,6 +139,9 @@ const TransactionFormScreen: React.FC = () => {
                 paidBy: currentTransaction.paidBy || '',
                 selectedTags: currentTransaction.tags || '',
                 transactionType: currentTransaction.mode || transactionTypes[0],
+                source: currentTransaction.source,
+                type: currentTransaction.type
+
             }));
         }
     }, [editMode, currentTransaction]);
@@ -160,7 +164,7 @@ const TransactionFormScreen: React.FC = () => {
     useEffect(() => {
         if (!formState.category && !bottomSheetState) {
             const timer = setTimeout(() => {
-                setBottomSheetState(prev => ({ ...prev, isCategoryVisible: true }));
+                setBottomSheetState((prev: any) => ({ ...prev, isCategoryVisible: true }));
             }, 100);
             return () => clearTimeout(timer);
         }
@@ -195,7 +199,7 @@ const TransactionFormScreen: React.FC = () => {
     const handleSubmit = useCallback(async () => {
         if (!formState.category || !formState.amount) {
             if (!formState.category) {
-                setBottomSheetState(prev => ({ ...prev, isCategoryVisible: true }));
+                setBottomSheetState((prev: any) => ({ ...prev, isCategoryVisible: true }));
             } else {
                 amountInputRef.current?.focus();
             }
@@ -220,50 +224,16 @@ const TransactionFormScreen: React.FC = () => {
                 lastModified: Date.now().toString(),
                 source: { type: 'manual' },
             };
+
+            // Save or update the transaction
             editMode === 'true' ? updateTransaction(transactionData) : saveTransaction(transactionData);
             router.back();
-            // const savedTransaction = await dispatch(editMode ? updateTransaction(transactionData) : saveTransaction(transactionData)).unwrap();
 
-            // if (isRecurring) {
-            //     const recurringData: RecurringSchedule = {
-            //         id: editMode ? recurringId : Date.now().toString(),
-            //         transaction_id: savedTransaction.id,
-            //         frequency: recurringSchedule.frequency,
-            //         interval: recurringSchedule.interval,
-            //         start_date: recurringSchedule.startDate.toISOString(),
-            //         end_date: recurringSchedule.endDate?.toISOString(),
-            //         day_of_month: recurringSchedule.dayOfMonth,
-            //         next_processing_date: calculateNextProcessingDate(recurringSchedule).toISOString(),
-            //         status: 'active',
-            //     };
-
-            //     await dispatch(
-            //         editMode ? updateRecurringTransaction(recurringData) : saveRecurringTransaction(recurringData)
-            //     ).unwrap();
-
-            //     if (isRecurring) {
-            //         const recurringData: RecurringSchedule = {
-            //             id: editMode ? recurringId : Date.now().toString(),
-            //             transaction_id: savedTransaction.id,
-            //             frequency: recurringSchedule.frequency,
-            //             interval: recurringSchedule.interval,
-            //             start_date: recurringSchedule.startDate.toISOString(),
-            //             end_date: recurringSchedule.endDate?.toISOString(),
-            //             day_of_month: recurringSchedule.dayOfMonth,
-            //             next_processing_date: calculateNextProcessingDate(recurringSchedule).toISOString(),
-            //             status: 'active',
-            //         };
-
-            //         await dispatch(
-            //             editMode ? updateRecurringTransaction(recurringData) : saveRecurringTransaction(recurringData)
-            //         ).unwrap();
-            //     }
-
-            //     router.back();
         } catch (error) {
-            console.error('Failed to save transaction:', error);
+            console.error('Error saving transaction:', error);
+            // Handle error appropriately
         }
-    }, [formState, editMode, transactionId, recurringId, isRecurring, recurringSchedule, currentTransaction, router]);
+    }, [formState, editMode, transactionId, currentTransaction]);
 
     // const handleAmountDetected = (detectedAmount) => {
     //     // setAmount(detectedAmount);

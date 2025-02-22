@@ -52,14 +52,15 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     );
 
     CREATE TABLE IF NOT EXISTS budgets (
-      id TEXT PRIMARY KEY NOT NULL,
-      amount REAL NOT NULL,
+      id TEXT PRIMARY KEY,
+      budget_limit REAL NOT NULL,
       frequency TEXT NOT NULL,
       startDate TEXT NOT NULL,
-      endDate TEXT NOT NULL,
-      spent REAL NOT NULL,
-      progress REAL NOT NULL,
+      endDate TEXT,
+      spent REAL DEFAULT 0,
+      progress REAL DEFAULT 0,
       categoryId TEXT NOT NULL,
+      isRecurring INTEGER DEFAULT 0,
       FOREIGN KEY (categoryId) REFERENCES categories (id)
     );
 

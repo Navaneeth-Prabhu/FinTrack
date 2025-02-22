@@ -13,7 +13,6 @@ const VisitedHistoryScreen = () => {
   const { colors } = useTheme();
   const { transactions } = useTransactionStore();
   const transaction = useMemo(() => transactions.find(t => t.id === id), [id, transactions]);
-  console.log(transactions, 'transactions');
   const merchantLoyaltyTransactions = useMemo(() => {
     // If paidTo or paidBy indicates 'Unknown', return an empty array immediately
     if (

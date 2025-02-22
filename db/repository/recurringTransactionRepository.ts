@@ -1,6 +1,6 @@
 // src/database/recurringTransactionRepository.ts
-import { RecurringTransaction } from '../types';
-import { initDatabase } from './sqliteService';
+import { RecurringTransaction } from '@/types';
+import { initDatabase } from '../services/sqliteService';
 
 export const saveRecurringTransactionToDB = async (transaction: RecurringTransaction): Promise<void> => {
   const db = await initDatabase();

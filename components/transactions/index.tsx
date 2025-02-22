@@ -32,7 +32,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         );
     }
 
-    console.log(sections, 'sections');
     return (
         <View style={{ flex: 1, paddingHorizontal: 4 }}>
             <SectionList

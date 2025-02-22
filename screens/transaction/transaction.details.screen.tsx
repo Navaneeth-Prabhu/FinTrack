@@ -13,7 +13,7 @@ interface TransactionDetailScreenProps {
 }
 
 const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ transactionId }) => {
-    const { transactions } = useTransactionStore();
+    const { transactions, removeTransaction } = useTransactionStore();
     const transaction = useMemo(() => transactions.find(t => t.id === transactionId), [transactionId, transactions]);
 
     const { colors } = useTheme();
@@ -110,6 +110,12 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 </View>
 
             </Card>
+            {
+                transaction &&
+                <TouchableOpacity onPress={() => removeTransaction(transaction?.id)}>
+                    <ThemedText variant='body1' style={{ color: colors.error }}>Delete Transaction</ThemedText>
+                </TouchableOpacity>
+            }
         </View>
     )
 }

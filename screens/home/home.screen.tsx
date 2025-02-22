@@ -5,16 +5,20 @@ import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { Card } from '@/components/common/Card';
 import { useTheme } from '@/hooks/useTheme';
 import { tokens } from '@/constants/theme';
-import  PieChartWithDynamicSlices  from '@/components/charts/pieChart';
-import  InteractiveChart  from '@/components/charts/lineChart';
+import PieChartWithDynamicSlices from '@/components/charts/pieChart';
+import InteractiveChart from '@/components/charts/lineChart';
+import { useCategoryStore } from '@/stores/categoryStore';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
+    const { categories, fetchCategories } = useCategoryStore();
     let top5Transactions = transactions.slice(0, 5);
 
     useEffect(() => {
         fetchTransactions();
+        fetchCategories();
     }, [])
+
     return (
         <View>
             {/* <PieChartWithDynamicSlices  /> */}

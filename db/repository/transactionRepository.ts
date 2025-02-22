@@ -6,7 +6,7 @@ export const saveTransactionToDB = async (transaction: Transaction): Promise<voi
     const db = await initDatabase();
     await db.runAsync(
         `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, modeId, sourceType)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         transaction.id,
         transaction.amount,
         transaction.type,
@@ -101,4 +101,88 @@ export const updateTransactionInDB = async (transaction: Transaction): Promise<T
 export const deleteTransactionFromDB = async (id: string): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
+};
+
+// Bulk Operations
+
+export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Promise<Transaction[]> => {
+    const db = await initDatabase();
+    try {
+        await db.withTransactionAsync(async () => {
+            const insertPromises = transactions.map(transaction =>
+                db.runAsync(
+                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, modeId, sourceType)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                    transaction.id,
+                    transaction.amount,
+                    transaction.type,
+                    transaction.date,
+                    transaction.paidTo ?? null,
+                    transaction.paidBy ?? null,
+                    transaction.createdAt,
+                    transaction.lastModified,
+                    transaction.category.id,
+                    '1', // Default modeId
+                    transaction.source.type
+                )
+            );
+            await Promise.all(insertPromises);
+        });
+        // Return the transactions as saved (assuming IDs are pre-generated)
+        return transactions;
+    } catch (error) {
+        throw new Error(`Failed to save bulk transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+};
+
+export const updateBulkTransactionsInDB = async (transactions: Transaction[]): Promise<Transaction[]> => {
+    const db = await initDatabase();
+    try {
+        await db.withTransactionAsync(async () => {
+            const updatePromises = transactions.map(transaction =>
+                db.runAsync(
+                    `UPDATE transactions 
+                     SET amount = ?, 
+                         type = ?, 
+                         date = ?, 
+                         paidTo = ?, 
+                         paidBy = ?, 
+                         lastModified = ?, 
+                         categoryId = ?, 
+                         sourceType = ?
+                     WHERE id = ?`,
+                    transaction.amount,
+                    transaction.type,
+                    transaction.date,
+                    transaction.paidTo ?? null,
+                    transaction.paidBy ?? null,
+                    transaction.lastModified,
+                    transaction.category.id,
+                    transaction.source.type,
+                    transaction.id
+                )
+            );
+            await Promise.all(updatePromises);
+        });
+        // Fetch updated transactions to ensure accuracy
+        const updatedTransactions = await fetchTransactionsFromDB();
+        return transactions.map(t => updatedTransactions.find(ut => ut.id === t.id)!);
+    } catch (error) {
+        throw new Error(`Failed to update bulk transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+};
+
+export const deleteBulkTransactionsFromDB = async (ids: string[]): Promise<void> => {
+    const db = await initDatabase();
+    try {
+        await db.withTransactionAsync(async () => {
+            const placeholders = ids.map(() => '?').join(', ');
+            await db.runAsync(
+                `DELETE FROM transactions WHERE id IN (${placeholders})`,
+                ids
+            );
+        });
+    } catch (error) {
+        throw new Error(`Failed to delete bulk transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 };

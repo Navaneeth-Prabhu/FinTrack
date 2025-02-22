@@ -1,12 +1,7 @@
 // src/store/recurringTransactionStore.ts
 import { create } from 'zustand';
-import { RecurringTransaction } from '@/src/types';
-import {
-  fetchRecurringTransactionsFromDB,
-  saveRecurringTransactionToDB,
-  deleteRecurringTransactionFromDB,
-  updateRecurringTransactionInDB,
-} from '@/src/database/recurringTransactionRepository';
+import { deleteRecurringTransactionFromDB, fetchRecurringTransactionsFromDB, saveRecurringTransactionToDB, updateRecurringTransactionInDB } from '@/db/repository/recurringTransactionRepository';
+import { RecurringTransaction } from '@/types';
 
 interface RecurringTransactionState {
   recurringTransactions: RecurringTransaction[];
