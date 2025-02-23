@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
+import { Screen } from '@/components/layout/Screen'
+import BudgetDetailsScreen from '@/screens/budget/budget.details.screen'
 
 const BudgetDetails = () => {
   return (
-    <View>
-      <Text>BudgetDetails</Text>
-    </View>
+    <Screen scroll={false}>
+      <BudgetDetailsScreen />
+    </Screen>
   )
 }
 

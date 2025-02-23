@@ -12,6 +12,7 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { calculateIdealSpending, getEndDateForFrequency, getNextPeriodEndDate } from '@/utils/date';
 import { ThemedText } from './common/ThemedText';
 import { useBudgetStore } from '@/stores/budgetStore';
+import { router } from 'expo-router';
 
 // Define interfaces
 export interface Category {
@@ -112,9 +113,12 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
     const idealSpending = calculateIdealSpending(limit, startDate, frequency);
     const isOnTrack = spent <= idealSpending;
     const { colors } = useTheme();
-    const {removeBudget} = useBudgetStore();
+    const { removeBudget } = useBudgetStore();
     return (
-        <TouchableOpacity style={styles.card}>
+        <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push(`/budget/${budget.id}`)}
+        >
             <LinearGradient
                 colors={[colors.card, colors.card]}
                 style={styles.gradient}
