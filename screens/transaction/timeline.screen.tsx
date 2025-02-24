@@ -14,15 +14,18 @@ import { getDateRange } from '@/utils/date';
 import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
 import { ThemedText } from '@/components/common/ThemedText';
+import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 
 export default function TimeLineScreen() {
     const { transactions, fetchTransactions } = useTransactionStore()
+    const { recurringTransactions } = useRecurringTransactionStore()
     const { categories } = useCategoryStore()
     const bottomSheetRef = useRef<BottomSheetModal>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     useEffect(() => {
         fetchTransactions()
+        // fetchRecurringTransactions()
     }, [])
 
     // const recurringTransactions = useSelector((state: RootState) =>
@@ -76,8 +79,6 @@ export default function TimeLineScreen() {
     //     bottomSheetRef.current?.dismiss()
     // }
 
-
-
     return (
         <Screen scroll={false} style={styles.container}>
             <TouchableOpacity
@@ -98,12 +99,12 @@ export default function TimeLineScreen() {
                     filters={activeFilters}
                     onRemove={handleRemoveFilter}
                     label="Active Filters" /> */}
-                    <Text>Active Filters</Text>
+                <Text>Active Filters</Text>
             </View>
             <TransactionList
                 transactions={transactions}
-                //   recurringTransactions={recurringTransactions}
                 overView={true}
+                recurringTransactions={recurringTransactions}
             />
             {/* <FilterBottomSheet
                 bottomSheetRef={bottomSheetRef}

@@ -13,17 +13,13 @@ export interface Transaction {
     type: string;
     rawData?: string,
   };
-  mode: {
-    id: string;
-    name?: string;
-    type: string;
-  };
+  mode: string
   note?: string;
   selectedTags?: string[], // Array of tags for additional categorization
   location?: {
     coordinates: number, // [longitude, latitude]
   },
-  recurringTransactionId?: string,
+  recurringId?: string | null,
   attachments?: {
     type: string | null | undefined,
     url: string,
@@ -68,14 +64,22 @@ export interface Budget {
   isRecurring: boolean;
 }
 
+// src/types.ts
 export interface RecurringTransaction {
   id: string;
   amount: number;
-  type: 'income' | 'expense';
-  categoryId: string;
+  type: 'income' | 'expense' | 'transfer';
+  category: Category;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number; // Added
   startDate: string;
   endDate?: string;
   description?: string;
   payee?: string;
+  time?: string;
+  lastGeneratedDate?: string; // Should be string | undefined, not null
+  isActive: number; // INTEGER in SQLite, so use number
+  createdAt: string;
+  lastModified: string;
+  mode?: string
 }

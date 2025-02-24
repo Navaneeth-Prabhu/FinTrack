@@ -1,3 +1,4 @@
+// src/store/transactionStore.ts (simplified)
 import { create } from 'zustand';
 import { Transaction, Category } from '@/types';
 import {

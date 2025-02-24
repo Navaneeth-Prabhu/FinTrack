@@ -2,11 +2,13 @@
 import { Transaction } from '@/types';
 import { initDatabase } from '../services/sqliteService';
 
+// src/database/transactionRepository.ts
 export const saveTransactionToDB = async (transaction: Transaction): Promise<void> => {
     const db = await initDatabase();
+    console.log('Saving transaction:', transaction);
     await db.runAsync(
-        `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, modeId, sourceType)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, recurringId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         transaction.id,
         transaction.amount,
         transaction.type,
@@ -15,40 +17,38 @@ export const saveTransactionToDB = async (transaction: Transaction): Promise<voi
         transaction.paidBy ?? null,
         transaction.createdAt,
         transaction.lastModified,
-        transaction.category.id,
-        '1', // Default modeId
-        transaction.source.type
+        transaction.category?.id ?? null, // Safe access
+        transaction.mode,
+        transaction.source.type,
+        transaction.recurringId ?? null
     );
 };
 
 export const fetchTransactionsFromDB = async (): Promise<Transaction[]> => {
     const db = await initDatabase();
-
-    // Join transactions with categories to fetch category details
     const transactions = await db.getAllAsync(`
-        SELECT 
-          t.id, 
-          t.amount, 
-          t.type, 
-          t.date, 
-          t.createdAt, 
-          t.lastModified, 
-          t.categoryId,
-          t.paidTo,
-          t.paidBy,
-          t.sourceType,
-          c.id as categoryId, 
-          c.name as categoryName, 
-          c.icon as categoryIcon, 
-          c.type as categoryType, 
-          c.color as categoryColor
-        FROM transactions t
-        LEFT JOIN categories c
-        ON t.categoryId = c.id
-      `);
+      SELECT 
+        t.id, 
+        t.amount, 
+        t.type, 
+        t.date, 
+        t.createdAt, 
+        t.lastModified, 
+        t.categoryId,
+        t.paidTo,
+        t.paidBy,
+        t.sourceType,
+        t.mode AS mode,
+        t.recurringId,
+        c.id AS categoryId, 
+        c.name AS categoryName, 
+        c.icon AS categoryIcon, 
+        c.type AS categoryType, 
+        c.color AS categoryColor
+      FROM transactions t
+      LEFT JOIN categories c ON t.categoryId = c.id
+    `);
 
-
-    // Map the result to include category as an object
     return transactions.map((row: any) => ({
         id: row.id,
         amount: row.amount,
@@ -66,6 +66,8 @@ export const fetchTransactionsFromDB = async (): Promise<Transaction[]> => {
             color: row.categoryColor,
         },
         source: { type: row.sourceType },
+        mode: row.mode,
+        recurringId: row.recurringId || undefined,
     }));
 };
 
@@ -73,27 +75,30 @@ export const updateTransactionInDB = async (transaction: Transaction): Promise<T
     const db = await initDatabase();
     await db.runAsync(
         `UPDATE transactions 
-         SET amount = ?, 
-             type = ?, 
-             date = ?, 
-             paidTo = ?, 
-             paidBy = ?, 
-             lastModified = ?, 
-             categoryId = ?, 
-             sourceType = ?
-         WHERE id = ?`,
+       SET amount = ?, 
+           type = ?, 
+           date = ?, 
+           paidTo = ?, 
+           paidBy = ?, 
+           lastModified = ?, 
+           categoryId = ?, 
+           sourceType = ?,
+           mode = ?,
+           recurringId = ?
+       WHERE id = ?`,
         transaction.amount,
         transaction.type,
         transaction.date,
         transaction.paidTo ?? null,
         transaction.paidBy ?? null,
         transaction.lastModified,
-        transaction.category.id,
+        transaction.category?.id ?? null, // Safe access
         transaction.source.type,
+        transaction.mode,
+        transaction.recurringId ?? null,
         transaction.id
     );
 
-    // Fetch and return the updated transaction
     const updatedTransactions = await fetchTransactionsFromDB();
     return updatedTransactions.find(t => t.id === transaction.id)!;
 };
@@ -111,7 +116,7 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
         await db.withTransactionAsync(async () => {
             const insertPromises = transactions.map(transaction =>
                 db.runAsync(
-                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, modeId, sourceType)
+                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
                     transaction.id,
                     transaction.amount,
@@ -122,7 +127,7 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
                     transaction.createdAt,
                     transaction.lastModified,
                     transaction.category.id,
-                    '1', // Default modeId
+                    transaction.mode,
                     transaction.source.type
                 )
             );

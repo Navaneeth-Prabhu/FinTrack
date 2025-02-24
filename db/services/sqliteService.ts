@@ -46,9 +46,11 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       paidBy TEXT,
       lastModified TEXT NOT NULL,
       categoryId TEXT NOT NULL,
-      modeId TEXT NOT NULL,
+      mode TEXT NOT NULL,
       sourceType TEXT NOT NULL,
-      FOREIGN KEY (categoryId) REFERENCES categories (id)
+      recurringId TEXT,
+      FOREIGN KEY (categoryId) REFERENCES categories (id),
+      FOREIGN KEY (recurringId) REFERENCES recurring_transactions (id)
     );
 
     CREATE TABLE IF NOT EXISTS budgets (
@@ -66,17 +68,22 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
 
     CREATE TABLE IF NOT EXISTS recurring_transactions (
       id TEXT PRIMARY KEY NOT NULL,
-      transaction_id TEXT NOT NULL,
-      frequency TEXT NOT NULL,
-      interval INTEGER NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT,
-      day_of_month INTEGER,
-      day_of_week INTEGER,
-      last_processed_date TEXT,
-      next_processing_date TEXT NOT NULL,
-      status TEXT DEFAULT 'active',
-      FOREIGN KEY (transaction_id) REFERENCES transactions (id)
+      type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
+      categoryId TEXT NOT NULL,
+      startDate TEXT NOT NULL,
+      interval INTEGER DEFAULT 1 CHECK (interval >= 1),
+      description TEXT,
+      endDate TEXT,
+      time TEXT,
+      payee TEXT,
+      mode TEXT,
+      isActive INTEGER DEFAULT 1 CHECK (isActive IN (0, 1)),
+      lastGeneratedDate TEXT,
+      lastModified TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (categoryId) REFERENCES categories (id)
     );
   `);
 

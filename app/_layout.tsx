@@ -5,12 +5,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useTheme } from '@/hooks/useTheme';
+import { registerRecurringTask } from '@/services/recurringBackground';
+import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
+import * as BackgroundFetch from 'expo-background-fetch';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -20,9 +20,23 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
+    const initializeApp = async () => {
+      if (loaded) {
+        try {
+          // Check if task is already registered to avoid duplicates
+          const isRegistered = await BackgroundFetch.getStatusAsync();
+          if (isRegistered !== BackgroundFetch.BackgroundFetchStatus.Restricted) {
+            await registerRecurringTask();
+          }
+          await useRecurringTransactionStore.getState().fetchRecurringTransactions();
+        } catch (error) {
+          console.error('Failed to initialize recurring transactions:', error);
+        }
+        SplashScreen.hideAsync();
+      }
+    };
+
+    initializeApp();
   }, [loaded]);
 
   if (!loaded) {
@@ -32,11 +46,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <StatusBar style={'inverted'} />
-        <Stack screenOptions={{ headerShown: false, }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, }} />
+        <StatusBar style="inverted" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
-          <Stack.Screen name="(routes)/transaction"
+          <Stack.Screen
+            name="(routes)/transaction"
             options={{
               headerShown: false,
               presentation: 'containedTransparentModal',

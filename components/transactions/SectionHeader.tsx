@@ -20,11 +20,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ section }) => {
   const { colors } = useTheme();
   const formattedDate = section.isUpcoming
     ? 'UPCOMING'
-    : formatDateString(section.title, {
-      dateFormat: 'MMM dd, yyyy',
-      includeTime: false,
-      excludeYearIfCurrent: true,
-    });
+    : section.title;
 
   return (
     <View

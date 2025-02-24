@@ -1,5 +1,5 @@
 // src/components/transactions/TransactionList/index.tsx
-import React, { useMemo } from 'react';
+import React from 'react';
 import { SectionList, Text, View } from 'react-native';
 import { Transaction, RecurringTransaction } from '@/types';
 import { TransactionItem } from './TransactionItem';
@@ -19,7 +19,7 @@ interface TransactionListProps {
 export const TransactionList: React.FC<TransactionListProps> = ({
     transactions,
     overView = true,
-    recurringTransactions
+    recurringTransactions,
 }) => {
     const { colors } = useTheme();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
@@ -51,7 +51,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 ListHeaderComponent={overView ? <ListSummary totals={totals} /> : null}
                 ListFooterComponent={<ListFooter totals={totals} count={transactions.length} />}
                 stickySectionHeadersEnabled
-            // contentContainerStyle={styles.sectionListContent}
             />
         </View>
     );

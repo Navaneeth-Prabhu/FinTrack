@@ -4,34 +4,38 @@ import { Transaction } from '@/types'
 import { ThemedText } from '@/components/common/ThemedText'
 import { useTheme } from '@/hooks/useTheme'
 import { Card } from '@/components/common/Card'
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useNavigation } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTransactionStore } from '@/stores/transactionStore'
+import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore'
 interface TransactionDetailScreenProps {
-    transactionId?: string
+    transactionId?: string,
+    isRecurring: boolean;
 }
 
-const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ transactionId }) => {
+const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ transactionId, isRecurring }) => {
     const { transactions, removeTransaction } = useTransactionStore();
+    const { recurringTransactions, removeRecurringTransaction } = useRecurringTransactionStore();
     const transaction = useMemo(() => transactions.find(t => t.id === transactionId), [transactionId, transactions]);
+    const recurring = useMemo(() => recurringTransactions.find(r => r.id === transactionId), [transactionId, recurringTransactions]);
+    const linkedRecurring = useMemo(() =>
+        transaction?.recurringId ? recurringTransactions.find(r => r.id === transaction.recurringId) : null,
+        [transaction, recurringTransactions]
+    );
 
     const { colors } = useTheme();
     const navigation = useNavigation();
 
     const merchantLoyaltyScore = useMemo(() => {
-        // If paidTo or paidBy indicates 'Unknown', return 0 immediately
+        if (!transaction) return 'N/A';
         if (
-            transaction?.paidBy?.trim().toLowerCase() == 'unknown payer' ||
-            transaction?.paidTo?.trim().toLowerCase() == 'unknown recipient'
+            transaction.paidBy?.trim().toLowerCase() === 'unknown payer' ||
+            transaction.paidTo?.trim().toLowerCase() === 'unknown recipient'
         ) {
             return 1;
         }
-
-        // Otherwise, calculate the score based on matching transactions
-        return transactions.filter((t: Transaction) => t.paidTo === transaction?.paidTo).length;
+        return transactions.filter(t => t.paidTo === transaction.paidTo).length;
     }, [transactions, transaction]);
-
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -39,7 +43,11 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 <TouchableOpacity
                     onPress={() => router.push({
                         pathname: '/transaction/transactionForm',
-                        params: { editMode: "true", transactionId: transaction?.id }
+                        params: {
+                            editMode: 'true',
+                            transactionId: isRecurring ? recurring?.id : transaction?.id,
+                            isRecurring: isRecurring ? 'true' : linkedRecurring ? 'linked' : 'false',
+                        }
                     })}
                     style={{ marginRight: 15 }}
                 >
@@ -47,12 +55,20 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 </TouchableOpacity>
             ),
         });
-    })
+    }, [navigation, transaction, recurring, linkedRecurring, isRecurring]);
+
+    if (!transaction && !recurring) {
+        return <ThemedText>Loading or invalid transaction...</ThemedText>;
+    }
+
+    const data = isRecurring ? recurring : transaction;
+
     return (
-        <View style={{ flex: 1, gap: 24 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 20 }}>
+        <View style={{ flex: 1, gap: 24, padding: 16 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
                 <View style={{
-                    borderColor: transaction?.category.color,
+                    borderColor: data?.category.color,
                     borderWidth: 2,
                     width: 60,
                     height: 60,
@@ -60,66 +76,91 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     justifyContent: 'center',
                     alignItems: 'center',
                 }}>
-                    <ThemedText variant='h2'>{transaction?.category.icon}
-                    </ThemedText>
+                    <ThemedText variant="h2">{data?.category.icon}</ThemedText>
                 </View>
                 <View style={{ flex: 1 }}>
-                    <ThemedText variant='h2'>{transaction?.paidTo}</ThemedText>
-                    <ThemedText variant='subtitle' style={{ color: colors.subtitle }}>{transaction?.category.name}</ThemedText>
+                    {/* <ThemedText variant="h2">{data?.paidTo || (isRecurring ? 'Recurring Template' : 'N/A')}</ThemedText> */}
+                    <ThemedText variant="subtitle" style={{ color: colors.subtitle }}>
+                        {data?.category.name} {isRecurring ? '(Template)' : linkedRecurring ? '(Recurring Instance)' : ''}
+                    </ThemedText>
                 </View>
             </View>
+
+            {/* Amount and Date */}
             <View>
-                <ThemedText variant='h1'>${transaction?.amount.toFixed(2)}</ThemedText>
-                <ThemedText variant='body1' style={{ color: colors.subtitle }}>{transaction?.date}</ThemedText>
+                <ThemedText variant="h1">${data?.amount.toFixed(2)}</ThemedText>
+                <ThemedText variant="body1" style={{ color: colors.subtitle }}>
+                    {isRecurring ? `Starting: ${recurring?.startDate}` : transaction?.date}
+                </ThemedText>
             </View>
-            {/* <LinearGradient
-                // Button Linear Gradient
-                
-                colors={['#2230FF', '#CAA0FF']}
-                style={styles.button}>
-                <ThemedText style={styles.text}>Sign in with Facebook</ThemedText>
-            </LinearGradient> */}
-            <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction?.id}`)}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant='body1'>Transaction Type</ThemedText>
-                    <ThemedText variant='body1'>{merchantLoyaltyScore || 'N/A'}</ThemedText>
-                </View>
-            </TouchableOpacity>
-            <Card variant='outlined' style={{ flex: 1, gap: 10, borderWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant='body1'>Transaction Type</ThemedText>
-                    <ThemedText variant='body1'>{transaction?.mode?.name || 'N/A'}</ThemedText>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant='body1'>Account</ThemedText>
-                    <ThemedText variant='body1'>{transaction?.toAccount?.name || 'N/A'}</ThemedText>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant='body1'>Paid To</ThemedText>
-                    <ThemedText variant='body1'>{transaction?.paidTo || 'N/A'}</ThemedText>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant='body1'>Mode</ThemedText>
-                    <ThemedText variant='body1'>{transaction?.mode?.name || 'N/A'}</ThemedText>
-                </View>
-            </Card>
-            <Card variant='outlined' style={{ flex: 1, gap: 10, borderWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
-                    <ThemedText variant='body1'>Note</ThemedText>
-                    <ThemedText variant='body1'>{transaction?.note || 'tab to add'}</ThemedText>
-                </View>
 
+            {/* Recurring Details */}
+            {(isRecurring || linkedRecurring) && (
+                <Card variant="outlined" style={{ gap: 10, borderWidth: 1, borderColor: colors.border }}>
+                    <ThemedText variant="h3">Recurring Schedule</ThemedText>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Frequency</ThemedText>
+                        <ThemedText variant="body1">{(isRecurring ? recurring : linkedRecurring)?.frequency}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Interval</ThemedText>
+                        <ThemedText variant="body1">
+                            Every {(isRecurring ? recurring : linkedRecurring)?.interval} {(isRecurring ? recurring : linkedRecurring)?.frequency}(s)
+                        </ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Start Date</ThemedText>
+                        <ThemedText variant="body1">{(isRecurring ? recurring : linkedRecurring)?.startDate}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">End Date</ThemedText>
+                        <ThemedText variant="body1">{(isRecurring ? recurring : linkedRecurring)?.endDate || 'Never'}</ThemedText>
+                    </View>
+                </Card>
+            )}
+
+            {/* Transaction Details */}
+            {!isRecurring && (
+                <Card variant="outlined" style={{ gap: 10, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Transaction Type</ThemedText>
+                        <ThemedText variant="body1">{transaction?.mode || 'N/A'}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Account</ThemedText>
+                        <ThemedText variant="body1">{transaction?.toAccount?.name || 'N/A'}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Paid To</ThemedText>
+                        <ThemedText variant="body1">{transaction?.paidTo || 'N/A'}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <ThemedText variant="body1">Mode</ThemedText>
+                        <ThemedText variant="body1">{transaction?.mode || 'N/A'}</ThemedText>
+                    </View>
+                </Card>
+            )}
+
+            {/* Notes */}
+            <Card variant="outlined" style={{ gap: 10, borderWidth: 1, borderColor: colors.border }}>
+                <ThemedText variant="body1">Note</ThemedText>
+                {/* <ThemedText variant="body1">{data?.note || 'No note added'}</ThemedText> */}
             </Card>
-            {
-                transaction &&
-                <TouchableOpacity onPress={() => removeTransaction(transaction?.id)}>
-                    <ThemedText variant='body1' style={{ color: colors.error }}>Delete Transaction</ThemedText>
+
+            {/* Delete */}
+            {transaction && !isRecurring && (
+                <TouchableOpacity onPress={() => removeTransaction(transaction.id)}>
+                    <ThemedText variant="body1" style={{ color: colors.error }}>Delete Transaction</ThemedText>
                 </TouchableOpacity>
-            }
+            )}
+            {isRecurring && recurring && (
+                <TouchableOpacity onPress={() => removeRecurringTransaction(recurring.id)}>
+                    <ThemedText variant="body1" style={{ color: colors.error }}>Delete Recurring Template</ThemedText>
+                </TouchableOpacity>
+            )}
         </View>
-    )
-}
-
+    );
+};
 export default TransactionDetailScreen
 
 const styles = StyleSheet.create({
