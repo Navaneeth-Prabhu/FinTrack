@@ -15,7 +15,7 @@ export interface Transaction {
   };
   mode: string
   note?: string;
-  selectedTags?: string[], // Array of tags for additional categorization
+  // selectedTags?: string[], // Array of tags for additional categorization
   location?: {
     coordinates: number, // [longitude, latitude]
   },

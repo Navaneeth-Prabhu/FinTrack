@@ -8,12 +8,8 @@ import BudgetScreen from "@/screens/budget/budget.screen";
 
 // Example usage in a screen
 export default function Budget() {
-    const { colors } = useTheme();
     return (
         <Screen>
-            <Header
-                title="Budget"
-            />
             <BudgetScreen />
         </Screen>
     );

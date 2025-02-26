@@ -1,5 +1,5 @@
 import { Budget } from "@/types";
-import { addDays, addMonths, addWeeks, addYears, endOfDay, endOfMonth, endOfWeek, endOfYear, formatDate, isToday, parseISO, startOfDay } from "date-fns";
+import { addDays, addMonths, addWeeks, addYears, endOfDay, endOfMonth, endOfWeek, endOfYear, formatDate, isAfter, isBefore, isFirstDayOfMonth, isToday, parseISO, startOfDay } from "date-fns";
 
 type DateFormatOptions = {
     dateFormat?: string; // Custom date format
@@ -54,32 +54,37 @@ export const getDateRange = (date: Date) => ({
 });
 
 export const getEndDateForFrequency = (startDate: string, frequency: Budget['frequency']): Date => {
-    const start = parseISO(startDate); 
+    const start = parseISO(startDate);
 
     switch (frequency) {
         case 'daily':
-            return endOfDay(start);
+            return addDays(start, 0); // Same day
         case 'weekly':
-            return endOfWeek(start);
+            return addDays(start, 6); // 7 days including start
         case 'monthly':
-            return endOfMonth(start);
+            return isFirstDayOfMonth(start) ? endOfMonth(start) : addDays(start, 29); // 30 days including start
         case 'yearly':
-            return endOfYear(start);
+            return addDays(start, 364); // 365 days including start
+        default:
+            return start;
     }
 };
 
 export const getNextPeriodEndDate = (startDate: string, frequency: Budget['frequency']): Date => {
-    const start = parseISO(startDate); 
+    const start = parseISO(startDate);
+    const nextStart = addDays(start, 1); // Start of next period
 
     switch (frequency) {
         case 'daily':
-            return endOfDay(addDays(start, 1));
+            return addDays(nextStart, 0);
         case 'weekly':
-            return endOfWeek(addWeeks(start, 1));
+            return addDays(nextStart, 6);
         case 'monthly':
-            return endOfMonth(addMonths(start, 1));
+            return isFirstDayOfMonth(nextStart) ? endOfMonth(nextStart) : addDays(nextStart, 29);
         case 'yearly':
-            return endOfYear(addYears(start, 1));
+            return addDays(nextStart, 364);
+        default:
+            return nextStart;
     }
 };
 
@@ -88,11 +93,11 @@ export const calculateIdealSpending = (
     startDate: string,
     frequency: Budget['frequency']
 ): number => {
-    const start = new Date(startDate);
+    const start = parseISO(startDate);
     const now = new Date();
     const end = getEndDateForFrequency(startDate, frequency);
 
-    if (now < start || now > end) return 0;
+    if (isBefore(now, start) || isAfter(now, end)) return 0;
 
     const totalDurationMs = end.getTime() - start.getTime();
     const elapsedDurationMs = now.getTime() - start.getTime();
@@ -100,4 +105,3 @@ export const calculateIdealSpending = (
 
     return Math.min(limit * elapsedFraction, limit);
 };
-

@@ -14,32 +14,16 @@ import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBottomSheet from '@/components/bottomSheet/categoryBottomSheet';
 import { Header } from '@/components/layout/Header';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useBudgetStore } from '@/stores/budgetStore';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { format } from 'date-fns';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-interface mode {
-    id: string;
-    name?: string; // Axis, Hdfc
-    type: string; // Manual, Bank
-}
-
-interface RecurringScheduleType {
-    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-    interval: number;
-    startDate: Date;
-    endDate?: Date;
-    dayOfMonth?: number;
-}
 
 const transactionTypes = [
     { id: '1', name: 'Cash', type: 'Bank' },
     { id: '2', name: 'HDFC', type: 'Bank' },
     { id: '3', name: 'Axis', type: 'Bank' },
 ];
-
-const tags = ['Friends', 'Online', 'Office', 'Family', 'School'];
 
 const INITIAL_FORM_STATE = {
     amount: '',
@@ -133,7 +117,6 @@ const TransactionFormScreen: React.FC = () => {
                     date: new Date(currentTransaction.date),
                     paidTo: currentTransaction.paidTo || '',
                     paidBy: currentTransaction.paidBy || '',
-                    selectedTags: currentTransaction.tags || '',
                     transactionType: transactionTypes.find(t => t.name === currentTransaction.mode) || transactionTypes[0],
                     source: currentTransaction.source,
                     recurringId: currentTransaction.recurringId,

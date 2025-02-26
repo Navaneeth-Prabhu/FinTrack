@@ -5,9 +5,7 @@ import BudgetDetailsScreen from '@/screens/budget/budget.details.screen'
 
 const BudgetDetails = () => {
   return (
-    <Screen scroll={false}>
-      <BudgetDetailsScreen />
-    </Screen>
+    <BudgetDetailsScreen />
   )
 }
 
