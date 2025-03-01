@@ -15,7 +15,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false, 
         tabBarStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.card,
         }
         
       }}

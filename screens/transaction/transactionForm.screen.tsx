@@ -45,7 +45,7 @@ const TransactionFormScreen: React.FC = () => {
     const amountInputRef = useRef<TextInput>(null);
     const [showScanner, setShowScanner] = useState(false);
     const { transactions, saveTransaction, updateTransaction } = useTransactionStore();
-    const { recurringTransactions, saveRecurringTransaction, updateRecurringTransaction } = useRecurringTransactionStore();
+    const { recurringTransactions, saveRecurringTransaction, updateRecurringTransaction, removeRecurringTransaction } = useRecurringTransactionStore();
     const currentTransaction = useMemo(() =>
         transactions.find(t => t.id === transactionId), [transactionId, transactions]
     );
@@ -166,7 +166,32 @@ const TransactionFormScreen: React.FC = () => {
 
         const id = editMode === 'true' ? (transactionId as string) : Date.now().toString();
 
-        if (isRecurring === 'true' || (isRecurringState && !currentTransaction)) {
+        // Check if we need to delete a recurring transaction
+        if (editMode === 'true' && isRecurring === 'true' && !isRecurringState && currentRecurring) {
+            await removeRecurringTransaction(currentRecurring.id);
+
+            // Then create a normal transaction instead
+            const transactionData: Transaction = {
+                id,
+                amount: parseFloat(formState.amount),
+                note: formState.note,
+                category: formState.category,
+                type: formState.type,
+                date: formState.date.toISOString(),
+                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : undefined,
+                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : undefined,
+                mode: formState.transactionType.name,
+                createdAt: Date.now().toString(),
+                lastModified: Date.now().toString(),
+                source: formState.source,
+                recurringId: undefined, // Make sure to remove the recurring ID reference
+            };
+            await saveTransaction(transactionData);
+            router.back();
+            return;
+        }
+
+        if (isRecurringState) {
             const recurringData: RecurringTransaction = {
                 id,
                 amount: parseFloat(formState.amount),
@@ -205,7 +230,7 @@ const TransactionFormScreen: React.FC = () => {
             editMode === 'true' ? await updateTransaction(transactionData) : await saveTransaction(transactionData);
         }
         router.back();
-    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring]);
+    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, isRecurring]);
     const handleStartDateConfirm = (date: Date) => {
         setRecurringSchedule(prev => ({ ...prev, startDate: date.toISOString() }));
         setShowStartDatePicker(false);
@@ -315,7 +340,7 @@ const TransactionFormScreen: React.FC = () => {
                             <Switch
                                 value={isRecurringState}
                                 onValueChange={setIsRecurringState}
-                                disabled={isRecurring === 'true' || !!formState.recurringId} // Disable if editing recurring or linked instance
+                            // disabled={isRecurring === 'true' || !!formState.recurringId} // Disable if editing recurring or linked instance
                             />
                         </View>
                         {isRecurringState && (

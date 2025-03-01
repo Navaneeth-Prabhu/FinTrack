@@ -20,6 +20,7 @@ interface RecurringTransactionState {
   updateRecurringTransaction: (recurring: RecurringTransaction) => Promise<RecurringTransaction>;
   removeRecurringTransaction: (id: string) => Promise<void>;
   generateRecurringTransactions: () => Promise<void>;
+  generateDueTransactionsNow: () => Promise<boolean>;
 }
 
 export const useRecurringTransactionStore = create<RecurringTransactionState>((set, get) => ({
@@ -101,52 +102,96 @@ export const useRecurringTransactionStore = create<RecurringTransactionState>((s
     const now = new Date();
     const newTransactions: Transaction[] = [];
     const transactionStore = useTransactionStore.getState();
+    const existingTransactions = transactionStore.transactions;
 
-    console.log(recurringTransactions, 'recurringTransactions');
+    console.log('Running generation with', recurringTransactions.length, 'recurring transactions');
+
     for (const recurring of recurringTransactions) {
-      if (!recurring.isActive) continue;
+      // Skip inactive recurring transactions
+      if (!recurring.isActive) {
+        console.log(`Skipping inactive recurring transaction: ${recurring.id}`);
+        continue;
+      }
 
-      let currentDate = recurring.lastGeneratedDate
-        ? add(new Date(recurring.lastGeneratedDate), {
-          days: recurring.frequency === 'daily' ? recurring.interval : 0,
-          weeks: recurring.frequency === 'weekly' ? recurring.interval : 0,
-          months: recurring.frequency === 'monthly' ? recurring.interval : 0,
-          years: recurring.frequency === 'yearly' ? recurring.interval : 0,
-        })
-        : new Date(recurring.startDate);
+      // Determine the starting point for generation
+      const startPoint = recurring.lastGeneratedDate
+        ? new Date(recurring.lastGeneratedDate) // Start from last generated date
+        : new Date(recurring.startDate);        // Or from the initial start date
+
+      console.log(`Processing recurring transaction ${recurring.id}`, {
+        startDate: recurring.startDate,
+        lastGenerated: recurring.lastGeneratedDate,
+        startPoint: startPoint.toISOString(),
+        now: now.toISOString()
+      });
+
+      // Calculate the next date after the starting point
+      let currentDate = add(startPoint, {
+        days: recurring.frequency === 'daily' ? recurring.interval : 0,
+        weeks: recurring.frequency === 'weekly' ? recurring.interval : 0,
+        months: recurring.frequency === 'monthly' ? recurring.interval : 0,
+        years: recurring.frequency === 'yearly' ? recurring.interval : 0,
+      });
+
       const endDate = recurring.endDate ? new Date(recurring.endDate) : null;
+      // Ensure we have a time component, defaulting to current time if not specified
       const time = recurring.time || format(now, 'HH:mm');
 
+      // Track the most recent transaction date for updating lastGeneratedDate
+      let lastTransactionDate: string | null = null;
+
+      // Generate all transactions between the start point and now
       while ((!endDate || isBefore(currentDate, endDate)) && isBefore(currentDate, now)) {
+        // Apply the time component to the current date
         const dateWithTime = new Date(currentDate);
-        const [hours, minutes] = time.split(':');
-        dateWithTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        const [hours, minutes] = time.split(':').map(part => parseInt(part, 10));
+        dateWithTime.setHours(hours, minutes, 0, 0);
 
+        // Skip dates in the future
         if (isBefore(dateWithTime, now)) {
-          const categories = transactionStore.transactions.map(t => t.category).filter(c => c.id === recurring.category.id);
-          const category = categories[0] || recurring.category;
+          // Create a transaction ID that's deterministic and unique
+          const transactionId = `${recurring.id}-${format(dateWithTime, 'yyyy-MM-dd-HH-mm')}`;
 
-          const transaction: Transaction = {
-            id: `${recurring.id}-${dateWithTime.toISOString()}`,
-            amount: recurring.amount,
-            type: recurring.type,
-            category,
-            date: dateWithTime.toISOString(),
-            paidTo: recurring.type === 'expense' ? recurring.payee : undefined,
-            paidBy: recurring.type === 'income' ? recurring.payee : undefined,
-            mode: recurring.mode || 'auto',
-            createdAt: now.toISOString(),
-            lastModified: now.toISOString(),
-            source: { type: 'auto' },
-            note: recurring.description,
-            recurringId: recurring.id, // Ensure set here
-          };
+          // Check if this transaction already exists using the deterministic ID
+          const transactionExists = existingTransactions.some(t => t.id === transactionId);
 
-          if (!transactionStore.transactions.some(t => t.id === transaction.id)) {
+          if (!transactionExists) {
+            // Get the category from existing transactions if possible
+            // This provides the most up-to-date category information
+            const matchingCategory = existingTransactions
+              .map(t => t.category)
+              .find(c => c.id === recurring.category.id);
+
+            const category = matchingCategory || recurring.category;
+
+            // Create the transaction
+            const transaction: Transaction = {
+              id: transactionId,
+              amount: recurring.amount,
+              type: recurring.type,
+              category,
+              date: dateWithTime.toISOString(),
+              paidTo: recurring.type === 'expense' ? recurring.payee : undefined,
+              paidBy: recurring.type === 'income' ? recurring.payee : undefined,
+              mode: recurring.mode || 'auto',
+              createdAt: now.toISOString(),
+              lastModified: now.toISOString(),
+              source: { type: 'auto' },
+              note: recurring.description,
+              recurringId: recurring.id,
+            };
+
             newTransactions.push(transaction);
+            console.log(`Generated new transaction: ${transaction.id} for date ${dateWithTime.toISOString()}`);
+
+            // Update the most recent transaction date
+            lastTransactionDate = dateWithTime.toISOString();
+          } else {
+            console.log(`Transaction already exists for: ${transactionId}`);
           }
         }
 
+        // Move to the next occurrence
         currentDate = add(currentDate, {
           days: recurring.frequency === 'daily' ? recurring.interval : 0,
           weeks: recurring.frequency === 'weekly' ? recurring.interval : 0,
@@ -155,21 +200,47 @@ export const useRecurringTransactionStore = create<RecurringTransactionState>((s
         });
       }
 
-      if (newTransactions.length > 0) {
-        const lastDate = newTransactions[newTransactions.length - 1].date;
-        recurring.lastGeneratedDate = lastDate;
-        await updateRecurringTransactionInDB({ ...recurring, lastModified: new Date().toISOString() });
+      // Only update lastGeneratedDate if we created at least one transaction
+      if (lastTransactionDate) {
+        console.log(`Updating lastGeneratedDate for ${recurring.id} to ${lastTransactionDate}`);
+        // Update the recurring transaction with the new lastGeneratedDate
+        await updateRecurringTransactionInDB({
+          ...recurring,
+          lastGeneratedDate: lastTransactionDate,
+          lastModified: now.toISOString()
+        });
+
+        // Update the in-memory state
         set(state => ({
           recurringTransactions: state.recurringTransactions.map(r =>
-            r.id === recurring.id ? { ...r, lastGeneratedDate: lastDate } : r
+            r.id === recurring.id ? { ...r, lastGeneratedDate: lastTransactionDate } : r
           ),
         }));
       }
     }
 
+    // Save all new transactions in a single batch
     if (newTransactions.length > 0) {
-      console.log('Generated Transactions:', newTransactions);
+      console.log(`Saving ${newTransactions.length} new transactions`);
       await transactionStore.saveBulkTransactions(newTransactions);
+    } else {
+      console.log('No new transactions to generate');
+    }
+  },
+
+  generateDueTransactionsNow: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      await get().fetchRecurringTransactions(); // Refresh data first
+      await get().generateRecurringTransactions();
+      set({ isLoading: false });
+      return true;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to generate transactions'
+      });
+      return false;
     }
   },
 }));

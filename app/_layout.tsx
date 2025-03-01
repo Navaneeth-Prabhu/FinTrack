@@ -19,25 +19,36 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
+  // Initialize app after resources are loaded
   useEffect(() => {
-    const initializeApp = async () => {
-      if (loaded) {
+    if (loaded) {
+      const initializeApp = async () => {
         try {
-          // Check if task is already registered to avoid duplicates
-          const isRegistered = await BackgroundFetch.getStatusAsync();
-          if (isRegistered !== BackgroundFetch.BackgroundFetchStatus.Restricted) {
-            await registerRecurringTask();
-          }
+          // First, fetch recurring transactions
+          console.log('Fetching recurring transactions');
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();
-        } catch (error) {
-          console.error('Failed to initialize recurring transactions:', error);
-        }
-        SplashScreen.hideAsync();
-      }
-    };
 
-    initializeApp();
+          // Then, register the background task
+          console.log('Registering background task');
+          await registerRecurringTask();
+
+          // Generate any due transactions immediately
+          console.log('Generating due transactions');
+          await useRecurringTransactionStore.getState().generateRecurringTransactions();
+
+          console.log('App initialization complete');
+        } catch (error) {
+          console.error('Failed to initialize app:', error);
+        } finally {
+          // Hide splash screen regardless of success/failure
+          await SplashScreen.hideAsync();
+        }
+      };
+
+      initializeApp();
+    }
   }, [loaded]);
+
 
   if (!loaded) {
     return null;

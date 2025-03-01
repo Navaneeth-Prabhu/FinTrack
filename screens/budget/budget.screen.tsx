@@ -13,7 +13,6 @@ const BudgetScreen = () => {
 
   }, []);
 
-  console.log(budgets, 'budts');
   return (
     <View>
       <TouchableOpacity onPress={() => router.push('/(routes)/budget/budgetForm')}>

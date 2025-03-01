@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React, { useEffect } from 'react'
+import { Alert, StyleSheet, Text, View } from 'react-native'
+import React, { useEffect, useMemo } from 'react'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { Card } from '@/components/common/Card';
@@ -8,9 +8,19 @@ import { tokens } from '@/constants/theme';
 import PieChartWithDynamicSlices from '@/components/charts/pieChart';
 import InteractiveChart from '@/components/charts/lineChart';
 import { useCategoryStore } from '@/stores/categoryStore';
+import CategoryCard from '@/components/category/CategoryCard';
+import { endOfMonth, isWithinInterval, startOfMonth, subMonths } from 'date-fns';
+import FinancialSummaryCard from '@/components/FinancialSummaryCard';
+import { useBudgetStore } from '@/stores/budgetStore';
+import FinancialHealthScore from '@/components/FinancialHealthScore';
+import SmartAlerts from '@/components/SmartAlerts';
+import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
+import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
+    const { budgets } = useBudgetStore();
+    const { recurringTransactions } = useRecurringTransactionStore();
     const { categories, fetchCategories } = useCategoryStore();
     let top5Transactions = transactions.slice(0, 5);
 
@@ -19,10 +29,73 @@ const HomeScreen = () => {
         fetchCategories();
     }, [])
 
+    // Calculate previous month's spending using date-fns
+    const previousMonthSpending = useMemo(() => {
+        const now = new Date();
+        const previousMonth = subMonths(now, 1);
+        const previousMonthStart = startOfMonth(previousMonth);
+        const previousMonthEnd = endOfMonth(previousMonth);
+
+        return transactions
+            .filter(t => {
+                const transactionDate = new Date(t.date);
+                return (
+                    t.type === 'expense' &&
+                    isWithinInterval(transactionDate, {
+                        start: previousMonthStart,
+                        end: previousMonthEnd
+                    })
+                );
+            })
+            .reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+
+    // Calculate savings balance - assuming all income transactions of category 'Savings'
+    // or we could track specific account transactions if your data model supports it
+    const savingsBalance = useMemo(() => {
+        return transactions
+            .filter(t =>
+                (t.type === 'income' && t.category.name === 'Savings') ||
+                (t.type === 'transfer' && t.toAccount?.name === 'Savings')
+            )
+            .reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+
+    const handleTipPress = (category: string) => {
+        // Here you would navigate to a detailed tips screen
+        // For now, just show an alert with additional tips
+        const tips = {
+            'Budget Management': [
+                'Review your highest expense categories and look for ways to reduce them',
+                'Set up budget alerts to notify you when youre approaching your limit',
+                'Use the 50/30/20 rule: 50% for needs, 30% for wants, 20% for savings'
+            ],
+            'Savings Rate': [
+                'Set up automatic transfers to savings on payday',
+                'Try the "pay yourself first" method by saving before spending',
+                'Look for areas to reduce spending and redirect to savings'
+            ],
+            'Expense Diversity': [
+                'Track spending in each category to identify imbalances',
+                'Aim for balanced spending across essentials, lifestyle, and future goals',
+                'Avoid having any single category dominate your expenses'
+            ],
+            'Financial Consistency': [
+                'Schedule regular bill payments to avoid late fees',
+                'Set up recurring transfers for savings and investments',
+                'Review your finances on a weekly basis to stay on track'
+            ]
+        };
+
+        Alert.alert(
+            `${category} Tips`,
+            tips[category as keyof typeof tips].join('\n\n'),
+            [{ text: 'Got it!' }]
+        );
+    };
+
     return (
-        <View>
-            {/* <PieChartWithDynamicSlices  /> */}
-            {/* <InteractiveChart/> */}
+        <View style={{ flex: 1, gap: 16 }}>
             <Text>HomeScreen</Text>
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden'
@@ -47,6 +120,35 @@ const HomeScreen = () => {
                     ))
                 }
             </View>
+
+            <View>
+                <CategoryCard type='30Days' />
+            </View>
+
+            <FinancialSummaryCard
+                transactions={transactions}
+                budgets={budgets}
+                savingsBalance={savingsBalance}
+                previousMonthSpending={previousMonthSpending}
+            />
+
+            <FinancialHealthScore
+                transactions={transactions}
+                budgets={budgets}
+                onTipPress={handleTipPress}
+            />
+
+            <SmartAlerts
+                transactions={transactions}
+                recurringTransactions={recurringTransactions}
+                onTipPress={() => { }}
+            />
+
+            <SmartBalanceForecast
+                transactions={transactions}
+                recurringTransactions={recurringTransactions}
+                currentBalance={savingsBalance}
+            />
         </View>
     )
 }

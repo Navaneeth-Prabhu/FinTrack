@@ -57,7 +57,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
                     <TransactionDetails
                         transaction={transaction}
                         date={formattedDate}
-                        isRecurring={transaction.recurringId !== null}
+                        isRecurring={transaction.source.type === 'auto'}
                     />
                 </Animated.View>
                 <TransactionAmount

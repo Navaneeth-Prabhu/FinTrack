@@ -10,7 +10,7 @@ interface SectionHeaderProps {
     title: string;
     totalIncome: number;
     totalExpense: number;
-    isUpcoming: boolean;
+    isUpcoming?: boolean;
   };
 }
 
@@ -28,6 +28,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ section }) => {
         styles.container,
         {
           borderBottomColor: colors.subtitle,
+          backgroundColor: colors.background,
         },
       ]}
     >
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 0.7,
-    marginVertical: 8,
+    marginBottom: 8,
     paddingVertical: 4,
   },
   balanceContainer: {

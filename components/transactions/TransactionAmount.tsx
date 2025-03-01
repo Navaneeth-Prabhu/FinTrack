@@ -5,8 +5,8 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface TransactionAmountProps {
   amount: number;
-  type: 'income' | 'expense';
-  isUpcoming: boolean;
+  type: 'income' | 'expense' | 'transfer';
+  isUpcoming?: boolean;
 }
 
 export const TransactionAmount: React.FC<TransactionAmountProps> = ({

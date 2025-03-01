@@ -2,8 +2,8 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#F5F5F5',
-    // background: '#F7F7F9',
+    background: '#F9FAFC',
+    // background: '#F7F7F7',
     secondaryBackground: '#FFFFFF',
     foreground: '#000000',
     card: '#FFFFFF',

@@ -68,8 +68,6 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
     const isOnTrack = spent <= idealSpending;
     const dailySpending = calculateDailySpendingAllowance(limit, spent, startDate, frequency);
 
-    console.log('BudgetCard:', { spent, idealSpending, isOnTrack, dailySpending });
-
     const { colors } = useTheme();
     const { removeBudget } = useBudgetStore();
 

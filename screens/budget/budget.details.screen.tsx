@@ -16,6 +16,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { getEndDateForFrequency, getNextPeriodEndDate } from '@/utils/date';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
+import { TransactionItem } from '@/components/transactions/TransactionItem';
 
 const BudgetDetailsScreen = () => {
   const { id } = useLocalSearchParams();
@@ -144,11 +145,10 @@ const BudgetDetailsScreen = () => {
         data={periodTransactions}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <View style={[styles.transactionItem, { backgroundColor: colors.card }]}>
-            <ThemedText style={styles.transactionDate}>{format(new Date(item.date), 'MMM d, yyyy')}</ThemedText>
-            <ThemedText style={styles.transactionAmount}>${item.amount.toFixed(2)}</ThemedText>
-            <ThemedText style={styles.transactionNote}>{item.note || 'No note'}</ThemedText>
-          </View>
+          <TransactionItem
+            transaction={item}
+          // isUpcoming={section.isUpcoming}
+          />
         )}
         ListEmptyComponent={<ThemedText style={styles.emptyText}>No transactions in this period</ThemedText>}
         contentContainerStyle={styles.listContent}
