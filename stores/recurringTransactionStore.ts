@@ -1,4 +1,3 @@
-// src/store/recurringTransactionStore.ts
 import { create } from 'zustand';
 import { RecurringTransaction, Transaction } from '@/types';
 import {
@@ -8,7 +7,7 @@ import {
   deleteRecurringTransactionFromDB,
 } from '@/db/repository/recurringTransactionRepository';
 import { useTransactionStore } from './transactionStore';
-import { add, isBefore, format } from 'date-fns';
+import { add, isBefore, format, isAfter, parseISO, startOfDay } from 'date-fns';
 
 interface RecurringTransactionState {
   recurringTransactions: RecurringTransaction[];
@@ -66,14 +65,34 @@ export const useRecurringTransactionStore = create<RecurringTransactionState>((s
 
   updateRecurringTransaction: async (recurring: RecurringTransaction) => {
     try {
-      const updatedRecurring = await updateRecurringTransactionInDB(recurring);
+      // Get current state of the transaction before updating
+      const currentState = get();
+      const existingRecurring = currentState.recurringTransactions.find(r => r.id === recurring.id);
+
+      // Set current time as the update timestamp
+      const now = new Date();
+      const updatedRecurring = {
+        ...recurring,
+        lastModified: now.toISOString(),
+      };
+
+      // If this is an update, set the lastGeneratedDate to now
+      // This will ensure future generations start from now
+      if (existingRecurring) {
+        updatedRecurring.lastGeneratedDate = now.toISOString();
+      }
+
+      // Update in DB and state
+      await updateRecurringTransactionInDB(updatedRecurring);
+
       set(state => ({
         recurringTransactions: state.recurringTransactions.map(r =>
           r.id === updatedRecurring.id ? updatedRecurring : r
         ),
       }));
-      // Regenerate transactions to reflect changes
-      await get().generateRecurringTransactions();
+
+      // No need to generate transactions here, as the lastGeneratedDate
+      // is now set to current time, so future runs will start from now
       return updatedRecurring;
     } catch (error) {
       set({

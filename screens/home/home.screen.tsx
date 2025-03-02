@@ -5,8 +5,6 @@ import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { Card } from '@/components/common/Card';
 import { useTheme } from '@/hooks/useTheme';
 import { tokens } from '@/constants/theme';
-import PieChartWithDynamicSlices from '@/components/charts/pieChart';
-import InteractiveChart from '@/components/charts/lineChart';
 import { useCategoryStore } from '@/stores/categoryStore';
 import CategoryCard from '@/components/category/CategoryCard';
 import { endOfMonth, isWithinInterval, startOfMonth, subMonths } from 'date-fns';
@@ -16,10 +14,11 @@ import FinancialHealthScore from '@/components/FinancialHealthScore';
 import SmartAlerts from '@/components/SmartAlerts';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import SmartBalanceForecast from '@/components/SmartBalanceForecast';
+import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
-    const { budgets } = useBudgetStore();
+    const { budgets, fetchBudgets } = useBudgetStore();
     const { recurringTransactions } = useRecurringTransactionStore();
     const { categories, fetchCategories } = useCategoryStore();
     let top5Transactions = transactions.slice(0, 5);
@@ -27,6 +26,7 @@ const HomeScreen = () => {
     useEffect(() => {
         fetchTransactions();
         fetchCategories();
+        fetchBudgets();
     }, [])
 
     // Calculate previous month's spending using date-fns
@@ -149,6 +149,8 @@ const HomeScreen = () => {
                 recurringTransactions={recurringTransactions}
                 currentBalance={savingsBalance}
             />
+
+            <SmartBudgetInterface />
         </View>
     )
 }

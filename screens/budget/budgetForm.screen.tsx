@@ -1,18 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { Budget } from '@/types';
 import { useCategoryStore } from '@/stores/categoryStore';
-import { router } from 'expo-router';
-// import DateTimePicker from '@react-native-community/datetimepicker';
+import { router, useLocalSearchParams } from 'expo-router';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { startOfMonth } from 'date-fns';
 
 const BudgetFormScreen = () => {
-    const { saveBudget } = useBudgetStore();
+    const { saveBudget, budgets, updateBudget } = useBudgetStore();
+    const { editMode, budgetId } = useLocalSearchParams();
     const { categories, fetchCategories } = useCategoryStore();
+
     const frequencies = ['daily', 'weekly', 'monthly', 'yearly'];
 
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState('');
+    const currentBudget = useMemo(() =>
+        budgets.find(b => b.id === budgetId),
+        [budgetId, budgets]
+    );
 
     const [budget, setBudget] = useState<Budget>({
         id: new Date().toISOString(),
@@ -27,38 +32,58 @@ const BudgetFormScreen = () => {
             color: '',
         },
         frequency: 'monthly',
-        startDate: new Date().toISOString(),
+        startDate: startOfMonth(new Date()).toISOString(),
         endDate: null,
         isRecurring: true,
-        // notifications: {
-        //     enabled: true,
-        //     thresholds: [50, 80, 90]
-        // },
     });
+
+    // DatePicker State
+    const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+    const [datePickerMode, setDatePickerMode] = useState<'start' | 'end'>('start');
 
     useEffect(() => {
         fetchCategories();
     }, []);
+
+    useEffect(() => {
+        if (editMode === 'true' && currentBudget) {
+            setBudget({ ...currentBudget });
+        }
+    }, [editMode, currentBudget]);
 
     const handleInputChange = (field: keyof Budget, value: any) => {
         setBudget(prev => ({ ...prev, [field]: value }));
     };
 
     const saveBudgetHandler = () => {
-        if (!budget.limit || !budget.category) {
-            alert('Please enter all required fields.');
+        if (!budget.limit || !budget.category.id) {
+            Alert.alert('Error', 'Please enter all required fields.');
             return;
         }
-        saveBudget(budget);
-        console.log(budget, 'budgetbudget');
+        if (editMode === 'true') {
+            updateBudget(budget);
+        } else {
+            saveBudget(budget);
+        }
         router.back();
+    };
+
+    // Handle Date Picker Selection
+    const handleConfirmDate = (date: Date) => {
+        const dateString = date.toISOString();
+        if (datePickerMode === 'start') {
+            handleInputChange('startDate', dateString);
+        } else {
+            handleInputChange('endDate', dateString);
+        }
+        setDatePickerVisible(false);
     };
 
     return (
         <ScrollView style={styles.container}>
-            <Text style={styles.title}>Create Budget</Text>
+            <Text style={styles.title}>{editMode === 'true' ? 'Edit Budget' : 'Create Budget'}</Text>
 
-            {/* Amount Input */}
+            {/* Budget Limit Input */}
             <Text style={styles.label}>Budget Limit</Text>
             <TextInput
                 style={styles.input}
@@ -71,17 +96,14 @@ const BudgetFormScreen = () => {
             {/* Category Selection */}
             <Text style={styles.label}>Category</Text>
             <View style={styles.categoriesContainer}>
-                {categories.map((category) => (
+                {categories.map(category => (
                     <TouchableOpacity
                         key={category.id}
                         style={[
                             styles.categoryButton,
                             budget.category.id === category.id && styles.selectedCategory
                         ]}
-                        onPress={() => {
-                            handleInputChange('category', category);
-                            setSelectedCategory(category.name);
-                        }}
+                        onPress={() => handleInputChange('category', category)}
                     >
                         <Text style={[
                             styles.categoryText,
@@ -96,7 +118,7 @@ const BudgetFormScreen = () => {
             {/* Frequency Selection */}
             <Text style={styles.label}>Frequency</Text>
             <View style={styles.frequencyContainer}>
-                {frequencies.map((freq) => (
+                {frequencies.map(freq => (
                     <TouchableOpacity
                         key={freq}
                         style={[
@@ -119,23 +141,29 @@ const BudgetFormScreen = () => {
             <Text style={styles.label}>Start Date</Text>
             <TouchableOpacity
                 style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                    setDatePickerMode('start');
+                    setDatePickerVisible(true);
+                }}
             >
                 <Text>{new Date(budget.startDate).toLocaleDateString()}</Text>
             </TouchableOpacity>
 
-            {/* {showDatePicker && (
-                <DateTimePicker
-                    value={new Date(budget.startDate)}
-                    mode="date"
-                    onChange={(event, date) => {
-                        setShowDatePicker(false);
-                        if (date) {
-                            handleInputChange('startDate', date.toISOString());
-                        }
-                    }}
-                />
-            )} */}
+            {/* End Date (Only Show if Not Recurring) */}
+            {!budget.isRecurring && (
+                <>
+                    <Text style={styles.label}>End Date</Text>
+                    <TouchableOpacity
+                        style={styles.dateButton}
+                        onPress={() => {
+                            setDatePickerMode('end');
+                            setDatePickerVisible(true);
+                        }}
+                    >
+                        <Text>{budget.endDate ? new Date(budget.endDate).toLocaleDateString() : 'Select End Date'}</Text>
+                    </TouchableOpacity>
+                </>
+            )}
 
             {/* Recurring Toggle */}
             <TouchableOpacity
@@ -156,118 +184,32 @@ const BudgetFormScreen = () => {
             >
                 <Text style={styles.saveButtonText}>Save Budget</Text>
             </TouchableOpacity>
+
+            {/* Date Picker Modal */}
+            <DateTimePickerModal
+                isVisible={isDatePickerVisible}
+                mode="date"
+                onConfirm={handleConfirmDate}
+                onCancel={() => setDatePickerVisible(false)}
+            />
         </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        padding: 12,
-        marginBottom: 20,
-        borderRadius: 8,
-        fontSize: 16,
-    },
-    categoriesContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginBottom: 20,
-    },
-    categoryButton: {
-        padding: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        margin: 4,
-    },
-    selectedCategory: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
-    },
-    categoryText: {
-        color: '#333',
-    },
-    selectedCategoryText: {
-        color: '#fff',
-    },
-    frequencyContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-    },
-    frequencyButton: {
-        padding: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        flex: 1,
-        marginHorizontal: 4,
-        alignItems: 'center',
-    },
-    selectedFrequency: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
-    },
-    frequencyText: {
-        color: '#333',
-    },
-    selectedFrequencyText: {
-        color: '#fff',
-    },
-    dateButton: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 20,
-    },
-    recurringButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    checkbox: {
-        width: 20,
-        height: 20,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        marginRight: 10,
-        borderRadius: 4,
-    },
-    checkedBox: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
-    },
-    recurringText: {
-        fontSize: 16,
-    },
-    saveButton: {
-        backgroundColor: '#007AFF',
-        padding: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
+    container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+    title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+    label: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+    input: { borderWidth: 1, borderColor: '#ddd', padding: 12, marginBottom: 20, borderRadius: 8, fontSize: 16 },
+    categoryButton: { padding: 10, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', margin: 4 },
+    selectedCategory: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+    selectedCategoryText: { color: '#fff' },
+    dateButton: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 20 },
+    recurringButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#ddd', marginRight: 10, borderRadius: 4 },
+    checkedBox: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+    saveButton: { backgroundColor: '#007AFF', padding: 15, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
 export default BudgetFormScreen;

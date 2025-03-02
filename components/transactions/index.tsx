@@ -46,7 +46,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 renderSectionHeader={({ section }) => (
                     <SectionHeader section={section} />
                 )}
-                ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.background }} />}
+                ItemSeparatorComponent={() => <View style={{ height: 8, backgroundColor: colors.background }} />}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={overView ? <ListSummary totals={totals} /> : null}
                 ListFooterComponent={<ListFooter totals={totals} count={transactions.length} />}

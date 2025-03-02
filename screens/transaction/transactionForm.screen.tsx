@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, Keyboard, ScrollView, Image, KeyboardAvoidingView, Platform, Switch } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 // import CustomDateTimePicker from '@/src/components/CustomDateTimePicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -40,6 +40,7 @@ const INITIAL_FORM_STATE = {
 
 const TransactionFormScreen: React.FC = () => {
     const router = useRouter();
+    const navigation = useNavigation();
     const { colors } = useTheme();
     const { editMode, transactionId, isRecurring } = useLocalSearchParams();
     const amountInputRef = useRef<TextInput>(null);
@@ -210,6 +211,7 @@ const TransactionFormScreen: React.FC = () => {
                 createdAt: currentRecurring?.createdAt || Date.now().toString(),
                 lastModified: Date.now().toString(),
             };
+            // console.log('recurringData', editMode, recurringData);
             editMode === 'true' ? await updateRecurringTransaction(recurringData) : await saveRecurringTransaction(recurringData);
         } else {
             const transactionData: Transaction = {

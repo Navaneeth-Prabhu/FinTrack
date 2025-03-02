@@ -40,19 +40,35 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
     useLayoutEffect(() => {
         navigation.setOptions({
             headerRight: () => (
-                <TouchableOpacity
-                    onPress={() => router.push({
-                        pathname: '/transaction/transactionForm',
-                        params: {
-                            editMode: 'true',
-                            transactionId: isRecurring ? recurring?.id : transaction?.id,
-                            isRecurring: isRecurring ? 'true' : linkedRecurring ? 'linked' : 'false',
-                        }
-                    })}
-                    style={{ marginRight: 15 }}
-                >
-                    <Ionicons name="pencil" size={20} color={colors.text} />
-                </TouchableOpacity>
+                <>
+                    <TouchableOpacity
+                        onPress={() => router.push({
+                            pathname: '/transaction/transactionForm',
+                            params: {
+                                editMode: 'true',
+                                transactionId: isRecurring ? recurring?.id : transaction?.id,
+                                isRecurring: isRecurring ? 'true' : linkedRecurring ? 'linked' : 'false',
+                            }
+                        })}
+                        style={{ marginRight: 15 }}
+                    >
+                        <Ionicons name="pencil" size={20} color={colors.text} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (isRecurring) {
+                                removeRecurringTransaction(String(recurring?.id));
+                            } else {
+                                removeTransaction(String(transaction?.id));
+                            }
+                            router.back();
+                        }}
+
+                        style={{ marginRight: 15 }}
+                    >
+                        <Ionicons name="trash-outline" size={20} color={colors.text} />
+                    </TouchableOpacity>
+                </>
             ),
         });
     }, [navigation, transaction, recurring, linkedRecurring, isRecurring]);
