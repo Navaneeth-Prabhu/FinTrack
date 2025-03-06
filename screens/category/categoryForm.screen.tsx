@@ -1,165 +1,189 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import React, { useState } from 'react'
-import { ScrollView, TextInput } from 'react-native-gesture-handler'
-import { ThemedText } from '@/components/common/ThemedText'
-import { router, useLocalSearchParams } from 'expo-router'
-import { useCategoryStore } from '@/stores/categoryStore'
-import { useTheme } from '@/hooks/useTheme'
-import { ColorsConstants, emojiConstants } from '@/constants/categories'
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View, TextInput, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { ThemedText } from '@/components/common/ThemedText';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { useTheme } from '@/hooks/useTheme';
+import { ColorsConstants, emojiConstants } from '@/constants/categories';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const ITEMS_PER_ROW = 7;
+const SPACING = 8; // Adjust spacing between items
+
+// Calculate item size dynamically (Subtract spacing to prevent overflow)
+const ITEM_SIZE = (SCREEN_WIDTH - (SPACING * (ITEMS_PER_ROW + 10))) / ITEMS_PER_ROW;
 
 const CategoryFromScreen = () => {
-    const { id, edit = "false" } = useLocalSearchParams<{ id: string, edit?: string }>()
-    const { categories, updateCategory, saveCategory } = useCategoryStore()
-    const category = categories.find(c => c.id === id)
-    const { colors } = useTheme()
-    const [name, setName] = useState(category?.name || '')
-    const [icon, setIcon] = useState(category?.icon || '')
-    const [type, setType] = useState(category?.type || 'expense')
-    const [color, setColor] = useState(category?.color || 'white')
+    const { id, edit = "false" } = useLocalSearchParams<{ id: string, edit?: string }>();
+    const { categories, updateCategory, saveCategory } = useCategoryStore();
+    const category = categories.find(c => c.id === id);
+    const { colors } = useTheme();
+    const [name, setName] = useState(category?.name || '');
+    const [icon, setIcon] = useState(category?.icon || '');
+    const [type, setType] = useState(category?.type || 'expense');
+    const [color, setColor] = useState(category?.color || 'white');
 
     const handleSubmit = () => {
-
-        // Ensure all required fields are present and non-empty
         if (name && icon && type) {
             if (edit === "true" && category) {
-                // Update existing category
-                updateCategory({
-                    ...category,
-                    name,
-                    icon,
-                    type,
-                    color, // Will be undefined if not set
-                });
+                updateCategory({ ...category, name, icon, type, color });
             } else {
-                // Create new category
-                saveCategory({
-                    id: Date.now().toString(),
-                    name,
-                    icon,
-                    type,
-                    color, // Will be undefined if not set
-                });
+                saveCategory({ id: Date.now().toString(), name, icon, type, color });
             }
             router.back();
         } else {
             console.log("Missing required fields: name, icon, or type");
         }
     };
+
     return (
-        <ScrollView style={{ flex: 1, padding: 16 }}>
-            <ThemedText>Edit Category</ThemedText>
-            <View style={styles.addCategoryContainer}>
-                <View
-                    style={[
-                        styles.iconCircle,
-                        { backgroundColor: color || colors.primary },
-                    ]}
-                >
-                    <Text style={styles.categoryIcon}>
-                        {icon}
-                    </Text>
+        <>
+            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+                <ThemedText style={styles.title}>{edit === "true" ? "Edit Category" : "New Category"}</ThemedText>
+
+                {/* Icon Preview */}
+                <View style={[styles.iconContainer, { backgroundColor: colors.card }]}>
+                    <View style={[styles.iconCircle, { backgroundColor: color || colors.primary }]}>
+                        <Text style={styles.categoryIcon}>{icon}</Text>
+                    </View>
+                    <TextInput
+                        style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                        placeholder="Category Name"
+                        placeholderTextColor={colors.subtitle}
+                        value={name}
+                        onChangeText={setName}
+                    />
                 </View>
-                <TextInput
-                    style={[
-                        styles.input,
-                        { color: colors.text, borderColor: colors.border },
-                    ]}
-                    placeholder="New category"
-                    placeholderTextColor={colors.subtitle}
-                    value={name}
-                    onChangeText={setName}
-                />
-                <TouchableOpacity
-                    style={[styles.addButton, { backgroundColor: colors.primary }]}
-                    onPress={handleSubmit}
-                >
-                    <Text style={{ color: colors.text, textAlign: 'center', textAlignVertical: 'center' }}> {edit == "true" ? "Update" : "Save"}</Text>
-                </TouchableOpacity>
-            </View>
-            {/* Type selection */}
-            <View style={styles.colorContainer}>
-                {
-                    ColorsConstants.map((c, index) => (
+
+                {/* Colors Selection */}
+                <ThemedText style={styles.sectionTitle}>Pick a Color</ThemedText>
+                <View style={styles.selectionContainer}>
+                    {ColorsConstants.map((c, index) => (
                         <TouchableOpacity
                             key={index}
-                            style={{
-                                borderColor: c == color ? c : colors.accent,
-                                // backgroundColor: c,
-                                width: 35, height: 35,
-                                borderWidth: 8,
-                                borderRadius: 8
-                            }}
+                            style={[
+                                styles.selectionItem,
+                                { backgroundColor: c, borderColor: c === color ? colors.subtitle : 'transparent' }
+                            ]}
                             onPress={() => setColor(c)}
-                        >
-                            <View style={{ flex: 1, backgroundColor: c, borderRadius: 2 }} />
-                        </TouchableOpacity>
-                    ))
-                }
-            </View>
-            <View style={styles.colorContainer}>
-                {
-                    emojiConstants?.map((emoji, index) => (
+                        />
+                    ))}
+                </View>
+
+                {/* Icons Selection */}
+                <ThemedText style={styles.sectionTitle}>Pick an Icon</ThemedText>
+                <View style={styles.selectionContainer}>
+                    {emojiConstants.map((emoji, index) => (
                         <TouchableOpacity
                             key={index}
-                            style={{
-                                borderColor: colors.accent,
-                                backgroundColor: colors.accent,
-                                padding: 5,
-                                borderWidth: 8,
-                                borderRadius: 8
-                            }}
+                            style={[styles.iconItem, { backgroundColor: colors.card }]}
                             onPress={() => setIcon(emoji)}
                         >
-                            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                            <Text style={styles.iconText}>{emoji}</Text>
                         </TouchableOpacity>
-                    ))
-                }
-            </View>
-        </ScrollView>
-    )
-}
+                    ))}
+                </View>
 
-export default CategoryFromScreen
+            </ScrollView>
+
+            {/* Save Button */}
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
+                    <Text style={styles.saveButtonText}>{edit === "true" ? "Update Category" : "Save Category"}</Text>
+                </TouchableOpacity>
+            </View>
+        </>
+    );
+};
+
+export default CategoryFromScreen;
 
 const styles = StyleSheet.create({
-    colorContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'flex-start',
-        gap: 10,
-        marginTop: 16
+    container: {
+        flex: 1,
+        padding: 16,
     },
-    addCategoryContainer: {
+    title: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    iconContainer: {
         flexDirection: 'row',
-        marginTop: 16,
         alignItems: 'center',
-        gap: 10,
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        padding: 12,
+        borderRadius: 12,
+    },
+    iconCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    categoryIcon: {
+        fontSize: 24,
     },
     input: {
         flex: 1,
-        height: 40,
+        height: 45,
         borderWidth: 1,
-        borderRadius: 20,
+        borderRadius: 10,
         paddingHorizontal: 16,
-        marginRight: 8,
+        fontSize: 16,
+        marginLeft: 12
     },
-    addButton: {
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    selectionContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
+        gap: SPACING, // Ensures consistent spacing
+    },
+    selectionItem: {
+        width: ITEM_SIZE,
+        height: ITEM_SIZE,
+        borderRadius: 10,
+        borderWidth: 3,
+    },
+    iconItem: {
+        width: ITEM_SIZE,
+        height: ITEM_SIZE,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 8,
-        borderRadius: 20,
-        paddingHorizontal: 16,
     },
-    iconCircle: {
-        // height: 40,
-        // width: 40,
-        aspectRatio: 1,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 10
-    },
-    categoryIcon: {
+    iconText: {
         fontSize: 18,
     },
-})
+    saveButton: {
+        paddingVertical: 12,
+        borderRadius: 10,
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    buttonContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 16,
+    }
+});

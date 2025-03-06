@@ -5,9 +5,7 @@ import CategoryFromScreen from '@/screens/category/categoryForm.screen'
 
 const CategoryForm = () => {
     return (
-        <Screen>
-            <CategoryFromScreen />
-        </Screen>
+        <CategoryFromScreen />
     )
 }
 

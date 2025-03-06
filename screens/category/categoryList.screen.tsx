@@ -84,7 +84,7 @@ const CategoryListScreen = () => {
                         }}
                         onPress={() => router.push({
                             pathname: '/category/categoryForm',
-                            params: { edit: "true", transactionId: item.id }
+                            params: { edit: "true", id: item.id }
                         })}
                     >
                         <View
