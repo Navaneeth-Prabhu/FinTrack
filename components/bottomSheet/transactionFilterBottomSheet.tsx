@@ -1,0 +1,208 @@
+import React, { useCallback, useMemo } from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { BottomSheetModal, BottomSheetFooter, BottomSheetFooterProps, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { ThemedText } from '../common/ThemedText';
+import { Ionicons } from '@expo/vector-icons';
+import FilterChip from '../FilterChip';
+import { Category, TimeView } from '@/types';
+import { useTheme } from '@/hooks/useTheme';
+
+interface FilterBottomSheetProps {
+    bottomSheetRef: React.RefObject<BottomSheetModal>;
+    selectedView: TimeView;
+    onViewSelect: (view: TimeView) => void;
+    filterState: any;
+    onFilterChange: (filterType: string, value: string) => void;
+    onClearFilters: () => void;
+    onApplyFilters: () => void;
+    filterOptions: {
+        transactionTypes: Array<{ label: string; value: string }>;
+        accountTypes: Array<{ label: string; value: string }>;
+        categories: Category[];
+    };
+}
+
+export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
+    bottomSheetRef,
+    selectedView,
+    onViewSelect,
+    filterState,
+    onFilterChange,
+    onClearFilters,
+    onApplyFilters,
+    filterOptions
+}) => {
+    const { colors } = useTheme();
+    
+    // Memoize the snapPoints array to prevent unnecessary re-renders
+    const snapPoints = useMemo(() => ['90%'], []);
+    
+    // Backdrop component
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.7}
+            />
+        ),
+        []
+    );
+
+    const renderFooter = (props: BottomSheetFooterProps) => (
+        <BottomSheetFooter {...props} bottomInset={0}>
+            <View style={[styles.footerContainer, { backgroundColor: colors.background }]}>
+                <TouchableOpacity
+                    style={[styles.footerButton, styles.clearButton]}
+                    onPress={onClearFilters}
+                >
+                    <ThemedText variant='body1'>Clear</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.footerButton, { backgroundColor: colors.primary }]}
+                    onPress={onApplyFilters}
+                >
+                    <ThemedText variant='body1'>Apply</ThemedText>
+                </TouchableOpacity>
+            </View>
+        </BottomSheetFooter>
+    );
+
+    return (
+        <BottomSheetModal
+            ref={bottomSheetRef}
+            index={0}
+            snapPoints={snapPoints}
+            backgroundStyle={{ backgroundColor: colors.background }}
+            handleIndicatorStyle={{ backgroundColor: colors.border }}
+            footerComponent={renderFooter}
+            backdropComponent={renderBackdrop}
+            enablePanDownToClose={true}
+            enableContentPanningGesture={true}
+            enableHandlePanningGesture={true}
+            enableOverDrag={true}
+        >
+            <View style={styles.content}>
+                <View style={styles.header}>
+                    <View style={styles.titleContainer}>
+                        <ThemedText variant='body1' style={[{ fontSize: 24, color: colors.text }]}>
+                            Filters
+                        </ThemedText>
+                        <View style={styles.iconContainer} >
+                            <Ionicons
+                                onPress={() => bottomSheetRef.current?.close()}
+                                name="close" size={26}
+                                color={colors.text}
+                            />
+                        </View>
+                    </View>
+                </View>
+                
+                <View >
+                    <ThemedText variant='body1' style={{ marginBottom: 14 }}>Time Period</ThemedText>
+                    <View style={styles.optionsRow}>
+                        {['Day', 'Week', 'Month', 'Year', 'Custom'].map((view) => (
+                            <FilterChip
+                                key={view}
+                                label={view}
+                                selected={selectedView === view}
+                                onPress={() => onViewSelect(view as TimeView)}
+                                selectedColor={colors.primary}
+                            />
+                        ))}
+                    </View>
+                </View>
+
+                {/* Transaction Type Section */}
+                <View>
+                    <ThemedText variant='body1' style={{ marginBottom: 14 }}>Transaction Type</ThemedText>
+                    <View style={styles.optionsRow}>
+                        {filterOptions.transactionTypes.map(type => (
+                            <FilterChip
+                                key={type.value}
+                                label={type.label}
+                                selected={filterState.transactionType === type.value}
+                                onPress={() => onFilterChange('transactionType', type.value)}
+                                selectedColor={type.value == 'income' ? colors.income :
+                                    type.value == 'expense' ? colors.expense : colors.primary}
+                            />
+                        ))}
+                    </View>
+                </View>
+
+                {/* Categories Section */}
+                <View>
+                    <ThemedText variant='body1' style={{ marginBottom: 14 }}>Categories</ThemedText>
+                    <View style={[styles.optionsRow]}>
+                        {filterOptions.categories.map(category => (
+                            <FilterChip
+                                key={category.id}
+                                label={category.name}
+                                selected={filterState.categories.includes(category.name)}
+                                onPress={() => onFilterChange('category', category.name)}
+                                selectedColor={category.color}
+                            />
+                        ))}
+                    </View>
+                </View>
+            </View>
+        </BottomSheetModal>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 16,
+    },
+    header: {
+        marginBottom: 16,
+        gap: 6,
+    },
+    titleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    iconContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 10
+    },
+    content: {
+        flex: 1,
+        justifyContent: 'flex-start',
+        gap: 20,
+        paddingHorizontal: 20
+    },
+    optionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        marginBottom: 16,
+        gap: 10,
+        flexWrap: 'wrap'
+    },
+    wrap: {
+        flexWrap: 'wrap',
+    },
+    footerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        paddingBottom: 32
+    },
+    footerButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    clearButton: {
+        backgroundColor: 'transparent',
+        borderColor: 'gray',
+        borderWidth: 1,
+    },
+});

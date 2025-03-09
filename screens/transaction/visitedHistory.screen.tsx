@@ -15,12 +15,12 @@ const VisitedHistoryScreen = () => {
   const transaction = useMemo(() => transactions.find(t => t.id === id), [id, transactions]);
   const merchantLoyaltyTransactions = useMemo(() => {
     // If paidTo or paidBy indicates 'Unknown', return an empty array immediately
-    if (
-      transaction?.paidBy?.trim().toLowerCase() === 'Unknown Payer' ||
-      transaction?.paidTo?.trim().toLowerCase() === 'Unknown Recipient'
-    ) {
-      return [];
-    }
+    // if (
+    //   transaction?.paidBy?.trim().toLowerCase() === 'Unknown Payer' ||
+    //   transaction?.paidTo?.trim().toLowerCase() === 'Unknown Recipient'
+    // ) {
+    //   return [];
+    // }
 
     // Otherwise, return all matching transactions
     return transactions.filter((t: Transaction) => t.category.name === transaction?.category.name);

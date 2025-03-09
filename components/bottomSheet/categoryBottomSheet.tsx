@@ -91,7 +91,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     );
 
     const handleEditCategory = () => {
-        router.push('category/categoryList');
+        router.push('/category/categoryList');
         onClose();
     }
     const renderFooter = useCallback(

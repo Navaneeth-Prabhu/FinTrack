@@ -86,7 +86,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.fintrack.FinTrack"
+    namespace 'com.fintrack.FinTrack'
     defaultConfig {
         applicationId 'com.fintrack.FinTrack'
         minSdkVersion rootProject.ext.minSdkVersion

@@ -64,7 +64,6 @@ export interface Budget {
   isRecurring: boolean;
 }
 
-// src/types.ts
 export interface RecurringTransaction {
   id: string;
   amount: number;
@@ -83,3 +82,5 @@ export interface RecurringTransaction {
   lastModified: string;
   mode?: string
 }
+
+export type TimeView = 'Day' | 'Week' | 'Month' | 'Year' | 'Custom';

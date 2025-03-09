@@ -28,13 +28,13 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
 
     const merchantLoyaltyScore = useMemo(() => {
         if (!transaction) return 'N/A';
-        if (
-            transaction.paidBy?.trim().toLowerCase() === 'unknown payer' ||
-            transaction.paidTo?.trim().toLowerCase() === 'unknown recipient'
-        ) {
-            return 1;
-        }
-        return transactions.filter(t => t.paidTo === transaction.paidTo).length;
+        // if (
+        //     transaction.paidBy?.trim().toLowerCase() === 'unknown payer' ||
+        //     transaction.paidTo?.trim().toLowerCase() === 'unknown recipient'
+        // ) {
+        //     return 1;
+        // }
+        return transactions.filter(t => t.category.name === transaction.category.name).length;
     }, [transactions, transaction]);
 
     useLayoutEffect(() => {
@@ -79,8 +79,9 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
 
     const data = isRecurring ? recurring : transaction;
 
+    console.log(merchantLoyaltyScore, 'merchantLoyaltyScore');
     return (
-        <View style={{ flex: 1, gap: 24, padding: 16 }}>
+        <View style={{ flex: 1, gap: 24 }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
                 <View style={{
@@ -94,9 +95,9 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 }}>
                     <ThemedText variant="h2">{data?.category.icon}</ThemedText>
                 </View>
-                <View style={{ flex: 1 }}>
-                    {/* <ThemedText variant="h2">{data?.paidTo || (isRecurring ? 'Recurring Template' : 'N/A')}</ThemedText> */}
-                    <ThemedText variant="subtitle" style={{ color: colors.subtitle }}>
+                <View style={{ flex: 1, gap: 8 }}>
+                    <ThemedText variant="h2">{data?.paidTo || (isRecurring ? 'Recurring Template' : 'N/A')}</ThemedText>
+                    <ThemedText variant="h3" style={{ color: colors.subtitle }}>
                         {data?.category.name} {isRecurring ? '(Template)' : linkedRecurring ? '(Recurring Instance)' : ''}
                     </ThemedText>
                 </View>
@@ -156,24 +157,17 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     </View>
                 </Card>
             )}
-
+            <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction?.id}`)}>
+                <Card variant="outlined" style={{ gap: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <ThemedText variant="body1">Note</ThemedText>
+                    <ThemedText variant="body1">{merchantLoyaltyScore}</ThemedText>
+                </Card>
+            </TouchableOpacity>
             {/* Notes */}
-            <Card variant="outlined" style={{ gap: 10, borderWidth: 1, borderColor: colors.border }}>
+            <Card variant="outlined" style={{ gap: 8, borderWidth: 1, borderColor: colors.border }}>
                 <ThemedText variant="body1">Note</ThemedText>
                 {/* <ThemedText variant="body1">{data?.note || 'No note added'}</ThemedText> */}
             </Card>
-
-            {/* Delete */}
-            {transaction && !isRecurring && (
-                <TouchableOpacity onPress={() => removeTransaction(transaction.id)}>
-                    <ThemedText variant="body1" style={{ color: colors.error }}>Delete Transaction</ThemedText>
-                </TouchableOpacity>
-            )}
-            {isRecurring && recurring && (
-                <TouchableOpacity onPress={() => removeRecurringTransaction(recurring.id)}>
-                    <ThemedText variant="body1" style={{ color: colors.error }}>Delete Recurring Template</ThemedText>
-                </TouchableOpacity>
-            )}
         </View>
     );
 };

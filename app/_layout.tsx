@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { registerRecurringTask } from '@/services/recurringBackground';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import * as BackgroundFetch from 'expo-background-fetch';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -57,20 +58,21 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <StatusBar style="inverted" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-          <Stack.Screen
-            name="(routes)/transaction"
-            options={{
-              headerShown: false,
-              presentation: 'containedTransparentModal',
-              animation: 'fade',
-            }}
-          />
-        </Stack>
-        <StatusBar style="auto" />
+        <BottomSheetModalProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+            <Stack.Screen
+              name="(routes)/transaction"
+              options={{
+                headerShown: false,
+                presentation: 'containedTransparentModal',
+                animation: 'fade',
+              }}
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </BottomSheetModalProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
