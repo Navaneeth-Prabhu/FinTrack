@@ -13,7 +13,6 @@ const TransactionDetails = () => {
     const { id, isRecurring } = useLocalSearchParams()
     const { transactions } = useTransactionStore();
     const { recurringTransactions } = useRecurringTransactionStore();
-    console.log(transactions, 'transactions');
     const transaction = useMemo(() =>
         isRecurring === 'true'
             ? null

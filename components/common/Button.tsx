@@ -1,6 +1,5 @@
 // components/common/Button.tsx
-import { Pressable, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { Text } from './Typography';
+import { Pressable, StyleSheet, ActivityIndicator, View, Text } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -94,7 +93,7 @@ export function Button({
                 <View style={styles.content}>
                     {leftIcon && <View style={styles.iconLeft}>{leftIcon}</View>}
                     <Text
-                        variant="button"
+                        // variant="button"
                         style={[
                             { color: variant === 'outline' ? colors.primary : 'white' },
                             disabled && styles.disabledText,

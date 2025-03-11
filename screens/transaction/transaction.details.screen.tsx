@@ -79,7 +79,6 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
 
     const data = isRecurring ? recurring : transaction;
 
-    console.log(merchantLoyaltyScore, 'merchantLoyaltyScore');
     return (
         <View style={{ flex: 1, gap: 24 }}>
             {/* Header */}

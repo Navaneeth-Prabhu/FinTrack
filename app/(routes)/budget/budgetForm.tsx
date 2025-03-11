@@ -5,10 +5,7 @@ import { Screen } from '@/components/layout/Screen'
 
 const BudgetForm = () => {
     return (
-        <Screen>
-            <Text>BudgetForm</Text>
-            <BudgetFormScreen />
-        </Screen>
+        <BudgetFormScreen />
     )
 }
 

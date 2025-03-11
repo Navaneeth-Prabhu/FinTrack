@@ -21,13 +21,6 @@ const MemoizedTransactionItem = memo(TransactionItem);
 // Memoized SectionHeader component
 const MemoizedSectionHeader = memo(SectionHeader);
 
-// Separator component
-const ItemSeparator = memo(() => {
-    const { colors } = useTheme();
-    return (
-        <View style={[styles.separator, { backgroundColor: colors.border }]} />
-    );
-});
 
 // Empty list component
 const EmptyList = memo(() => {
@@ -48,7 +41,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 
     // Memoized render functions to prevent recreation on each render
     const renderItem = useCallback(({ item, section }) => (
-        <MemoizedTransactionItem transaction={item} sectionData={section} />
+        <MemoizedTransactionItem transaction={item} isUpcoming={section.isUpcoming} />
     ), []);
 
     const renderSectionHeader = useCallback(({ section }) => (
@@ -77,10 +70,10 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 renderSectionHeader={renderSectionHeader}
-                ItemSeparatorComponent={ItemSeparator}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
+                SectionSeparatorComponent={() => <View style={styles.separator} />}
                 stickySectionHeadersEnabled
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
@@ -97,7 +90,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     separator: {
-        height: 1,
+        height: 12,
         width: '100%',
     },
     emptyContainer: {
