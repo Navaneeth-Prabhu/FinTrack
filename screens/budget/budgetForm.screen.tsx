@@ -112,10 +112,7 @@ const BudgetFormScreen = () => {
                                 ]}
                                 onPress={() => handleInputChange('category', category)}
                             >
-                                <ThemedText style={[
-                                    styles.categoryText,
-                                    budget.category.id === category.id && styles.selectedCategoryText
-                                ]}>
+                                <ThemedText>
                                     {category.name}
                                 </ThemedText>
                             </TouchableOpacity>
