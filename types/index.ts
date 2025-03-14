@@ -49,21 +49,21 @@ export interface Category {
 
 export interface Budget {
   id: string;
-  limit: number;
-  spent: number;
-  category: Category;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  startDate: string;
-  endDate?: string | null;
-  progress: number;
-  // name?: string;
-  // notifications: {              // Budget alerts
-  //   enabled: boolean;
-  //   thresholds: number[];      // Alert at 50%, 80%, 90% etc.
-  // };
-  isRecurring: boolean;
+  limit: number;              // Total spending limit per period
+  category: Category;         // Category this budget applies to
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'; // Period type
+  periodLength?: number;      // Optional: days for custom frequency (like Cashew)
+  startDate: string;          // When the budget begins
+  endDate?: string | null;    // Optional end date for non-recurring or capped recurring budgets
+  isRecurring: boolean;       // Whether the budget repeats
+  // Removed: spent, progress (calculated dynamically from transactions)
+  // Optional fields from your original:
+  name?: string;              // User-defined name (e.g., "Groceries")
+  notifications?: {
+    enabled: boolean;
+    thresholds: number[];     // Alert at 50%, 80%, etc.
+  };
 }
-
 export interface RecurringTransaction {
   id: string;
   amount: number;

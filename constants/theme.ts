@@ -2,7 +2,8 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#F9FAFC',
+    background: '#F8F9FA',
+    // background: '#F9FAFC',
     // background: '#F7F7F7',
     secondaryBackground: '#FFFFFF',
     foreground: '#000000',
@@ -12,7 +13,7 @@ export const lightTheme = {
     primary: '#8F85FF',
     primaryForeground: '#FFFFFF',
     secondary: '#8F85FF',
-    text: '#1A1A1A',
+    text: '#333333',
     subtitle: '#6B7280',
 
     // Semantic colors

@@ -141,7 +141,6 @@ const HomeScreen = () => {
             <SmartAlerts
                 transactions={transactions}
                 recurringTransactions={recurringTransactions}
-                onTipPress={() => { }}
             />
 
             <SmartBalanceForecast

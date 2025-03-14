@@ -3,235 +3,154 @@ import { Budget, Transaction } from '@/types';
 import {
   fetchBudgetsFromDB,
   saveBudgetToDB,
-  deleteBudgetFromDB,
   updateBudgetInDB,
+  deleteBudgetFromDB,
+  calculateBudgetSpent,
 } from '@/db/repository/budgetRepository';
-import { useTransactionStore } from './transactionStore';
-import { isTransactionInBudgetPeriod, recalculateBudgetSpent } from '@/utils/budget';
+import { calculatePeriodStart, calculatePeriodEnd } from '@/utils/date';
 
-interface BudgetState {
+type TransactionAction = 'add' | 'update' | 'remove';
+
+interface BudgetStore {
   budgets: Budget[];
   isLoading: boolean;
   error: string | null;
-  
+  lastUpdated: number | null;
 
+  // Core budget operations
   fetchBudgets: () => Promise<void>;
   saveBudget: (budget: Budget) => Promise<Budget>;
   updateBudget: (budget: Budget) => Promise<Budget>;
-  removeBudget: (id: string) => Promise<void>;
-  setBudgets: (budgets: Budget[]) => void;
+  removeBudget: (budgetId: string) => Promise<void>;
+
+  // Period calculations
+  getCurrentPeriod: (budget: Budget) => { start: Date; end: Date };
+  getPastPeriods: (budget: Budget) => Promise<{ start: Date; end: Date; spent: number }[]>;
+  calculateSpent: (budget: Budget, start: Date, end: Date) => Promise<number>;
+
+  // Transaction integration
+  updateBudgetForTransaction: (transaction: Transaction, action: TransactionAction, oldTransaction?: Transaction) => void;
+  updateBudgetsForBulkTransactions: (transactions: Transaction[], action: TransactionAction, oldTransactions?: Transaction[]) => void;
   recalculateAllBudgets: () => void;
-  updateBudgetForTransaction: (
-    transaction: Transaction,
-    operation: 'add' | 'update' | 'remove',
-    oldTransaction?: Transaction
-  ) => void;
-  updateBudgetsForBulkTransactions: (
-    transactions: Transaction[],
-    operation: 'add' | 'update' | 'remove',
-    oldTransactions?: Transaction[]
-  ) => void;
 }
 
-export const useBudgetStore = create<BudgetState>((set, get) => ({
+export const useBudgetStore = create<BudgetStore>((set, get) => ({
   budgets: [],
   isLoading: false,
   error: null,
+  lastUpdated: null,
 
   fetchBudgets: async () => {
+    set({ isLoading: true });
     try {
-      set({ isLoading: true, error: null });
       const budgets = await fetchBudgetsFromDB();
-      const transactions = useTransactionStore.getState().transactions;
-
-      const updatedBudgets = budgets.map(budget => {
-        const spent = recalculateBudgetSpent(budget, transactions);
-        const progress = Number(((spent / budget.limit) * 100).toFixed(2));
-        return { ...budget, spent, progress };
-      });
-
-      set({ budgets: updatedBudgets, isLoading: false });
+      console.log('Fetched budgets from DB:', budgets.length);
+      set({ budgets, isLoading: false, lastUpdated: Date.now() });
     } catch (error) {
-      set({
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch budgets',
-      });
+      console.error('Fetch budgets error:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to fetch budgets', isLoading: false });
     }
   },
 
   saveBudget: async (budget: Budget) => {
-    try {
-      const transactions = useTransactionStore.getState().transactions;
-      const spent = recalculateBudgetSpent(budget, transactions);
-      const progress = Number(((spent / budget.limit) * 100).toFixed(2));
-      const budgetToSave = { ...budget, spent, progress };
+    const newBudget = { ...budget, id: budget.id || new Date().toISOString() };
+    await saveBudgetToDB(newBudget);
 
-      await saveBudgetToDB(budgetToSave);
-      set(state => ({
-        budgets: [...state.budgets, budgetToSave],
-      }));
-      return budgetToSave;
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to save budget',
-      });
-      throw error;
-    }
+    // Optimistic update
+    const currentBudgets = [...get().budgets];
+    set({ budgets: [...currentBudgets, newBudget], lastUpdated: Date.now() });
+
+    return newBudget;
   },
 
   updateBudget: async (budget: Budget) => {
-    try {
-      const transactions = useTransactionStore.getState().transactions;
-      const spent = recalculateBudgetSpent(budget, transactions);
-      const progress = Number(((spent / budget.limit) * 100).toFixed(2));
-      const budgetToUpdate = { ...budget, spent, progress };
+    const updatedBudget = await updateBudgetInDB(budget);
 
-      const updatedBudget = await updateBudgetInDB(budgetToUpdate);
-      set(state => ({
-        budgets: state.budgets.map(b => (b.id === updatedBudget.id ? updatedBudget : b)),
-      }));
-      return updatedBudget;
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to update budget',
-      });
-      throw error;
-    }
-  },
-
-  removeBudget: async (id: string) => {
-    try {
-      await deleteBudgetFromDB(id);
-      set(state => ({
-        budgets: state.budgets.filter(b => b.id !== id),
-      }));
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to remove budget',
-      });
-      throw error;
-    }
-  },
-
-  setBudgets: (budgets: Budget[]) => {
-    set({ budgets });
-  },
-
-  recalculateAllBudgets: () => {
-    const { budgets } = get();
-    const transactions = useTransactionStore.getState().transactions;
-
-    const updatedBudgets = budgets.map(budget => {
-      const spent = recalculateBudgetSpent(budget, transactions);
-      const progress = Number(((spent / budget.limit) * 100).toFixed(2));
-      return { ...budget, spent, progress };
-    });
-
-    set({ budgets: updatedBudgets });
-  },
-
-  updateBudgetForTransaction: (
-    transaction: Transaction,
-    operation: 'add' | 'update' | 'remove',
-    oldTransaction?: Transaction
-  ) => {
-    if (transaction.type !== 'expense') return;
-
-    const { budgets } = get();
-    const affectedBudgets = budgets.filter(budget =>
-      isTransactionInBudgetPeriod(transaction, budget) ||
-      (oldTransaction && isTransactionInBudgetPeriod(oldTransaction, budget))
+    // Optimistic update
+    const updatedBudgets = get().budgets.map(b =>
+      b.id === budget.id ? updatedBudget : b
     );
 
-    if (affectedBudgets.length === 0) return;
-
-    const updatedBudgets = budgets.map(budget => {
-      if (!affectedBudgets.some(b => b.id === budget.id)) return budget;
-
-      let newSpent = budget.spent;
-      if (operation === 'add') {
-        if (isTransactionInBudgetPeriod(transaction, budget)) {
-          newSpent += transaction.amount;
-        }
-      } else if (operation === 'update' && oldTransaction) {
-        if (isTransactionInBudgetPeriod(oldTransaction, budget)) {
-          newSpent -= oldTransaction.amount;
-        }
-        if (isTransactionInBudgetPeriod(transaction, budget)) {
-          newSpent += transaction.amount;
-        }
-      } else if (operation === 'remove') {
-        if (isTransactionInBudgetPeriod(transaction, budget)) {
-          newSpent = Math.max(0, newSpent - transaction.amount);
-        }
-      }
-
-      const progress = Number(((newSpent / budget.limit) * 100).toFixed(2));
-      return { ...budget, spent: newSpent, progress };
-    });
-
-    set({ budgets: updatedBudgets });
+    set({ budgets: updatedBudgets, lastUpdated: Date.now() });
+    return updatedBudget;
   },
 
-  updateBudgetsForBulkTransactions: (
-    transactions: Transaction[],
-    operation: 'add' | 'update' | 'remove',
-    oldTransactions?: Transaction[]
-  ) => {
-    const expenseTransactions = transactions.filter(t => t.type === 'expense');
-    if (expenseTransactions.length === 0) return;
+  removeBudget: async (budgetId: string) => {
+    await deleteBudgetFromDB(budgetId);
 
-    const { budgets } = get();
-    const affectedBudgetIds = new Set<string>();
+    // Optimistic update
+    const filteredBudgets = get().budgets.filter(b => b.id !== budgetId);
+    set({ budgets: filteredBudgets, lastUpdated: Date.now() });
+  },
 
-    // Identify affected budgets
-    expenseTransactions.forEach(t => {
-      budgets.forEach(b => {
-        if (isTransactionInBudgetPeriod(t, b)) affectedBudgetIds.add(b.id);
-      });
-    });
-    if (operation === 'update' && oldTransactions) {
-      oldTransactions.forEach(t => {
-        budgets.forEach(b => {
-          if (isTransactionInBudgetPeriod(t, b)) affectedBudgetIds.add(b.id);
-        });
-      });
-    } else if (operation === 'remove') {
-      expenseTransactions.forEach(t => {
-        budgets.forEach(b => {
-          if (isTransactionInBudgetPeriod(t, b)) affectedBudgetIds.add(b.id);
-        });
-      });
+  getCurrentPeriod: (budget: Budget) => {
+    const periodStart = calculatePeriodStart(budget.startDate, budget.frequency, budget.periodLength);
+    const periodEnd = calculatePeriodEnd(periodStart, budget.frequency, budget.periodLength);
+    if (budget.endDate && periodEnd > new Date(budget.endDate)) {
+      return { start: periodStart, end: new Date(budget.endDate) };
+    }
+    return { start: periodStart, end: periodEnd };
+  },
+
+  getPastPeriods: async (budget: Budget) => {
+    const periods = [];
+    let periodStart = new Date(budget.startDate);
+    const now = new Date();
+    const cappedEnd = budget.endDate ? new Date(budget.endDate) : now;
+
+    while (periodStart < now && periodStart <= cappedEnd) {
+      const periodEnd = calculatePeriodEnd(periodStart, budget.frequency, budget.periodLength);
+      const actualEnd = periodEnd > cappedEnd ? cappedEnd : periodEnd;
+      const spent = await calculateBudgetSpent(budget, periodStart, actualEnd);
+      periods.push({ start: periodStart, end: actualEnd, spent });
+      periodStart = new Date(actualEnd);
+      periodStart.setDate(periodStart.getDate() + 1);
+    }
+    return periods;
+  },
+
+  calculateSpent: async (budget: Budget, start: Date, end: Date) => {
+    return calculateBudgetSpent(budget, start, end);
+  },
+
+  // This method handles updating budgets when a single transaction changes
+  updateBudgetForTransaction: (transaction: Transaction, action: TransactionAction, oldTransaction?: Transaction) => {
+    console.log(`Updating budgets for ${action} transaction:`, transaction);
+
+    // Skip processing if the transaction doesn't affect budgets (e.g., income or transfer)
+    if (transaction.type !== 'expense') {
+      console.log('Transaction is not an expense, skipping budget update');
+      return;
     }
 
-    if (affectedBudgetIds.size === 0) return;
+    // Trigger a UI update to reflect changes without a full DB refetch
+    set({ lastUpdated: Date.now() });
 
-    const updatedBudgets = budgets.map(budget => {
-      if (!affectedBudgetIds.has(budget.id)) return budget;
-
-      let newSpent = budget.spent;
-      if (operation === 'add') {
-        newSpent += expenseTransactions
-          .filter(t => isTransactionInBudgetPeriod(t, budget))
-          .reduce((sum, t) => sum + t.amount, 0);
-      } else if (operation === 'update' && oldTransactions) {
-        newSpent -= oldTransactions
-          .filter(t => isTransactionInBudgetPeriod(t, budget))
-          .reduce((sum, t) => sum + t.amount, 0);
-        newSpent += expenseTransactions
-          .filter(t => isTransactionInBudgetPeriod(t, budget))
-          .reduce((sum, t) => sum + t.amount, 0);
-      } else if (operation === 'remove') {
-        newSpent -= expenseTransactions
-          .filter(t => isTransactionInBudgetPeriod(t, budget))
-          .reduce((sum, t) => sum + t.amount, 0);
-        newSpent = Math.max(0, newSpent);
-      }
-
-      const progress = Number(((newSpent / budget.limit) * 100).toFixed(2));
-      return { ...budget, spent: newSpent, progress };
-    });
-
-    set({ budgets: updatedBudgets });
+    // For complex cases (like category changes), we might want to consider
+    // which budgets are affected by the old and new transaction
+    if (action === 'update' && oldTransaction && oldTransaction.category.id !== transaction.category.id) {
+      console.log('Transaction category changed, multiple budgets may be affected');
+    }
   },
+
+  // This method handles updating budgets for multiple transactions at once
+  updateBudgetsForBulkTransactions: (transactions: Transaction[], action: TransactionAction, oldTransactions?: Transaction[]) => {
+    console.log(`Updating budgets for ${transactions.length} ${action} transactions`);
+
+    // Filter to only include expense transactions that affect budgets
+    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    if (expenseTransactions.length === 0) {
+      console.log('No expense transactions in bulk update, skipping budget update');
+      return;
+    }
+
+    // Trigger a UI update to reflect changes without a full DB refetch
+    set({ lastUpdated: Date.now() });
+  },
+
+  // This method recalculates all budget data (typically used after initial load)
+  recalculateAllBudgets: () => {
+    console.log('Recalculating all budgets');
+    set({ lastUpdated: Date.now() });
+  }
 }));

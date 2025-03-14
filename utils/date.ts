@@ -1,5 +1,5 @@
 import { Budget } from "@/types";
-import { addDays, addMonths, addWeeks, addYears, endOfDay, endOfMonth, endOfWeek, endOfYear, formatDate, isAfter, isBefore, isFirstDayOfMonth, isToday, parseISO, startOfDay } from "date-fns";
+import { addDays, addMonths, addWeeks, addYears, differenceInDays, endOfDay, endOfMonth, endOfWeek, endOfYear, formatDate, isAfter, isBefore, isFirstDayOfMonth, isToday, parseISO, startOfDay, subDays } from "date-fns";
 
 type DateFormatOptions = {
     dateFormat?: string; // Custom date format
@@ -105,3 +105,52 @@ export const calculateIdealSpending = (
 
     return Math.min(limit * elapsedFraction, limit);
 };
+
+export const calculatePeriodStart = (startDate: string, frequency: string, periodLength?: number, referenceDate: Date = new Date()): Date => {
+    const start = new Date(startDate);
+    const now = referenceDate;
+  
+    if (start >= now) return start; // If budget hasn't started yet, return startDate
+  
+    const daysSinceStart = differenceInDays(now, start);
+    let periodsElapsed: number;
+  
+    switch (frequency) {
+      case 'daily':
+        periodsElapsed = Math.floor(daysSinceStart);
+        return addDays(start, periodsElapsed);
+      case 'weekly':
+        periodsElapsed = Math.floor(daysSinceStart / 7);
+        return addWeeks(start, periodsElapsed);
+      case 'monthly':
+        const monthsSinceStart = (now.getFullYear() - start.getFullYear()) * 12 + now.getMonth() - start.getMonth();
+        return new Date(start.getFullYear(), start.getMonth() + monthsSinceStart, start.getDate());
+      case 'yearly':
+        periodsElapsed = now.getFullYear() - start.getFullYear();
+        return addYears(start, periodsElapsed);
+      case 'custom':
+        if (!periodLength) throw new Error('periodLength required for custom frequency');
+        periodsElapsed = Math.floor(daysSinceStart / periodLength);
+        return addDays(start, periodsElapsed * periodLength);
+      default:
+        throw new Error(`Unsupported frequency: ${frequency}`);
+    }
+  };
+  
+  export const calculatePeriodEnd = (periodStart: Date, frequency: string, periodLength?: number): Date => {
+    switch (frequency) {
+      case 'daily':
+        return addDays(periodStart, 1);
+      case 'weekly':
+        return addWeeks(periodStart, 1);
+      case 'monthly':
+        return subDays(addMonths(periodStart, 1), 1); // Last day of the month
+      case 'yearly':
+        return subDays(addYears(periodStart, 1), 1); // Last day of the year
+      case 'custom':
+        if (!periodLength) throw new Error('periodLength required for custom frequency');
+        return addDays(periodStart, periodLength - 1);
+      default:
+        throw new Error(`Unsupported frequency: ${frequency}`);
+    }
+  };

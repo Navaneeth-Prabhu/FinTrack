@@ -57,13 +57,13 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       id TEXT PRIMARY KEY,
       budget_limit REAL NOT NULL,
       frequency TEXT NOT NULL,
+      period_length INTEGER,
       startDate TEXT NOT NULL,
       endDate TEXT,
-      spent REAL DEFAULT 0,
-      progress REAL DEFAULT 0,
       categoryId TEXT NOT NULL,
-      isRecurring INTEGER DEFAULT 0,
-      FOREIGN KEY (categoryId) REFERENCES categories (id)
+      isRecurring INTEGER NOT NULL,
+      name TEXT,
+      FOREIGN KEY (categoryId) REFERENCES categories(id)
     );
 
     CREATE TABLE IF NOT EXISTS recurring_transactions (

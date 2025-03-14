@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { Budget } from '@/types';
 import { useCategoryStore } from '@/stores/categoryStore';
@@ -15,18 +15,13 @@ const BudgetFormScreen = () => {
     const { editMode, budgetId } = useLocalSearchParams();
     const { categories, fetchCategories } = useCategoryStore();
     const { colors } = useTheme();
-    const frequencies = ['daily', 'weekly', 'monthly', 'yearly'];
+    const frequencies = ['daily', 'weekly', 'monthly', 'yearly', 'custom'];
 
-    const currentBudget = useMemo(() =>
-        budgets.find(b => b.id === budgetId),
-        [budgetId, budgets]
-    );
+    const currentBudget = useMemo(() => budgets.find(b => b.id === budgetId), [budgetId, budgets]);
 
     const [budget, setBudget] = useState<Budget>({
-        id: new Date().toISOString(),
+        id: new Date().toISOString(), // Temporary ID, replace with UUID if needed
         limit: 0,
-        spent: 0,
-        progress: 0,
         category: {
             id: '',
             name: '',
@@ -38,6 +33,8 @@ const BudgetFormScreen = () => {
         startDate: startOfMonth(new Date()).toISOString(),
         endDate: null,
         isRecurring: true,
+        name: '', // Optional field
+        periodLength: undefined, // Added for custom frequency
     });
 
     // DatePicker State
@@ -46,7 +43,7 @@ const BudgetFormScreen = () => {
 
     useEffect(() => {
         fetchCategories();
-    }, []);
+    }, [fetchCategories]);
 
     useEffect(() => {
         if (editMode === 'true' && currentBudget) {
@@ -58,17 +55,30 @@ const BudgetFormScreen = () => {
         setBudget(prev => ({ ...prev, [field]: value }));
     };
 
-    const saveBudgetHandler = () => {
+    const saveBudgetHandler = async () => {
         if (!budget.limit || !budget.category.id) {
             Alert.alert('Error', 'Please enter all required fields.');
             return;
         }
-        if (editMode === 'true') {
-            updateBudget(budget);
-        } else {
-            saveBudget(budget);
+        if (budget.frequency === 'custom' && (!budget.periodLength || budget.periodLength <= 0)) {
+            Alert.alert('Error', 'Please enter a valid period length for custom frequency.');
+            return;
         }
-        router.back();
+        try {
+            if (editMode === 'true') {
+                const updatedBudget = await updateBudget(budget);
+                console.log('Updated budget:', updatedBudget);
+                Alert.alert('Success', 'Budget updated successfully.');
+            } else {
+                const newBudget = await saveBudget(budget);
+                console.log('Created budget:', newBudget);
+                Alert.alert('Success', 'Budget created successfully.');
+            }
+            router.back();
+        } catch (error) {
+            console.error('Error saving/updating budget:', error);
+            Alert.alert('Error', 'Failed to save budget: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        }
     };
 
     // Handle Date Picker Selection
@@ -83,119 +93,139 @@ const BudgetFormScreen = () => {
     };
 
     return (
-        <>
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <ScrollView style={styles.container}>
+                <ThemedText variant="h2" style={styles.title}>
+                    {editMode === 'true' ? 'Edit Budget' : 'Create Budget'}
+                </ThemedText>
 
-                <ScrollView style={styles.container}>
-                    <ThemedText variant='h2' style={styles.title}>{editMode === 'true' ? 'Edit Budget' : 'Create Budget'}</ThemedText>
+                {/* Budget Name Input */}
+                <ThemedText style={styles.label}>Budget Name (Optional)</ThemedText>
+                <TextInput
+                    style={[styles.input, { color: colors.text, borderColor: colors.accent }]}
+                    placeholder="Enter budget name"
+                    value={budget.name}
+                    onChangeText={(text) => handleInputChange('name', text)}
+                />
 
-                    {/* Budget Limit Input */}
-                    <TextInput
-                        style={[styles.input, { color: colors.text, borderColor: colors.accent }]}
-                        placeholder="Enter amount"
-                        keyboardType="numeric"
-                        value={budget.limit.toString()}
-                        placeholderTextColor={colors.text}
-                        onChangeText={(text) => handleInputChange('limit', parseFloat(text) || 0)}
-                    />
+                {/* Budget Limit Input */}
+                <ThemedText style={styles.label}>Limit</ThemedText>
+                <TextInput
+                    style={[styles.input, { color: colors.text, borderColor: colors.accent }]}
+                    placeholder="Enter amount"
+                    keyboardType="numeric"
+                    value={budget.limit.toString()}
+                    onChangeText={(text) => handleInputChange('limit', parseFloat(text) || 0)}
+                />
 
-                    {/* Category Selection */}
-                    <ThemedText style={styles.label}>Category</ThemedText>
-                    <View style={styles.categoriesContainer}>
-                        {categories.map(category => (
-                            <TouchableOpacity
-                                key={category.id}
-                                style={[
-                                    styles.categoryButton,
-                                    // budget.category.id === category.id && styles.selectedCategory,
-                                    { borderColor: budget.category.id === category.id ? category.color : colors.accent }
-                                ]}
-                                onPress={() => handleInputChange('category', category)}
-                            >
-                                <ThemedText>
-                                    {category.name}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                {/* Category Selection */}
+                <ThemedText style={styles.label}>Category</ThemedText>
+                <View style={styles.categoriesContainer}>
+                    {categories.map(category => (
+                        <TouchableOpacity
+                            key={category.id}
+                            style={[
+                                styles.categoryButton,
+                                { borderColor: budget.category.id === category.id ? category.color : colors.accent },
+                            ]}
+                            onPress={() => handleInputChange('category', category)}
+                        >
+                            <ThemedText>{category.name}</ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </View>
 
-                    {/* Frequency Selection */}
-                    <ThemedText style={styles.label}>Frequency</ThemedText>
-                    <View style={[styles.categoriesContainer]}>
-                        {frequencies.map(freq => (
-                            <TouchableOpacity
-                                key={freq}
-                                style={[
-                                    styles.categoryButton,
-                                    { borderColor: budget.frequency === freq ? colors.primary : colors.accent }
-                                ]}
-                                onPress={() => handleInputChange('frequency', freq)}
-                            >
-                                <ThemedText >
-                                    {freq.charAt(0).toUpperCase() + freq.slice(1)}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                {/* Frequency Selection */}
+                <ThemedText style={styles.label}>Frequency</ThemedText>
+                <View style={styles.categoriesContainer}>
+                    {frequencies.map(freq => (
+                        <TouchableOpacity
+                            key={freq}
+                            style={[
+                                styles.categoryButton,
+                                { borderColor: budget.frequency === freq ? colors.primary : colors.accent },
+                            ]}
+                            onPress={() => handleInputChange('frequency', freq)}
+                        >
+                            <ThemedText>{freq.charAt(0).toUpperCase() + freq.slice(1)}</ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </View>
 
-                    {/* Start Date */}
-                    <ThemedText style={styles.label}>Start Date</ThemedText>
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => {
-                            setDatePickerMode('start');
-                            setDatePickerVisible(true);
-                        }}
-                    >
-                        <ThemedText>{new Date(budget.startDate).toLocaleDateString()}</ThemedText>
-                    </TouchableOpacity>
+                {/* Period Length for Custom Frequency */}
+                {budget.frequency === 'custom' && (
+                    <>
+                        <ThemedText style={styles.label}>Period Length (Days)</ThemedText>
+                        <TextInput
+                            style={[styles.input, { color: colors.text, borderColor: colors.accent }]}
+                            placeholder="Enter number of days"
+                            keyboardType="numeric"
+                            value={budget.periodLength?.toString() || ''}
+                            onChangeText={(text) => handleInputChange('periodLength', parseInt(text) || undefined)}
+                        />
+                    </>
+                )}
 
-                    {/* End Date (Only Show if Not Recurring) */}
-                    {!budget.isRecurring && (
-                        <>
-                            <ThemedText style={styles.label}>End Date</ThemedText>
-                            <TouchableOpacity
-                                style={styles.dateButton}
-                                onPress={() => {
-                                    setDatePickerMode('end');
-                                    setDatePickerVisible(true);
-                                }}
-                            >
-                                <ThemedText>{budget.endDate ? new Date(budget.endDate).toLocaleDateString() : 'Select End Date'}</ThemedText>
-                            </TouchableOpacity>
-                        </>
-                    )}
-
-                    {/* Recurring Toggle */}
-                    <TouchableOpacity
-                        style={styles.recurringButton}
-                        onPress={() => handleInputChange('isRecurring', !budget.isRecurring)}
-                    >
-                        <View style={[
-                            styles.checkbox,
-                            budget.isRecurring && styles.checkedBox
-                        ]} />
-                        <ThemedText >Recurring Budget</ThemedText>
-                    </TouchableOpacity>
-
-                    {/* Save Button */}
-
-                    {/* Date Picker Modal */}
-                    <DateTimePickerModal
-                        isVisible={isDatePickerVisible}
-                        mode="date"
-                        onConfirm={handleConfirmDate}
-                        onCancel={() => setDatePickerVisible(false)}
-                    />
-                </ScrollView>
+                {/* Start Date */}
+                <ThemedText style={styles.label}>Start Date</ThemedText>
                 <TouchableOpacity
-                    style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                    onPress={saveBudgetHandler}
+                    style={[styles.dateButton, { borderColor: colors.accent }]}
+                    onPress={() => {
+                        setDatePickerMode('start');
+                        setDatePickerVisible(true);
+                    }}
                 >
-                    <ThemedText style={styles.saveButtonText}>Save Budget</ThemedText>
+                    <ThemedText>{new Date(budget.startDate).toLocaleDateString()}</ThemedText>
                 </TouchableOpacity>
-            </SafeAreaView>
-        </>
+
+                {/* End Date (Only Show if Not Recurring) */}
+                {!budget.isRecurring && (
+                    <>
+                        <ThemedText style={styles.label}>End Date</ThemedText>
+                        <TouchableOpacity
+                            style={[styles.dateButton, { borderColor: colors.accent }]}
+                            onPress={() => {
+                                setDatePickerMode('end');
+                                setDatePickerVisible(true);
+                            }}
+                        >
+                            <ThemedText>
+                                {budget.endDate ? new Date(budget.endDate).toLocaleDateString() : 'Select End Date'}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    </>
+                )}
+
+                {/* Recurring Toggle */}
+                <TouchableOpacity
+                    style={styles.recurringButton}
+                    onPress={() => handleInputChange('isRecurring', !budget.isRecurring)}
+                >
+                    <View
+                        style={[
+                            styles.checkbox,
+                            { borderColor: colors.accent },
+                            budget.isRecurring && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ]}
+                    />
+                    <ThemedText>Recurring Budget</ThemedText>
+                </TouchableOpacity>
+
+                {/* Date Picker Modal */}
+                <DateTimePickerModal
+                    isVisible={isDatePickerVisible}
+                    mode="date"
+                    onConfirm={handleConfirmDate}
+                    onCancel={() => setDatePickerVisible(false)}
+                />
+            </ScrollView>
+            <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                onPress={saveBudgetHandler}
+            >
+                <ThemedText style={styles.saveButtonText}>Save Budget</ThemedText>
+            </TouchableOpacity>
+        </SafeAreaView>
     );
 };
 
@@ -203,16 +233,27 @@ const styles = StyleSheet.create({
     container: { flex: 1, padding: 16 },
     title: { marginBottom: 20 },
     label: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
-    input: { padding: 8, marginBottom: 20, borderRadius: 8, fontSize: 34, borderBottomWidth: 2 },
+    input: {
+        padding: 8,
+        marginBottom: 20,
+        borderRadius: 8,
+        fontSize: 16,
+        borderBottomWidth: 2,
+    },
     categoriesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 8 },
     categoryButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 2 },
-    selectedCategory: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    selectedCategoryText: { color: '#fff' },
-    dateButton: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 20 },
+    dateButton: { borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 20 },
     recurringButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#ddd', marginRight: 10, borderRadius: 4 },
-    checkedBox: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    saveButton: { padding: 15, borderRadius: 8, alignItems: 'center', position: 'absolute', bottom: 20, left: 10, right: 10 },
+    checkbox: { width: 20, height: 20, borderWidth: 1, marginRight: 10, borderRadius: 4 },
+    saveButton: {
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        position: 'absolute',
+        bottom: 20,
+        left: 10,
+        right: 10,
+    },
     saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
