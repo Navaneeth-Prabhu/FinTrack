@@ -94,7 +94,7 @@ export const updateBudgetInDB = async (budget: Budget): Promise<Budget> => {
         categoryId = ?, 
         isRecurring = ?,
         name = ?
-    WHERE id = ?`,
+        WHERE id = ?`,
         [
             budget.limit,
             budget.frequency,

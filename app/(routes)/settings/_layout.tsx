@@ -21,6 +21,7 @@ export default function _layout() {
         }}>
             <Stack.Screen name="themes" options={{ headerShown: true }} />
             <Stack.Screen name="index" options={{ headerShown: true }} />
+            <Stack.Screen name="support/index" options={{ headerShown: true }} />
         </Stack>
     );
 }

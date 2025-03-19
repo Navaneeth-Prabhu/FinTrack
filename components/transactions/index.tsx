@@ -71,6 +71,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 renderItem={renderItem}
                 renderSectionHeader={renderSectionHeader}
                 showsVerticalScrollIndicator={false}
+                ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
                 SectionSeparatorComponent={() => <View style={styles.separator} />}
@@ -88,6 +89,10 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    itemSeparator: {
+        height: 2,
+        width: '100%',
     },
     separator: {
         height: 12,

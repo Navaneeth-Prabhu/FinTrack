@@ -56,7 +56,6 @@ export interface Budget {
   startDate: string;          // When the budget begins
   endDate?: string | null;    // Optional end date for non-recurring or capped recurring budgets
   isRecurring: boolean;       // Whether the budget repeats
-  // Removed: spent, progress (calculated dynamically from transactions)
   // Optional fields from your original:
   name?: string;              // User-defined name (e.g., "Groceries")
   notifications?: {

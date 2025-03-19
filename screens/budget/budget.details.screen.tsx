@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useLayoutEffect, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -8,15 +8,16 @@ import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { format, addDays, subDays } from 'date-fns';
+import { BarChart } from 'react-native-gifted-charts';
+
+const screenWidth = Dimensions.get('window').width;
 
 const BudgetDetailsScreen = () => {
-  const { id, showHistory } = useLocalSearchParams();
-  const { budgets, getCurrentPeriod, getPastPeriods, calculateSpent, lastUpdated } = useBudgetStore();
+  const { id } = useLocalSearchParams();
+  const { budgets, getCurrentPeriod, calculateSpent, lastUpdated } = useBudgetStore();
   const { transactions } = useTransactionStore();
   const { colors } = useTheme();
-  const [showHistoryList, setShowHistoryList] = useState(showHistory === 'true');
   const [currentSpent, setCurrentSpent] = useState<number | null>(null);
-  const [pastPeriodsData, setPastPeriodsData] = useState<{ start: Date; end: Date; spent: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, 1 = next, etc.
   const navigation = useNavigation();
@@ -56,7 +57,6 @@ const BudgetDetailsScreen = () => {
       }
     }
 
-    // Cap end date if budget has an endDate
     if (budget.endDate && periodEnd > new Date(budget.endDate)) {
       periodEnd = new Date(budget.endDate);
     }
@@ -72,9 +72,7 @@ const BudgetDetailsScreen = () => {
     setIsLoading(true);
     try {
       const spent = await calculateSpent(budget, displayedPeriod.start, displayedPeriod.end);
-      const pastPeriods = await getPastPeriods(budget);
       setCurrentSpent(spent);
-      setPastPeriodsData(pastPeriods);
     } catch (error) {
       console.error('Error fetching budget data:', error);
     } finally {
@@ -82,12 +80,10 @@ const BudgetDetailsScreen = () => {
     }
   };
 
-  // Update data when budget, transactions, or period offset changes
   useEffect(() => {
     fetchBudgetData();
   }, [budget, lastUpdated, transactions, periodOffset]);
 
-  // Set navigation options
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -123,7 +119,7 @@ const BudgetDetailsScreen = () => {
   }
 
   const remaining = currentSpent !== null ? budget.limit - currentSpent : null;
-  const progress = currentSpent !== null ? (currentSpent / budget.limit) * 100 : null;
+  const progress = currentSpent !== null ? (currentSpent / budget.limit) * 100 : 0;
 
   const periodTransactions = useMemo(() => {
     return transactions.filter(t =>
@@ -134,23 +130,26 @@ const BudgetDetailsScreen = () => {
     );
   }, [transactions, budget, displayedPeriod]);
 
-  const renderHistoryItem = ({ item }: { item: { start: Date; end: Date; spent: number } }) => (
-    <TouchableOpacity
-      style={styles.historyItem}
-      onPress={() => {
-        console.log(`Viewing period: ${format(item.start, 'MMM d')} - ${format(item.end, 'MMM d')}`);
-      }}
-    >
-      <ThemedText>
-        {format(item.start, 'MMM d')} - {format(item.end, 'MMM d')}
-      </ThemedText>
-      <ThemedText>${item.spent.toFixed(2)} / ${budget.limit.toFixed(2)}</ThemedText>
-    </TouchableOpacity>
-  );
+  // Format period display based on frequency
+  const formatPeriodDisplay = () => {
+    if (budget.frequency === 'daily') {
+      return format(displayedPeriod.start, 'd MMM');
+    } else if (budget.frequency === 'yearly') {
+      return format(displayedPeriod.start, 'yyyy');
+    } else {
+      return `${format(displayedPeriod.start, 'd MMM')} - ${format(displayedPeriod.end, 'd MMM')}`;
+    }
+  };
+
+  // Chart data for transactions
+  const chartData = periodTransactions.map(t => ({
+    value: Math.abs(t.amount),
+    label: format(new Date(t.date), 'd'),
+    frontColor: colors.primary,
+  }));
 
   const handlePrevPeriod = () => setPeriodOffset(prev => prev - 1);
   const handleNextPeriod = () => {
-    // Prevent going beyond current period for recurring budgets, or endDate for non-recurring
     if (budget.isRecurring && periodOffset >= 0) return;
     if (!budget.isRecurring && budget.endDate && displayedPeriod.end >= new Date(budget.endDate)) return;
     setPeriodOffset(prev => prev + 1);
@@ -165,9 +164,7 @@ const BudgetDetailsScreen = () => {
             <TouchableOpacity onPress={handlePrevPeriod} style={styles.arrowButton}>
               <FontAwesome name="chevron-left" size={16} color={colors.text} />
             </TouchableOpacity>
-            <ThemedText>
-              {format(displayedPeriod.start, 'MMM d')} - {format(displayedPeriod.end, 'MMM d')}
-            </ThemedText>
+            <ThemedText>{formatPeriodDisplay()}</ThemedText>
             <TouchableOpacity onPress={handleNextPeriod} style={styles.arrowButton}>
               <FontAwesome name="chevron-right" size={16} color={colors.text} />
             </TouchableOpacity>
@@ -179,34 +176,47 @@ const BudgetDetailsScreen = () => {
               <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
               <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText>
               <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
-              <ThemedText>Progress: ${progress?.toFixed(1) ?? 'N/A'}%</ThemedText>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${Math.min(progress, 100)}%`,
+                      backgroundColor: progress > 100 ? colors.error : colors.primary,
+                    },
+                  ]}
+                />
+              </View>
+              <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
             </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.historyToggle}
-            onPress={() => setShowHistoryList(!showHistoryList)}
-          >
-            <ThemedText>{showHistoryList ? 'Hide History' : 'Show History'}</ThemedText>
-            <FontAwesome name={showHistoryList ? 'chevron-up' : 'chevron-down'} size={14} color={colors.text} />
-          </TouchableOpacity>
-
-          {showHistoryList && (
-            <FlatList
-              data={pastPeriodsData}
-              renderItem={renderHistoryItem}
-              keyExtractor={item => `${item.start.toISOString()}-${item.end.toISOString()}`}
-              style={styles.historyList}
-            />
           )}
         </View>
 
         <View style={styles.transactionsContainer}>
           <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
           {periodTransactions.length > 0 ? (
-            periodTransactions.map(transaction => (
-              <TransactionItem key={transaction.id} transaction={transaction} />
-            ))
+            <>
+              <BarChart
+                data={chartData}
+                width={screenWidth - 40} // Adjust for padding
+                height={220}
+                barWidth={30}
+                spacing={10}
+                noOfSections={5}
+                barBorderRadius={4}
+                frontColor={colors.primary}
+                yAxisTextStyle={{ color: colors.text }}
+                xAxisLabelTextStyle={{ color: colors.text }}
+                yAxisLabelPrefix="$"
+                backgroundColor={colors.card}
+                rulesColor={colors.text}
+                showLine={false}
+                // style={styles.chart}
+              />
+              {periodTransactions.map(transaction => (
+                <TransactionItem key={transaction.id} transaction={transaction} />
+              ))}
+            </>
           ) : (
             <ThemedText>No transactions in this period</ThemedText>
           )}
@@ -230,11 +240,20 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   summary: { marginVertical: 10 },
-  historyToggle: { flexDirection: 'row', justifyContent: 'space-between', padding: 10 },
-  historyList: { maxHeight: 200 },
-  historyItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderBottomWidth: 1, borderBottomColor: '#ddd' },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginVertical: 5,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 5,
+  },
   transactionsContainer: { padding: 15 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+  chart: { marginVertical: 15, borderRadius: 8 },
 });
 
 export default BudgetDetailsScreen;

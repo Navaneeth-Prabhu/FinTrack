@@ -4,6 +4,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { Transaction, Budget } from '../types';
+import { ThemedText } from './common/ThemedText';
+import { useTheme } from '@/hooks/useTheme';
 
 interface FinancialSummaryCardProps {
     transactions: Transaction[];
@@ -18,6 +20,8 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
     savingsBalance,
     previousMonthSpending,
 }) => {
+
+    const {colors} = useTheme();
     // Calculate current month's transactions more efficiently
     const currentMonthSpending = useMemo(() => {
         const now = new Date();
@@ -67,21 +71,21 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.cardTitle}>Financial Summary</Text>
+        <View style={[styles.container, { backgroundColor: colors.card  }]}>
+            <ThemedText variant='h2'>Financial Summary</ThemedText>
 
             {/* Monthly Spending Section */}
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Monthly Spending</Text>
-                    <View style={styles.trendContainer}>
+                    <View style={[styles.trendContainer, { backgroundColor: colors.accent }]}>
                         <Ionicons name={spendingTrendIcon.name as any} size={16} color={spendingTrendIcon.color} />
-                        <Text style={[styles.trendText, { color: spendingTrendIcon.color }]}>
+                        <ThemedText style={[styles.trendText, { color: spendingTrendIcon.color }]}>
                             {Math.abs(spendingTrend).toFixed(2)}
-                        </Text>
+                        </ThemedText>
                     </View>
                 </View>
-                <Text style={styles.amountText}>{formatCurrency(currentMonthSpending)}</Text>
+                <ThemedText variant='h2'>{formatCurrency(currentMonthSpending)}</ThemedText>
             </View>
 
             {/* Budget Section */}
@@ -110,7 +114,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
             {/* Savings Balance Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Savings Balance</Text>
-                <Text style={styles.amountText}>{formatCurrency(savingsBalance)}</Text>
+                <ThemedText variant='h2'>{formatCurrency(savingsBalance)}</ThemedText>
             </View>
         </View>
     );

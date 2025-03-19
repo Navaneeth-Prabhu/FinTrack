@@ -11,7 +11,7 @@ export const lightTheme = {
     secondarycard: '#F8F9FC',
     cardForeground: '#000000',
     primary: '#8F85FF',
-    primaryForeground: '#FFFFFF',
+    primaryForeground: '#rgba(143, 133, 255, 0.15)',
     secondary: '#8F85FF',
     text: '#333333',
     subtitle: '#6B7280',
@@ -55,8 +55,8 @@ export const darkTheme = {
     card: '#1E1E1E',
     secondarycard: '#1E1E1E',
     cardForeground: '#FFFFFF',
-    primary: '#8F85FF',
-    primaryForeground: '#FFFFFF',
+    primary: '#A59BFF',
+    primaryForeground: '#3A3A3C',
     secondary: '#8F85FF',
     text: '#F2F2F7',               // Slightly softer white
     subtitle: '#A2A2AB',           // Kept the same - works well

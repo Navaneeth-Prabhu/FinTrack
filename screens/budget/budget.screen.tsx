@@ -1,74 +1,18 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { format } from 'date-fns';
-import { router } from 'expo-router';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { ThemedText } from '@/components/common/ThemedText';
+import { router, useFocusEffect } from 'expo-router';
+import { BudgetCard } from '@/components/BudgetCard'; // Import BudgetCard
+import { Budget } from '@/types';
 
-// Make sure this matches your actual type
-interface BudgetDisplayData {
-  budget: any; // Replace with your Budget type
+export interface BudgetDisplayData {
+  budget: Budget;
   start: Date;
   end: Date;
   spent: number;
   progress: number;
 }
-
-// Define the styles object
-const styles = {
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-  },
-  addButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: 'white',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  emptyText: {
-    textAlign: 'center' as const,
-  },
-  budgetList: {
-    flex: 1,
-  },
-  budgetItem: {
-    marginBottom: 16,
-  },
-  budgetCard: {
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  historyButton: {
-    backgroundColor: '#E0E0E0',
-    padding: 8,
-    borderRadius: 4,
-    alignItems: 'center' as const,
-  },
-  historyButtonText: {
-    color: '#007AFF',
-  },
-};
 
 function BudgetScreen() {
   const { budgets, fetchBudgets, getCurrentPeriod, calculateSpent, lastUpdated } = useBudgetStore();
@@ -78,25 +22,20 @@ function BudgetScreen() {
   const hasInitialFetch = useRef(false);
 
   const fetchBudgetData = useCallback(async () => {
-    // Prevent concurrent fetches
     if (isFetching.current) {
       console.log('Already fetching, skipping duplicate request');
       return;
     }
 
-    console.log('Fetching budget data...');
     isFetching.current = true;
     setIsLoading(true);
 
     try {
-      // Only fetch budgets if we don't already have them
       if (budgets.length === 0 && !hasInitialFetch.current) {
-        console.log('No budgets loaded, fetching from DB first');
         await fetchBudgets();
         hasInitialFetch.current = true;
       }
 
-      // Process budgets for display
       const data = await Promise.all(
         budgets.map(async (budget) => {
           const { start, end } = getCurrentPeriod(budget);
@@ -107,7 +46,6 @@ function BudgetScreen() {
       );
 
       setBudgetData(data);
-      console.log('Budget data processed:', data.length, 'budgets');
     } catch (error) {
       console.error('Error fetching budget data:', error);
     } finally {
@@ -116,53 +54,36 @@ function BudgetScreen() {
     }
   }, [budgets, getCurrentPeriod, calculateSpent, fetchBudgets]);
 
-  // Initial fetch on mount
   useEffect(() => {
     if (!hasInitialFetch.current) {
-      console.log('Component mounted, starting initial fetch');
       fetchBudgetData();
     }
-
-    // Cleanup on unmount
     return () => {
-      console.log('Component unmounted, cleanup');
       isFetching.current = false;
     };
   }, [fetchBudgetData]);
 
-  // Re-calculate budget data when lastUpdated changes (due to transaction changes)
   useEffect(() => {
     if (lastUpdated && hasInitialFetch.current && !isFetching.current) {
-      console.log('Budget data update detected, refreshing display data');
       fetchBudgetData();
     }
   }, [lastUpdated, fetchBudgetData]);
 
-  // Handle screen focus with proper debouncing
   useFocusEffect(
     useCallback(() => {
-      console.log('Screen focused');
-
-      // Only refresh data on focus if we're not currently fetching
       if (!isFetching.current) {
-        console.log('Screen focused, refreshing data');
         const timeout = setTimeout(() => {
           fetchBudgets().then(() => fetchBudgetData());
-        }, 300); // Debounce time
+        }, 300);
 
         return () => {
-          console.log('Screen unfocused, clearing timeout');
           clearTimeout(timeout);
         };
       }
-
       return () => {
-        console.log('Screen unfocused');
       };
     }, [fetchBudgets, fetchBudgetData])
   );
-
-  console.log('Rendering BudgetScreen, budgets count:', budgets.length);
 
   return (
     <View style={styles.container}>
@@ -188,32 +109,34 @@ function BudgetScreen() {
         </View>
       ) : (
         <ScrollView style={styles.budgetList}>
-          {budgetData.map(({ budget, start, end, spent, progress }) => (
-            <View key={budget.id} style={styles.budgetItem}>
-              <TouchableOpacity onPress={() => router.push(`/budget/${budget.id}`)}>
-                <View style={styles.budgetCard}>
-                  <ThemedText>{budget.name || budget.category.name}</ThemedText>
-                  <ThemedText>
-                    {format(start, 'MMM d')} - {format(end, 'MMM d')}
-                  </ThemedText>
-                  <ThemedText>${spent.toFixed(2)} / ${budget.limit.toFixed(2)}</ThemedText>
-                  <ThemedText>{progress.toFixed(1)}% used</ThemedText>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.historyButton}
-                onPress={() =>
-                  router.push({ pathname: '/budget/[id]', params: { id: budget.id, showHistory: 'true' } })
-                }
-              >
-                <ThemedText style={styles.historyButtonText}>View History</ThemedText>
-              </TouchableOpacity>
-            </View>
+          {budgetData.map(({ budget, start, spent, progress }) => (
+            <BudgetCard
+              key={budget.id}
+              budget={{ ...budget, spent, progress, startDate: start.toISOString() }}
+            />
           ))}
         </ScrollView>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  addButton: { backgroundColor: '#8A3FFC', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  addButtonText: { color: 'white', fontWeight: '600' },
+  budgetList: { flex: 1, paddingHorizontal: 16 },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  emptyText: { textAlign: 'center', fontSize: 16, color: '#666' },
+});
 
 export default BudgetScreen;

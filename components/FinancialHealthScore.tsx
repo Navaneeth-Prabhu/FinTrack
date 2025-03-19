@@ -329,6 +329,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Transaction, Budget } from '../types';
 import { format } from 'date-fns';
+import { useTheme } from '@/hooks/useTheme';
+import { ThemedText } from './common/ThemedText';
 
 interface FinancialHealthScoreProps {
     transactions: Transaction[];
@@ -341,6 +343,8 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
     budgets,
     onTipPress,
 }) => {
+
+    const { colors } = useTheme();
     const scores = useMemo(() => {
         // Calculate Budget Management score
         const budgetScore = budgets.reduce((acc, budget) => {
@@ -430,9 +434,9 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.card }]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Financial Health Score</Text>
+                <ThemedText variant='h2'>Financial Health Score</ThemedText>
                 <Text style={[
                     styles.scoreValue,
                     { color: getStatusColor(scores.total) }
@@ -449,7 +453,7 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
                         onPress={() => onTipPress(component.name)}
                     >
                         <Text style={styles.componentIcon}>{component.icon}</Text>
-                        <Text style={styles.componentName}>{component.name}</Text>
+                        <ThemedText style={[styles.componentName, { color: colors.text }]}>{component.name}</ThemedText>
                         <Text style={[
                             styles.componentScore,
                             { color: getStatusColor(component.score * 4) }

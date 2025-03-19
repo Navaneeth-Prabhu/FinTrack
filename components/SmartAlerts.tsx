@@ -3,11 +3,12 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Transaction, RecurringTransaction } from '../types';
 import { format, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
+import { useTheme } from '@/hooks/useTheme';
 
 interface SmartAlertsProps {
   transactions: Transaction[];
   recurringTransactions: RecurringTransaction[];
-  onAlertPress: (alertId: string) => void;
+  onAlertPress?: (alertId: string) => void;
 }
 
 type Alert = {
@@ -24,6 +25,8 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   recurringTransactions,
   onAlertPress,
 }) => {
+
+  const { colors } = useTheme();
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const now = new Date();
@@ -149,7 +152,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: colors.card}]}>
       <View style={styles.header}>
         <Text style={styles.title}>Smart Alerts</Text>
         {alerts.length > 0 && (
