@@ -20,7 +20,7 @@ export default function _layout() {
             animation: 'fade'
         }}>
             <Stack.Screen name="themes" options={{ headerShown: true }} />
-            <Stack.Screen name="index" options={{ headerShown: true }} />
+            <Stack.Screen name="index" options={{ headerShown: true, title: 'Settings' }} />
             <Stack.Screen name="support/index" options={{ headerShown: true }} />
         </Stack>
     );

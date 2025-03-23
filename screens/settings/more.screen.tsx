@@ -13,6 +13,8 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { darkTheme } from '@/constants/theme';
 import useThemeStore from '@/stores/themeStore';
 import { router } from 'expo-router';
+import DataExportSection from './DataExportSection';
+import DataImportSection from './DataImportSection';
 
 const MoreScreen = () => {
     const { theme, setTheme } = useThemeStore();
@@ -194,7 +196,7 @@ const MoreScreen = () => {
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuItem}>
+                    {/* <TouchableOpacity style={styles.menuItem}>
                         <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
                             <MaterialCommunityIcons name="export-variant" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
                         </View>
@@ -208,7 +210,10 @@ const MoreScreen = () => {
                         </View>
                         <ThemedText style={[styles.menuText]}>Import Data</ThemedText>
                         <Ionicons name="chevron-forward" size={18} color={isDarkMode ? "#6E6E6E" : "#A0A0A0"} style={styles.chevron} />
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
+
+                    <DataExportSection />
+                    <DataImportSection />
 
                     <TouchableOpacity style={styles.menuItem}>
                         <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
+import { ArrowRightLeft, Bolt, ChartPie, LayoutPanelLeft } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -16,6 +17,8 @@ export default function TabLayout() {
         tabBarShowLabel: false, 
         tabBarStyle: {
           backgroundColor: colors.card,
+          borderTopWidth: 0,
+          height: Platform.OS === 'ios' ? 88 : 60,
         }
         
       }}
@@ -24,31 +27,28 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <Ionicons name="home" size={26} color={color} />,
+          tabBarIcon: ({ color }) => <LayoutPanelLeft color={color}/>,
         }}
       />
       <Tabs.Screen
         name="timeline"
         options={{
           title: 'Timeline',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color}
-          />,
+          tabBarIcon: ({ color }) => <ArrowRightLeft color={color}/>,
         }}
       />
       <Tabs.Screen
         name="budgets"
         options={{
           title: 'Budget',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color}
-          />,
+          tabBarIcon: ({ color }) => <ChartPie color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color}
-          />,
+          tabBarIcon: ({ color }) => <Bolt color={color} />,
         }}
       />
     </Tabs>

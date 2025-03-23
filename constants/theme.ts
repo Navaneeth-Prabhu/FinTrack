@@ -19,7 +19,7 @@ export const lightTheme = {
     // Semantic colors
     accent: '#F3F4F8',              // Slightly blueish for accent
     accentForeground: '#1F1F1F',
-    muted: '#F1F5F9',              // Softer muted background
+    muted: '#A0A0A0',              // Softer muted background
     mutedForeground: '#64748B',     // Warmer muted text
 
     // State colors (kept the same as they work well)
@@ -64,7 +64,7 @@ export const darkTheme = {
     // Semantic colors
     accent: '#27272A',             // Slightly warmer accent
     accentForeground: '#FFFFFF',
-    muted: '#8E8E93',             // Adjusted for better contrast
+    muted: '#6E6E6E',             // Adjusted for better contrast
     mutedForeground: '#A1A1AA',    // Kept the same - works well
 
     income: '#4CAF50',            // Kept the same
