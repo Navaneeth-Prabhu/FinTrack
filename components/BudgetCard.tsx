@@ -8,6 +8,7 @@ import { ThemedText } from './common/ThemedText';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { router } from 'expo-router';
 import { differenceInDays, format, isAfter, isBefore, parseISO } from 'date-fns';
+import { CategoryIcon } from './transactions/CategoryIcon';
 
 export const calculateDailySpendingAllowance = (
     limit: number,
@@ -79,7 +80,10 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
                 <View style={{ padding: 16 }}>
 
                     <View style={styles.header}>
-                        <ThemedText variant='h3'>{category?.name}</ThemedText>
+                        <View>
+                            <CategoryIcon category={category} />
+                            <ThemedText variant='h3'>{category?.name}</ThemedText>
+                        </View>
                         <ThemedText variant='body1'>${spent.toFixed(2)} / ${limit.toFixed(2)}</ThemedText>
                     </View>
                     <ProgressBarWithPointer spent={spent} limit={limit} idealSpending={idealSpending} progress={progress} />

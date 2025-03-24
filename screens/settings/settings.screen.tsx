@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import DataExportSection from './DataExportSection';
 import DataImportSection from './DataImportSection';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BiometricToggle from './BiometricSection';
 
 const MoreScreen = () => {
     const { theme, setTheme } = useThemeStore();
@@ -38,13 +39,13 @@ const MoreScreen = () => {
             <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
-                <ThemedText variant='h2'>My Profile</ThemedText>
-                {isLoggedIn ? (
-                    <TouchableOpacity style={styles.settingsButton}>
-                        <Feather name="settings" size={22} color={isDarkMode ? darkThemeColor : themeColor} />
-                    </TouchableOpacity>
-                ) : null}
-            </View>
+                    <ThemedText variant='h2'>My Profile</ThemedText>
+                    {isLoggedIn ? (
+                        <TouchableOpacity style={styles.settingsButton}>
+                            <Feather name="settings" size={22} color={isDarkMode ? darkThemeColor : themeColor} />
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
 
                 {/* Auth Card */}
                 {/* <View style={[styles.authCard, { backgroundColor: colors.card }]}>
@@ -215,7 +216,7 @@ const MoreScreen = () => {
                 <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionTitle, isDarkMode && styles.darkSectionTitle]}>Security</Text>
                     <View style={[styles.sectionContent, { backgroundColor: colors.card }]}>
-                        <View style={styles.toggleItem}>
+                        {/* <View style={styles.toggleItem}>
                             <View style={styles.toggleItemLeft}>
                                 <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
                                     <MaterialCommunityIcons name="fingerprint" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
@@ -228,8 +229,13 @@ const MoreScreen = () => {
                                 trackColor={{ false: "#D1D1D6", true: themeColor }}
                                 thumbColor={"#FFFFFF"}
                             />
-                        </View>
-
+                        </View> */}
+                        <BiometricToggle
+                            isDarkMode={isDarkMode}
+                            themeColor={themeColor}
+                            darkThemeColor={darkThemeColor}
+                            colors={colors}
+                        />
                         <TouchableOpacity style={styles.menuItem}>
                             <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
                                 <MaterialCommunityIcons name="lock-outline" size={20} color={isDarkMode ? darkThemeColor : themeColor} />

@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.fintrack.FinTrack",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Allow this app to use Face ID for authentication."
       }
     },
     "android": {
@@ -36,6 +37,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#fdfd"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow FinTrack to use Face ID."
         }
       ],
       "expo-sqlite"
