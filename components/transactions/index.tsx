@@ -94,12 +94,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     itemSeparator: {
-        height: 2,
+        height: 6,
         width: '100%',
     },
     separator: {
-        height: 12,
-        width: '100%',
+        height: 16,
+        width: '100%'
     },
     emptyContainer: {
         flex: 1,
