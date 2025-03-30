@@ -1,20 +1,18 @@
-// src/database/sqliteService.ts
-
 import { Category } from '@/types';
 import * as SQLite from 'expo-sqlite';
 
 const categoryConstants: Category[] = [
-  { id: '1', name: 'Bills & Utilities', icon: '📄', type: 'expense', color: '#0B7189' },
-  { id: '2', name: 'Salary', icon: '💼', type: 'income', color: '#FFD275' },
-  { id: '3', name: 'Food', icon: '🍉', type: 'expense', color: '#DB5A42' },
-  { id: '4', name: 'Groceries', icon: '🥕', type: 'expense', color: '#ABDF75' },
-  { id: '5', name: 'Travelling', icon: '✈️', type: 'expense', color: '#ABDF75' },
-  { id: '6', name: 'Entertainment', icon: '🎬', type: 'expense', color: '#ABDF75' },
-  { id: '7', name: 'Medical', icon: '💊', type: 'expense', color: '#ABDF75' },
-  { id: '8', name: 'Education', icon: '🎓', type: 'expense', color: '#ABDF75' },
-  { id: '9', name: 'Gift', icon: '🎁', type: 'expense', color: '#ABDF75' },
-  { id: '101', name: 'Other', icon: '...', type: 'expense', color: 'white' },
-  { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: '#FFD275' },
+  { id: '1', name: 'Bills & Utilities', icon: '📄', type: 'expense', color: '#0B7189', order: 1 },
+  { id: '2', name: 'Salary', icon: '💼', type: 'income', color: '#FFD275', order: 1 },
+  { id: '3', name: 'Food', icon: '🍉', type: 'expense', color: '#DB5A42', order: 2 },
+  { id: '4', name: 'Groceries', icon: '🥕', type: 'expense', color: '#ABDF75', order: 3 },
+  { id: '5', name: 'Travelling', icon: '✈️', type: 'expense', color: '#ABDF75', order: 4 },
+  { id: '6', name: 'Entertainment', icon: '🎬', type: 'expense', color: '#ABDF75', order: 5 },
+  { id: '7', name: 'Medical', icon: '💊', type: 'expense', color: '#ABDF75', order: 6 },
+  { id: '8', name: 'Education', icon: '🎓', type: 'expense', color: '#ABDF75', order: 7 },
+  { id: '9', name: 'Gift', icon: '🎁', type: 'expense', color: '#ABDF75', order: 8 },
+  { id: '101', name: 'Other', icon: '...', type: 'expense', color: 'white', order: 9 },
+  { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: '#FFD275', order: 2 },
 ];
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -29,11 +27,12 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     PRAGMA journal_mode = WAL;
 
     CREATE TABLE IF NOT EXISTS categories (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      color TEXT NOT NULL,
-      icon TEXT NOT NULL
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      icon TEXT,
+      type TEXT,
+      color TEXT,
+      orderId INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
@@ -90,13 +89,14 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   // Insert default categories if not present
   for (const category of categoryConstants) {
     await db.runAsync(
-      `INSERT OR IGNORE INTO categories (id, name, type, color, icon)
-       VALUES (?, ?, ?, ?, ?);`,
+      `INSERT OR IGNORE INTO categories (id, name, type, color, icon, orderId) 
+       VALUES (?, ?, ?, ?, ?, ?);`,
       category.id,
       category.name,
       category.type,
       category.color,
-      category.icon
+      category.icon,
+      category.order ?? 0
     );
   }
 

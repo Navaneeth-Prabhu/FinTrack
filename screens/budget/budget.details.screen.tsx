@@ -218,7 +218,7 @@ const BudgetDetailsScreen = () => {
               ))}
             </>
           ) : (
-            <ThemedText>No transactions in this period</ThemedText>
+            <ThemedText style={{color: colors.subtitle}}>No transactions in this period</ThemedText>
           )}
         </View>
       </ScrollView>

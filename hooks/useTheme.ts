@@ -3,7 +3,7 @@ import { Platform, useColorScheme } from 'react-native';
 import { useCallback } from 'react';
 // import * as NavigationBar from 'expo-navigation-bar';
 import { lightTheme, darkTheme, tokens } from '@/constants/theme';
-import useThemeStore from '@/stores/themeStore';
+import useThemeStore from '@/stores/preferenceStore';
 
 export function useTheme() {
     const colorScheme = useColorScheme();

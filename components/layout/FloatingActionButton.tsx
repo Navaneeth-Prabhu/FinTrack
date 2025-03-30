@@ -15,7 +15,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = () => {
   return (
     <TouchableOpacity
       style={[styles.button, { backgroundColor: colors.primary }]}
-      onPress={() => router.push('./transaction/transactionForm')}
+      onPress={() => router.push('/(routes)/transaction/transactionForm')}
     >
       <Text style={styles.buttonText}>+</Text>
     </TouchableOpacity>

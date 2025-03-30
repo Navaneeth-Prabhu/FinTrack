@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooterContainer, BottomSheetFooter } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter } from '@gorhom/bottom-sheet';
 import { Href, router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Category } from '@/types';
@@ -137,7 +137,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
             <BottomSheetModal
                 ref={bottomSheetModalRef}
                 index={0}
-                snapPoints={['60%']}
+                snapPoints={useMemo(() => ['60%'], [])}
                 onChange={handleSheetChanges}
                 backdropComponent={renderBackdrop}
                 enablePanDownToClose

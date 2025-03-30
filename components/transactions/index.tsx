@@ -24,9 +24,12 @@ const MemoizedSectionHeader = memo(SectionHeader);
 
 // Empty list component
 const EmptyList = memo(() => {
+    const { colors } = useTheme();
     return (
         <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No Transactions</ThemedText>
+            <ThemedText style={[styles.emptyText, { color: colors.subtitle }]}>
+                No Transactions
+            </ThemedText>
         </View>
     );
 });

@@ -11,6 +11,7 @@ import { registerRecurringTask } from '@/services/recurringBackground';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
+import usePreferenceStore from '@/stores/preferenceStore'; // Adjust the import path as needed
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +24,9 @@ export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
 
+  // Get biometrics preference from Zustand store
+  const { biometrics } = usePreferenceStore();
+
   // Check biometric support on mount
   useEffect(() => {
     (async () => {
@@ -32,7 +36,7 @@ export default function RootLayout() {
     })();
   }, []);
 
-  // Initialize app and handle biometric authentication
+  // Initialize app and handle biometric authentication conditionally
   useEffect(() => {
     if (loaded) {
       const initializeApp = async () => {
@@ -49,8 +53,8 @@ export default function RootLayout() {
           console.log('Generating due transactions');
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
 
-          // Step 4: Prompt for biometric authentication if supported
-          if (isBiometricSupported) {
+          // Step 4: Prompt for biometric authentication if supported AND enabled in preferences
+          if (isBiometricSupported && biometrics) {
             console.log('Prompting for biometric authentication');
             const result = await LocalAuthentication.authenticateAsync({
               promptMessage: 'Authenticate to access FinTrack',
@@ -63,13 +67,12 @@ export default function RootLayout() {
               setIsAuthenticated(true);
             } else {
               console.log('Biometric authentication failed');
-              // Optionally, you could exit the app or keep prompting
-              // For now, we'll allow access even if it fails (adjust as needed)
-              setIsAuthenticated(true);
+              // Keep app locked until success; adjust this logic as needed
+              return; // Prevents proceeding if authentication fails
             }
           } else {
-            console.log('Biometric authentication not supported, skipping');
-            setIsAuthenticated(true); // Proceed without biometric if not supported
+            console.log('Biometric authentication skipped (not supported or disabled)');
+            setIsAuthenticated(true); // Proceed without biometric
           }
 
           console.log('App initialization complete');
@@ -83,7 +86,7 @@ export default function RootLayout() {
 
       initializeApp();
     }
-  }, [loaded, isBiometricSupported]);
+  }, [loaded, isBiometricSupported, biometrics]); // Add biometrics as dependency
 
   // Show nothing until authenticated and loaded
   if (!loaded || !isAuthenticated) {

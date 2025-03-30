@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import React from 'react'
-import useThemeStore from '@/stores/themeStore'
+import useThemeStore from '@/stores/preferenceStore'
 import { Screen } from '@/components/layout/Screen'
 import { useTheme } from '@/hooks/useTheme'
 import { Ionicons } from '@expo/vector-icons'

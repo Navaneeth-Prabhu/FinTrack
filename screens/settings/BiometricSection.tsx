@@ -3,9 +3,10 @@ import { View, Switch, StyleSheet, Alert } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ThemedText } from '@/components/common/ThemedText';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 export default function BiometricToggle({ isDarkMode, themeColor, darkThemeColor, colors }) {
-    const [biometricEnabled, setBiometricEnabled] = useState(false);
+    const {biometrics, setBiometrics} = usePreferenceStore();
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
 
     // Check device compatibility and enrollment on mount
@@ -49,7 +50,7 @@ export default function BiometricToggle({ isDarkMode, themeColor, darkThemeColor
                 });
 
                 if (result.success) {
-                    setBiometricEnabled(true);
+                    setBiometrics(true);
                     console.log('Biometric login enabled');
                 } else {
                     Alert.alert('Authentication Failed', 'Biometric authentication was not successful.');
@@ -60,7 +61,7 @@ export default function BiometricToggle({ isDarkMode, themeColor, darkThemeColor
             }
         } else {
             // If turning off, simply disable it (no authentication required to disable)
-            setBiometricEnabled(false);
+            setBiometrics(false);
             console.log('Biometric login disabled');
         }
     };
@@ -78,7 +79,7 @@ export default function BiometricToggle({ isDarkMode, themeColor, darkThemeColor
                 <ThemedText style={styles.toggleText}>Biometric Login</ThemedText>
             </View>
             <Switch
-                value={biometricEnabled}
+                value={biometrics}
                 onValueChange={handleBiometricToggle}
                 trackColor={{ false: '#D1D1D6', true: themeColor }}
                 thumbColor="#FFFFFF"

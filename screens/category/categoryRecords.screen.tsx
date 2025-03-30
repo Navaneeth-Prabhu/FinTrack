@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Dimensions, Text } from 'react-native';
 import { addMonths, endOfMonth, format, isSameMonth, isSameYear, isWithinInterval, startOfMonth } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -130,7 +130,7 @@ const CategoryRecordScreen = () => {
             <TouchableOpacity
                 style={styles.itemContainer}
                 onPress={() => router.push({
-                    pathname: './categoryDetails/[id]',
+                    pathname: '/(routes)category/categoryDetails/[id]',
                     params: {
                         id: item.id,
                         month: selectedDate.toISOString(),
@@ -150,9 +150,9 @@ const CategoryRecordScreen = () => {
                                 opacity: 0.6
                             }]} />
                         )}
-                        <ThemedText style={[styles.icon, { color: item.isBudget ? item.color : colors.text }]}>
+                        <Text style={[styles.icon, { color: item.isBudget ? item.color : colors.text }]}>
                             {item.icon}
-                        </ThemedText>
+                        </Text>
                     </View>
                     <ThemedText style={styles.name}>{item.name}</ThemedText>
                     <ThemedText style={styles.amount}>

@@ -4,16 +4,20 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
-interface ThemeState {
+interface PreferenceState {
     theme: ThemeMode;
     setTheme: (theme: ThemeMode) => void;
+    biometrics: boolean;
+    setBiometrics: (biometrics: boolean) => void;
 }
 
-const useThemeStore = create<ThemeState>()(
+const usePreferenceStore = create<PreferenceState>()(
     persist(
         (set) => ({
             theme: 'system',
             setTheme: (theme) => set({ theme }),
+            biometrics: false,
+            setBiometrics: (biometrics) => set({ biometrics }),
         }), {
         name: 'theme-store',
         storage: createJSONStorage(() => AsyncStorage),
@@ -21,4 +25,4 @@ const useThemeStore = create<ThemeState>()(
     )
 );
 
-export default useThemeStore;
+export default usePreferenceStore;

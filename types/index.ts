@@ -45,6 +45,7 @@ export interface Category {
   icon: string;
   type: 'income' | 'expense';
   color: string;
+  order?: number;  // Add order field
 }
 
 export interface Budget {

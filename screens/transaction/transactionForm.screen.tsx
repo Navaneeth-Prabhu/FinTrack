@@ -92,7 +92,7 @@ const TransactionFormScreen: React.FC = () => {
                     amount: currentRecurring.amount.toString(),
                     note: currentRecurring.description || '',
                     category: currentRecurring.category,
-                    type: currentRecurring.type,
+                    type: currentRecurring.type as 'income' | 'expense',
                     date: new Date(currentRecurring.startDate),
                     paidTo: currentRecurring.payee || '',
                     paidBy: '',
@@ -114,13 +114,13 @@ const TransactionFormScreen: React.FC = () => {
                     amount: currentTransaction.amount.toString(),
                     note: currentTransaction.note || '',
                     category: currentTransaction.category,
-                    type: currentTransaction.type,
+                    type: currentTransaction.type as 'income' | 'expense',
                     date: new Date(currentTransaction.date),
                     paidTo: currentTransaction.paidTo || '',
                     paidBy: currentTransaction.paidBy || '',
                     transactionType: transactionTypes.find(t => t.name === currentTransaction.mode) || transactionTypes[0],
                     source: currentTransaction.source,
-                    recurringId: currentTransaction.recurringId,
+                    recurringId: currentTransaction.recurringId || undefined,
                 });
                 setIsRecurringState(!!currentTransaction.recurringId);
                 if (currentTransaction.recurringId) {
@@ -408,7 +408,18 @@ const TransactionFormScreen: React.FC = () => {
             </ScrollView>
 
             <View style={styles.saveButtonContainer}>
-                <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
+                <TouchableOpacity
+                    style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                        if (!formState.category) {
+                            setBottomSheetState(true); // Open bottom sheet
+                        } else if (!formState.amount) {
+                            amountInputRef.current?.focus();
+                        } else {
+                            handleSubmit();
+                        }
+                    }}
+                >
                     <ThemedText style={{ color: 'white' }} variant="subtitle">
                         {!formState.category ? 'Select Category' : !formState.amount ? 'Add Amount' : 'Save Transaction'}
                     </ThemedText>

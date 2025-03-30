@@ -11,7 +11,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
 import { darkTheme } from '@/constants/theme';
-import useThemeStore from '@/stores/themeStore';
+import useThemeStore from '@/stores/preferenceStore';
 import { router } from 'expo-router';
 import DataExportSection from './DataExportSection';
 import DataImportSection from './DataImportSection';

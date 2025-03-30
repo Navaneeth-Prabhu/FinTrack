@@ -143,13 +143,13 @@ const HomeScreen = () => {
                 recurringTransactions={recurringTransactions}
             />
 
-            <SmartBalanceForecast
+            {/* <SmartBalanceForecast
                 transactions={transactions}
                 recurringTransactions={recurringTransactions}
                 currentBalance={savingsBalance}
-            />
+            /> */}
 
-            <SmartBudgetInterface />
+            {/* <SmartBudgetInterface /> */}
         </View>
     )
 }

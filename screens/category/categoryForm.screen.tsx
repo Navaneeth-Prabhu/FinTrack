@@ -1,5 +1,5 @@
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View, TextInput, ScrollView } from 'react-native';
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { ThemedText } from '@/components/common/ThemedText';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCategoryStore } from '@/stores/categoryStore';
@@ -22,6 +22,12 @@ const CategoryFromScreen = () => {
     const [icon, setIcon] = useState(category?.icon || '');
     const [type, setType] = useState(category?.type || 'expense');
     const [color, setColor] = useState(category?.color || 'white');
+
+    useLayoutEffect(() => {
+        if (edit === "true" && category) {
+
+        }
+    })
 
     const handleSubmit = () => {
         if (name && icon && type) {
@@ -87,8 +93,16 @@ const CategoryFromScreen = () => {
             </ScrollView>
 
             {/* Save Button */}
-            <View style={styles.buttonContainer}>
+            {/* <View style={styles.buttonContainer}>
                 <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
+                    <Text style={styles.saveButtonText}>{edit === "true" ? "Update Category" : "Save Category"}</Text>
+                </TouchableOpacity>
+            </View> */}
+            <View style={styles.saveButtonContainer}>
+                <TouchableOpacity
+                    style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                    onPress={handleSubmit}
+                >
                     <Text style={styles.saveButtonText}>{edit === "true" ? "Update Category" : "Save Category"}</Text>
                 </TouchableOpacity>
             </View>
@@ -168,22 +182,25 @@ const styles = StyleSheet.create({
     iconText: {
         fontSize: 18,
     },
-    saveButton: {
-        paddingVertical: 12,
-        borderRadius: 10,
-        marginTop: 20,
-        alignItems: 'center',
-    },
     saveButtonText: {
         fontSize: 16,
         fontWeight: 'bold',
         color: 'white',
     },
-    buttonContainer: {
+    saveButtonContainer: {
         position: 'absolute',
+        width: '100%',
+        padding: 20,
+        paddingBottom: 32,
+        alignItems: 'center',
         bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 16,
-    }
+    },
+    saveButton: {
+        width: '100%',
+        alignItems: 'center',
+        height: 50,
+        borderRadius: 10,
+        marginBottom: 16,
+        justifyContent: 'center'
+    },
 });
