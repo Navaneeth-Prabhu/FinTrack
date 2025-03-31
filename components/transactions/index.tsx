@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     itemSeparator: {
-        height: 6,
+        height: 8,
         width: '100%',
     },
     separator: {

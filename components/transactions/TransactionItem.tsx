@@ -15,6 +15,7 @@ import { TransactionDetails } from './TransactionText';
 interface TransactionItemProps {
     transaction: Transaction;
     isUpcoming?: boolean;
+    dateFormate?: string;
 }
 
 export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
@@ -44,6 +45,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
             }
         };
 
+        console.log(formattedDate, 'formattedDate');
         return (
             <Pressable
                 onPress={handlePress}

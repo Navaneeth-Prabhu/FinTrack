@@ -15,6 +15,7 @@ import SmartAlerts from '@/components/SmartAlerts';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 import SmartBudgetInterface from '@/components/SmartBudgetInterface';
+import TotalBalance from '@/components/TotalBalance';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
@@ -97,6 +98,7 @@ const HomeScreen = () => {
     return (
         <View style={{ flex: 1, gap: 16 }}>
             <Text>HomeScreen</Text>
+            <TotalBalance />
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden'
             }}>

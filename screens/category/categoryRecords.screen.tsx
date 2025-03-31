@@ -130,7 +130,7 @@ const CategoryRecordScreen = () => {
             <TouchableOpacity
                 style={styles.itemContainer}
                 onPress={() => router.push({
-                    pathname: '/(routes)category/categoryDetails/[id]',
+                    pathname: '/(routes)/category/categoryDetails/[id]',
                     params: {
                         id: item.id,
                         month: selectedDate.toISOString(),
@@ -138,7 +138,7 @@ const CategoryRecordScreen = () => {
                     }
                 })}
             >
-                <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.themeBorder }]}>
+                <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={[
                         styles.iconContainer,
                         { borderColor: item.color, backgroundColor: colors.card }
@@ -167,7 +167,7 @@ const CategoryRecordScreen = () => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <Animated.View style={[styles.chartContainer, { borderColor: colors.border }]}>
                 <CategoryBar data={progressData} />
             </Animated.View>
