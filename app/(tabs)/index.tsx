@@ -8,7 +8,7 @@ export default function Home() {
   return (
     <>
       <FloatingActionButton />
-      <Screen scroll>
+      <Screen scroll paddingHorizontal={0}>
         <HomeScreen />
       </Screen>
     </>

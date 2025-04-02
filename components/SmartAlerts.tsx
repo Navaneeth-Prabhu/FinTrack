@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native
 import { Transaction, RecurringTransaction } from '../types';
 import { format, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
 import { useTheme } from '@/hooks/useTheme';
+import { tokens } from '@/constants/theme';
 
 interface SmartAlertsProps {
   transactions: Transaction[];
@@ -30,14 +31,14 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const now = new Date();
-    
+
     // Generate bill payment alerts
     recurringTransactions
       .filter(rt => rt.type === 'expense' && rt.isActive)
       .forEach(bill => {
         // Simple implementation: assuming the bill is due soon if it's within 7 days
         const dueDate = new Date(bill.startDate);
-        
+
         // Only show future bills that are due within the next 7 days
         if (isFuture(dueDate) && isWithinInterval(dueDate, {
           start: startOfDay(now),
@@ -56,7 +57,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           });
         }
       });
-    
+
     // Detect unusual spending patterns
     const recentTransactions = transactions
       .filter(t => t.type === 'expense')
@@ -67,7 +68,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           end: endOfDay(now)
         });
       });
-    
+
     // Group by category
     const expensesByCategory = recentTransactions.reduce((acc, t) => {
       const category = t.category.name;
@@ -77,11 +78,11 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
       acc[category].push(t);
       return acc;
     }, {} as Record<string, Transaction[]>);
-    
+
     // Check for categories with unusual activity
     Object.entries(expensesByCategory).forEach(([category, transactions]) => {
       const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-      
+
       // Simple threshold for now - if total spending in a category is over $500
       if (totalAmount > 500) {
         result.push({
@@ -93,12 +94,12 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         });
       }
     });
-    
+
     // Add savings opportunities
     // Simple example: if food expenses are more than 30% of total expenses
     const totalExpenses = recentTransactions.reduce((sum, t) => sum + t.amount, 0);
     const foodExpenses = expensesByCategory['Food']?.reduce((sum, t) => sum + t.amount, 0) || 0;
-    
+
     if (totalExpenses > 0 && (foodExpenses / totalExpenses) > 0.3) {
       result.push({
         id: 'savings-food',
@@ -108,7 +109,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         priority: 'low',
       });
     }
-    
+
     return result;
   }, [transactions, recurringTransactions]);
 
@@ -121,7 +122,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         default: return '#757575';
       }
     };
-    
+
     const getIconByType = (type: string) => {
       switch (type) {
         case 'bill': return '📅';
@@ -130,9 +131,9 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         default: return '📌';
       }
     };
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.alertItem}
         onPress={() => onAlertPress(item.id)}
       >
@@ -152,7 +153,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   };
 
   return (
-    <View style={[styles.container, {backgroundColor: colors.card}]}>
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Smart Alerts</Text>
         {alerts.length > 0 && (
@@ -161,7 +162,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           </View>
         )}
       </View>
-      
+
       {alerts.length > 0 ? (
         <FlatList
           data={alerts}
@@ -183,13 +184,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    // margin: 16,
-    marginTop: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    marginHorizontal: tokens.spacing.md
+
   },
   header: {
     flexDirection: 'row',

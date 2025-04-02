@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef, useMemo, useLayoutEffe
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, Keyboard, ScrollView, Image, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-// import CustomDateTimePicker from '@/src/components/CustomDateTimePicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 // import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +17,7 @@ import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore
 import { format } from 'date-fns';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { fontSizes, tokens } from '@/constants/theme';
 
 const transactionTypes = [
     { id: '1', name: 'Cash', type: 'Bank' },
@@ -40,7 +40,6 @@ const INITIAL_FORM_STATE = {
 
 const TransactionFormScreen: React.FC = () => {
     const router = useRouter();
-    const navigation = useNavigation();
     const { colors } = useTheme();
     const { editMode, transactionId, isRecurring } = useLocalSearchParams();
     const amountInputRef = useRef<TextInput>(null);
@@ -271,7 +270,7 @@ const TransactionFormScreen: React.FC = () => {
 
                     {/* Amount Input */}
                     <View style={[styles.amountContainer, { borderColor: colors.border }]}>
-                        {formState.category && (
+                        {/* {formState.category && (
                             <View
                                 style={{
                                     backgroundColor: colors.card,
@@ -280,14 +279,18 @@ const TransactionFormScreen: React.FC = () => {
                                     padding: 10,
                                     borderWidth: 2,
                                     borderColor: formState.category ? formState.category.color : colors.subtitle,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
                                 }}
                             >
                                 <Text style={{ color: formState.category ? colors.text : colors.subtitle, fontSize: 25 }}>
                                     {formState.category.icon}
                                 </Text>
                             </View>
-                        )}
-                        <ThemedText style={styles.currencySymbol}>₹</ThemedText>
+                        )} */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ fontSize: fontSizes.FONT24, color: colors.text }}>₹ </Text>
+                        </View>
                         <TextInput
                             ref={amountInputRef}
                             style={[styles.amountInput, { color: colors.text }]}
@@ -305,11 +308,11 @@ const TransactionFormScreen: React.FC = () => {
 
                     {/* Category Selection */}
                     <TouchableOpacity
-                        style={[styles.input, { justifyContent: 'center', borderColor: colors.border, backgroundColor: colors.card }]}
+                        style={[styles.input, { borderColor: formState.category ? formState.category.color : colors.border, backgroundColor: colors.card }]}
                         onPress={() => setBottomSheetState(true)}
                     >
-                        <Text style={{ color: formState.category ? colors.text : colors.subtitle }}>
-                            {formState.category ? `${formState.category.icon} ${formState.category.name}` : 'Select Category'}
+                        <Text style={{ color: formState.category ? colors.text : colors.subtitle, textAlignVertical: 'center' }}>
+                            {formState.category ? `${formState.category.icon}   ${formState.category.name}` : 'Select Category'}
                         </Text>
                     </TouchableOpacity>
 
@@ -467,14 +470,14 @@ const styles = StyleSheet.create({
     },
     amountContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
         borderBottomWidth: 1,
         paddingBottom: 10,
         marginBottom: 10,
+        justifyContent: 'center',
+        alignItems:'center',
     },
     currencySymbol: {
         fontSize: 24,
-        paddingLeft: 10,
     },
     amountInput: {
         flex: 1,
@@ -491,7 +494,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         paddingHorizontal: 10,
         borderRadius: 10,
-        marginBottom: 10,
+        justifyContent: 'center',
     },
     transactionTypeContainer: {
         flexDirection: 'row',
@@ -568,9 +571,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     recurringOptions: {
-        marginTop: 8,
-        padding: 16,
-        borderRadius: 8,
+        gap: 10,
     },
     row: {
         flexDirection: 'row',
@@ -579,8 +580,9 @@ const styles = StyleSheet.create({
     },
     picker: {
         flex: 1,
-        marginLeft: 12,
         height: 40,
+        borderWidth: 1,
+        borderRadius: 10,
     },
     intervalInput: {
         width: 50,

@@ -8,6 +8,7 @@ import { Transaction } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useTransactionStore } from '@/stores/transactionStore';
 import CategoryBar from './CategoryBar';
+import { tokens } from '@/constants/theme';
 
 // Define the data structure for category progress
 interface CategoryProgress {
@@ -138,9 +139,10 @@ export default React.memo(CategoryCard);
 
 const styles = StyleSheet.create({
     container: {
-        padding: 10,
+        padding: 16,
         justifyContent: 'center',
-        borderRadius: 10
+        borderRadius: 10,
+        marginHorizontal: tokens.spacing.md
     },
     header: {
         flexDirection: 'row',

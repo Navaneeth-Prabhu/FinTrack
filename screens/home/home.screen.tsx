@@ -16,6 +16,7 @@ import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore
 import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 import TotalBalance from '@/components/TotalBalance';
+import { ExtraInfo } from '@/components/ExtraInfo';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
@@ -97,10 +98,12 @@ const HomeScreen = () => {
 
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            <Text>HomeScreen</Text>
+            <View style={{height: tokens.spacing.xxl}}/>
             <TotalBalance />
+            <ExtraInfo />
             <View style={{
-                backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden'
+                backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
+                marginHorizontal: tokens.spacing.md,
             }}>
                 {
                     top5Transactions.map((item, index) => (
@@ -111,7 +114,8 @@ const HomeScreen = () => {
                                 borderBottomWidth: index === top5Transactions.length - 1 ? 0 : 2,
                                 backgroundColor: colors.card,
                                 paddingHorizontal: tokens.spacing.md,
-                                paddingVertical: 4
+                                paddingVertical: 4,
+
                             }}>
                             <TransactionItem
                                 key={item.id}
@@ -123,9 +127,7 @@ const HomeScreen = () => {
                 }
             </View>
 
-            <View>
-                <CategoryCard type='30Days' />
-            </View>
+            <CategoryCard type='30Days' />
 
             <FinancialSummaryCard
                 transactions={transactions}

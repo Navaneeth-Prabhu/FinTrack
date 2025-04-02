@@ -3,23 +3,60 @@ import React from 'react'
 import { Card } from './common/Card'
 import { ThemedText } from './common/ThemedText'
 import { useTheme } from '@/hooks/useTheme'
-import { fontSizes } from '@/constants/theme'
+import { fontSizes, tokens } from '@/constants/theme'
 
 const TotalBalance = () => {
     const { colors } = useTheme()
 
     return (
-        <Card variant='outlined'>
-            <ThemedText variant='subtitle' style={{ color: colors.subtitle }}>TotalBalance</ThemedText>
+        <View style={[styles.container, { borderWidth: 2, borderColor: colors.border }]}>
+            <View style={{ padding: tokens.spacing.md }}>
+                <ThemedText style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>TotalBalance</ThemedText>
 
-            <ThemedText variant='h1'>$ 0.00</ThemedText>
-            <View style={{backgroundColor: colors.accent, flex:1,}}>
-                <ThemedText variant='body1' style={{ color: colors.muted }}>TotalBalance</ThemedText>
+                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold }}>$23,441.
+                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: colors.subtitle }}>
+                        00
+                    </ThemedText>
+                </ThemedText>
+
             </View>
-        </Card>
+            <View style={[styles.cardFooter, { backgroundColor: colors.card }]}>
+                <View style={styles.footerDiv}>
+                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Today's Expense</ThemedText>
+                    <ThemedText variant='subtitle' style={{ fontWeight: tokens.fontWeight.medium }}>
+                        1240
+                    </ThemedText>
+                </View>
+                <View style={styles.footerDiv}>
+                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Expense Last Month</ThemedText>
+                    <ThemedText variant='subtitle' style={{ fontWeight: tokens.fontWeight.medium }}>
+                        425
+                    </ThemedText>
+                </View>
+            </View>
+        </View>
     )
 }
 
 export default TotalBalance
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+    container: {
+        marginHorizontal: tokens.spacing.md,
+        // backgroundColor: '#121212',
+        overflow: 'hidden',
+        borderRadius: tokens.borderRadius.md,
+    },
+    cardFooter: {
+        flexDirection: 'row',
+        flex: 1,
+        padding: tokens.spacing.md,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    footerDiv:{
+        flex:1, 
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start'
+    }
+})

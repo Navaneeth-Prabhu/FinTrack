@@ -6,6 +6,7 @@ import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { Transaction, Budget } from '../types';
 import { ThemedText } from './common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
+import { tokens } from '@/constants/theme';
 
 interface FinancialSummaryCardProps {
     transactions: Transaction[];
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
-        // marginHorizontal: 16,
+        marginHorizontal: tokens.spacing.md,
         // marginVertical: 8,
     },
     cardTitle: {
