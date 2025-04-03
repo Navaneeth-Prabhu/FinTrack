@@ -1,157 +1,63 @@
-import { useState, useEffect } from 'react';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { useState } from 'react';
+import { Transaction } from '@/types';
+import { importTransactionsFromGmail, checkAuthStatus, authenticateGmail, signOutGmail } from '@/services/emailParser';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { useTransactionStore } from '@/stores/transactionStore';
 
-// Register web browser redirect handler
-WebBrowser.maybeCompleteAuthSession();
+interface EmailImportState {
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
+  isImporting: boolean;
+  error: string | null;
+  lastImported: Transaction[] | null;
+}
 
-// Configure client ID based on platform
-const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Replace with your client ID
-const REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'your-app-scheme', // Replace with your app's scheme
-  path: 'redirect'
-});
+export const useEmailImport = () => {
+  const [state, setState] = useState<EmailImportState>({
+    isAuthenticated: false,
+    isAuthenticating: false,
+    isImporting: false,
+    error: null,
+    lastImported: null,
+  });
 
-// Gmail API scopes
-const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly'
-];
+  const { categories } = useCategoryStore();
+  const { saveBulkTransactions } = useTransactionStore();
 
-export const useGmailAuth = () => {
-  const [request, setRequest] = useState(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authError, setAuthError] = useState(null);
-  
-  const discovery = {
-    authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenEndpoint: 'https://oauth2.googleapis.com/token',
+  const checkAuth = async () => {
+    const isAuthenticated = await checkAuthStatus();
+    setState(prev => ({ ...prev, isAuthenticated }));
+    return isAuthenticated;
   };
-  
-  // Check if user is already authenticated
-  const checkAuthStatus = async () => {
-    try {
-      const tokens = await AsyncStorage.getItem('gmail_tokens');
-      if (tokens) {
-        setIsAuthenticated(true);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      return false;
-    }
+
+  const authenticate = async () => {
+    setState(prev => ({ ...prev, isAuthenticating: true, error: null }));
+    const success = await authenticateGmail();
+    setState(prev => ({ ...prev, isAuthenticating: false, isAuthenticated: success }));
+    return success;
   };
-  
-  // Initialize authentication request
-  useEffect(() => {
-    const initAuth = async () => {
-      const authStatus = await checkAuthStatus();
-      if (!authStatus) {
-        const authRequest = new AuthSession.AuthRequest({
-          clientId: CLIENT_ID,
-          scopes: SCOPES,
-          redirectUri: REDIRECT_URI,
-          responseType: 'code',
-          usePKCE: false,
-          extraParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        });
-        
-        setRequest(authRequest);
-      }
-    };
-    
-    initAuth();
-  }, []);
-  
-  // Exchange authorization code for tokens
-  const exchangeCodeForTokens = async (code) => {
+
+  const signOut = async () => {
+    await signOutGmail();
+    setState(prev => ({ ...prev, isAuthenticated: false, lastImported: null }));
+  };
+
+  const importTransactions = async (): Promise<Transaction[]> => {
+    setState(prev => ({ ...prev, isImporting: true, error: null }));
     try {
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          code,
-          client_id: CLIENT_ID,
-          client_secret: 'YOUR_CLIENT_SECRET', // Replace with your client secret
-          redirect_uri: REDIRECT_URI,
-          grant_type: 'authorization_code',
-        }).toString(),
-      });
-      
-      const tokens = await tokenResponse.json();
-      
-      if (tokens.error) {
-        throw new Error(tokens.error_description || 'Failed to exchange code for tokens');
-      }
-      
-      // Store tokens
-      await AsyncStorage.setItem('gmail_tokens', JSON.stringify(tokens));
-      
-      return tokens;
+      if (!(await checkAuth())) throw new Error('Not authenticated with Gmail');
+      const transactions = await importTransactionsFromGmail(categories);
+      const savedTransactions = await saveBulkTransactions(transactions);
+      setState(prev => ({ ...prev, isImporting: false, lastImported: savedTransactions }));
+      return savedTransactions;
     } catch (error) {
-      console.error('Error exchanging code for tokens:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import transactions';
+      setState(prev => ({ ...prev, isImporting: false, error: errorMessage }));
       throw error;
     }
   };
-  
-  // Authenticate with Gmail
-  const authenticate = async () => {
-    try {
-      setIsAuthenticating(true);
-      setAuthError(null);
-      
-      if (!request) {
-        throw new Error('Auth request not initialized');
-      }
-      
-      // Prompt user to authorize
-      const result = await request.promptAsync(discovery);
-      
-      if (result.type === 'success') {
-        // Exchange authorization code for tokens
-        const code = result.params.code;
-        await exchangeCodeForTokens(code);
-        
-        setIsAuthenticated(true);
-        return true;
-      } else {
-        throw new Error('Authorization failed');
-      }
-    } catch (error) {
-      console.error('Authentication error:', error);
-      setAuthError(error.message);
-      return false;
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-  
-  // Sign out
-  const signOut = async () => {
-    try {
-      await AsyncStorage.removeItem('gmail_tokens');
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-  
-  return {
-    authenticate,
-    signOut,
-    isAuthenticating,
-    isAuthenticated,
-    authError,
-    checkAuthStatus,
-  };
+
+  return { ...state, authenticate, signOut, checkAuth, importTransactions };
 };
 
-export default useGmailAuth;
+export default useEmailImport;

@@ -36,7 +36,7 @@ const MoreScreen = () => {
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView showsVerticalScrollIndicator={false} style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
                     <ThemedText variant='h2'>My Profile</ThemedText>
@@ -164,6 +164,10 @@ const MoreScreen = () => {
                             <ThemedText style={styles.menuValue}>USD</ThemedText>
                             <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
                         </TouchableOpacity>
+                        {/* <TouchableOpacity onPress={() => router.push('/(auth)/EmailAuth')} style={[styles.menuItem, { backgroundColor: colors.card }]}>
+                            <MaterialCommunityIcons name="currency-usd" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
+                            <ThemedText style={styles.quickActionText}>Currency</ThemedText>
+                        </TouchableOpacity> */}
                     </View>
                 </View>
 

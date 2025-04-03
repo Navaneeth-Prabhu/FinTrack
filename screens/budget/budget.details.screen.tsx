@@ -156,73 +156,74 @@ const BudgetDetailsScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView>
-        <View style={[styles.header, { backgroundColor: colors.card }]}>
-          <ThemedText variant="h2">{budget.name || budget.category.name} Budget</ThemedText>
-          <View style={styles.periodNavigation}>
-            <TouchableOpacity onPress={handlePrevPeriod} style={styles.arrowButton}>
-              <FontAwesome name="chevron-left" size={16} color={colors.text} />
-            </TouchableOpacity>
-            <ThemedText>{formatPeriodDisplay()}</ThemedText>
-            <TouchableOpacity onPress={handleNextPeriod} style={styles.arrowButton}>
-              <FontAwesome name="chevron-right" size={16} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-          {isLoading ? (
-            <ThemedText>Loading budget details...</ThemedText>
-          ) : (
-            <View style={styles.summary}>
-              <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
-              <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText>
-              <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${Math.min(progress, 100)}%`,
-                      backgroundColor: progress > 100 ? colors.error : colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-              <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.transactionsContainer}>
-          <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
-          {periodTransactions.length > 0 ? (
-            <>
-              <BarChart
-                data={chartData}
-                width={screenWidth - 40} // Adjust for padding
-                height={220}
-                barWidth={30}
-                spacing={10}
-                noOfSections={5}
-                barBorderRadius={4}
-                frontColor={colors.primary}
-                yAxisTextStyle={{ color: colors.text }}
-                xAxisLabelTextStyle={{ color: colors.text }}
-                yAxisLabelPrefix="$"
-                backgroundColor={colors.card}
-                rulesColor={colors.text}
-                showLine={false}
-                // style={styles.chart}
+<>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <ThemedText variant="h2">{budget.name || budget.category.name}</ThemedText>
+        {isLoading ? (
+          <ThemedText>Loading budget details...</ThemedText>
+        ) : (
+          <View style={styles.summary}>
+            <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
+            <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText>
+            <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${Math.min(progress, 100)}%`,
+                    backgroundColor: progress > 100 ? colors.error : colors.primary,
+                  },
+                ]}
               />
-              {periodTransactions.map(transaction => (
-                <TransactionItem key={transaction.id} transaction={transaction} />
-              ))}
-            </>
-          ) : (
-            <ThemedText style={{color: colors.subtitle}}>No transactions in this period</ThemedText>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+            </View>
+            <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.transactionsContainer}>
+        <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
+        {periodTransactions.length > 0 ? (
+          <>
+            <BarChart
+              data={chartData}
+              width={screenWidth - 40} // Adjust for padding
+              height={220}
+              barWidth={30}
+              spacing={10}
+              noOfSections={5}
+              barBorderRadius={4}
+              frontColor={colors.primary}
+              yAxisTextStyle={{ color: colors.text }}
+              xAxisLabelTextStyle={{ color: colors.text }}
+              yAxisLabelPrefix="$"
+              backgroundColor={colors.card}
+              rulesColor={colors.text}
+              showLine={false}
+            // style={styles.chart}
+            />
+            {periodTransactions.map(transaction => (
+              <TransactionItem key={transaction.id} transaction={transaction} />
+            ))}
+          </>
+        ) : (
+          <ThemedText style={{ color: colors.subtitle }}>No transactions in this period</ThemedText>
+        )}
+      </View>
+    </ScrollView>
+      <View style={styles.periodNavigation}>
+        <TouchableOpacity onPress={handlePrevPeriod} style={styles.arrowButton}>
+          <FontAwesome name="chevron-left" size={16} color={colors.text} />
+        </TouchableOpacity>
+        <ThemedText>{formatPeriodDisplay()}</ThemedText>
+        <TouchableOpacity onPress={handleNextPeriod} style={styles.arrowButton}>
+          <FontAwesome name="chevron-right" size={16} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+</>
+
   );
 };
 
@@ -234,7 +235,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 10,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 30
   },
   arrowButton: {
     padding: 10,

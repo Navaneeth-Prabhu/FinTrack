@@ -44,7 +44,7 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const budgets = await fetchBudgetsFromDB();
-      console.log('Fetched budgets from DB:', budgets.length);
+      // console.log('Fetched budgets from DB:', budgets.length);
       set({ budgets, isLoading: false, lastUpdated: Date.now() });
     } catch (error) {
       console.error('Fetch budgets error:', error);

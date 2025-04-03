@@ -9,8 +9,6 @@ import BudgetScreen from "@/screens/budget/budget.screen";
 // Example usage in a screen
 export default function Budget() {
     return (
-        <Screen>
-            <BudgetScreen />
-        </Screen>
+        <BudgetScreen />
     );
 }

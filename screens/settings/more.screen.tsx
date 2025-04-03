@@ -85,6 +85,8 @@ const MoreScreen = () => {
                     <ThemedText style={styles.quickActionText}>Currency</ThemedText>
                 </TouchableOpacity>
 
+
+
                 <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: colors.card }]}>
                     <MaterialCommunityIcons name="export-variant" size={24} color={isDarkMode ? darkThemeColor : themeColor} />
                     <ThemedText style={styles.quickActionText}>Export</ThemedText>
@@ -275,7 +277,7 @@ const MoreScreen = () => {
                         <Ionicons name="chevron-forward" size={18} color={isDarkMode ? "#6E6E6E" : "#A0A0A0"} style={styles.chevron} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => router.push('/(routes)/settings/support/index')} style={styles.menuItem}>
+                    <TouchableOpacity onPress={() => router.push('/(routes)/settings/support')} style={styles.menuItem}>
                         <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
                             <MaterialCommunityIcons name="chat-question-outline" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
                         </View>
