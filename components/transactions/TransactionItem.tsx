@@ -45,7 +45,6 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
             }
         };
 
-        console.log(formattedDate, 'formattedDate');
         return (
             <Pressable
                 onPress={handlePress}

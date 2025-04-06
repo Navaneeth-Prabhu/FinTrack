@@ -12,6 +12,7 @@ import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
 import usePreferenceStore from '@/stores/preferenceStore'; // Adjust the import path as needed
+import { getAppSignature } from '@/services/smsParser';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
@@ -41,6 +42,8 @@ export default function RootLayout() {
     if (loaded) {
       const initializeApp = async () => {
         try {
+          // await getAppSignature(); // Just logs the hash you'll need
+
           // Step 1: Fetch recurring transactions
           console.log('Fetching recurring transactions');
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();

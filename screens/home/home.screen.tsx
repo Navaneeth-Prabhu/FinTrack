@@ -17,6 +17,8 @@ import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 import TotalBalance from '@/components/TotalBalance';
 import { ExtraInfo } from '@/components/ExtraInfo';
+import { readHistoricalSMS, startSMSListener } from '@/services/smsParser';
+import { getAppSignature } from '@/services/getAppSignature';
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
@@ -30,6 +32,22 @@ const HomeScreen = () => {
         fetchCategories();
         fetchBudgets();
     }, [])
+    useEffect(() => {
+        let subscription;
+
+        const setupSMS = async () => {
+            subscription = await startSMSListener();
+        };
+
+        setupSMS();
+
+        return () => {
+            // Clean up on component unmount
+            if (subscription) {
+                subscription.remove();
+            }
+        };
+    }, []);
 
     // Calculate previous month's spending using date-fns
     const previousMonthSpending = useMemo(() => {
@@ -98,7 +116,7 @@ const HomeScreen = () => {
 
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            <View style={{height: tokens.spacing.xxl}}/>
+            <View style={{ height: tokens.spacing.xxl }} />
             <TotalBalance />
             <ExtraInfo />
             <View style={{
