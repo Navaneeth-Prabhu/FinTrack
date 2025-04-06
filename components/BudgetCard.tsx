@@ -8,7 +8,7 @@ import { ThemedText } from './common/ThemedText';
 import { router } from 'expo-router';
 import { differenceInDays, format, isAfter, isBefore, parseISO } from 'date-fns';
 import { CategoryIcon } from './transactions/CategoryIcon';
-import { fontSizes } from '@/constants/theme';
+import { fontSizes, tokens } from '@/constants/theme';
 
 export const calculateDailySpendingAllowance = (
     limit: number,
@@ -86,7 +86,7 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
                                 <ThemedText variant='h3'
                                 style={{ fontSize: fontSizes.FONT22}}>{category?.name}</ThemedText>
                                 <ThemedText variant='body1'>
-                                    <Text style={{ fontWeight: 'bold' }}>
+                                    <Text style={{ fontWeight: tokens.fontWeight.semibold }}>
                                         ${spent.toFixed(2)}
                                     </Text> of ${limit.toFixed(2)}</ThemedText>
                             </View>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     },
     category: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: tokens.fontWeight.semibold,
         color: '#333',
     },
     progressContainer: {
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontWeight: tokens.fontWeight.semibold,
         textAlign: 'center',
         marginTop: 10,
     },

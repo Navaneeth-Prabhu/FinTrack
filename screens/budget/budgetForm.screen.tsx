@@ -119,7 +119,8 @@ const BudgetFormScreen = () => {
                 <ThemedText style={styles.label}>Limit</ThemedText>
                 <View style={{
                     flexDirection: 'row', flex: 1, borderColor: colors.accent,
-                    alignItems: 'center', borderBottomWidth: 2, borderRadius: 8,
+                    alignItems: 'center', borderWidth: 2, borderRadius: 8,
+                    padding: 8
                 }}>
                     <Text style={{ fontSize: fontSizes.FONT24, color: colors.text }}>₹ </Text>
                     <TextInput

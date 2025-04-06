@@ -1,57 +1,63 @@
 import { useTheme } from "@/hooks/useTheme";
-import { FlatList, Text, View, ViewStyle } from "react-native";
+import { FlatList, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { ThemedText } from "./common/ThemedText";
-
-interface CardProps {
-  variant?: 'default' | 'elevated' | 'outlined';
-  children: React.ReactNode;
-  style?: ViewStyle;
-}
-
-export function Card({ variant = 'default', children, style }: CardProps) {
-  const { colors, tokens, getShadow } = useTheme();
-
-  const variantStyles = {
-      outlined: {
-          borderWidth: 1,
-          borderColor: colors.border,
-      },
-      elevated: getShadow(2),
-      default: {},
-  };
-
-  return (
-      <View style={[style, variantStyles[variant], {
-          backgroundColor: colors.card,
-          padding: tokens.spacing.md,
-          borderRadius: tokens.borderRadius.md,
-      }]}>
-          {children}
-      </View>
-  );
-}
+import { fontSizes, tokens } from "@/constants/theme";
+import { ChartLine } from "lucide-react-native";
+import { Card } from "./common/Card";
 
 export function ExtraInfo() {
-  const { colors } = useTheme();
-  const data = [
-      { id: '1', title: 'AI Research', description: 'Latest insights on AI and finance.', variant: 'elevated' },
-      { id: '2', title: 'Highest Income', description: 'You earned $5,000 this month.', variant: 'default' },
-      { id: '3', title: 'Expenses vs Last Month', description: 'Your expenses increased by 10%.', variant: 'outlined' },
-  ];
+    const { colors } = useTheme();
+    const data = [
+        { id: '1', title: 'AI Research', description: 'Latest insights on AI and finance.', variant: 'elevated' },
+        { id: '2', title: 'Highest Income', amount: '$430.21', description: 'You earned $5,000 this month.', variant: 'default' },
+        { id: '3', title: 'Expenses', description: 'Your expenses increased by 10%.', variant: 'outlined' },
+    ];
 
-  return (
-      <FlatList
-          data={data}
-          horizontal
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-              <Card variant="outlined" style={{ marginHorizontal: 10, width: 200 }}>
-                  <ThemedText style={{ fontWeight: 'bold', fontSize: 16 }}>{item.title}</ThemedText>
-                  <ThemedText style={{color: colors.subtitle}}>{item.description}</ThemedText>
-              </Card>
-          )}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
-          showsHorizontalScrollIndicator={false}
-      />
-  );
+    return (
+        <FlatList
+            data={data}
+            horizontal
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+                <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, alignItems: 'flex-start', }}>
+                    <View style={styles.header}>
+                        <View style={[styles.iconContainer, { backgroundColor: colors.background, }]}>
+                            <ChartLine color={colors.primary} size={18} />
+                        </View>
+                        <Text style={{ fontWeight: tokens.fontWeight.medium, fontSize: fontSizes.FONT16, color: colors.text, flex: 1 }}>{item.title}</Text>
+                    </View>
+                    {
+                        item.amount && (
+                            <Text style={{
+                                fontSize: fontSizes.FONT28, color: colors.text,
+                                fontWeight: tokens.fontWeight.semibold, marginVertical: 4
+                            }}>
+                                {item.amount}
+                            </Text>
+                        )
+                    }
+                    <ThemedText style={{ fontSize: fontSizes.FONT14, color: colors.subtitle }}>{item.description}</ThemedText>
+                </Card>
+            )}
+            contentContainerStyle={{ paddingHorizontal: 6 }}
+            showsHorizontalScrollIndicator={false}
+        />
+    );
 }
+
+const styles = StyleSheet.create({
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        justifyContent: 'flex-start',
+        gap: 10,
+        flex: 1,
+    },
+    iconContainer: {
+        backgroundColor: '#E0E0E0',
+        borderRadius: 8,
+        padding: 8,
+        alignSelf: 'center',
+    }
+})

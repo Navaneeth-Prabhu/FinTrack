@@ -12,8 +12,10 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ category }) => {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card }]}>
-      <View style={[styles.colorOverlay, { backgroundColor: category.color }]} />
+    <View style={[styles.container, { backgroundColor: colors.accent, 
+      borderColor: category.color
+     }]}>
+      {/* <View style={[styles.colorOverlay, { backgroundColor: category.color }]} /> */}
       <ThemedText style={styles.icon}>{category.icon}</ThemedText>
     </View>
   );
@@ -28,6 +30,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     position: 'relative',
     overflow: 'hidden',
+    borderWidth: 2,
   },
   colorOverlay: {
     position: 'absolute',
@@ -35,7 +38,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     right: 0,
-    opacity: 0.7,
+    opacity: 0.5,
   },
   icon: {
     fontSize: 18,

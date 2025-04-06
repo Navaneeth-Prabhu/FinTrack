@@ -270,24 +270,6 @@ const TransactionFormScreen: React.FC = () => {
 
                     {/* Amount Input */}
                     <View style={[styles.amountContainer, { borderColor: colors.border }]}>
-                        {/* {formState.category && (
-                            <View
-                                style={{
-                                    backgroundColor: colors.card,
-                                    borderRadius: 10,
-                                    marginRight: 10,
-                                    padding: 10,
-                                    borderWidth: 2,
-                                    borderColor: formState.category ? formState.category.color : colors.subtitle,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <Text style={{ color: formState.category ? colors.text : colors.subtitle, fontSize: 25 }}>
-                                    {formState.category.icon}
-                                </Text>
-                            </View>
-                        )} */}
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Text style={{ fontSize: fontSizes.FONT24, color: colors.text }}>₹ </Text>
                         </View>

@@ -20,11 +20,11 @@ export function Card({ variant = 'default', children, style }: CardProps) {
     };
 
     return (
-        <View style={[style, variantStyles[variant], {
+        <View style={[variantStyles[variant], {
             backgroundColor: colors.card,
             padding: tokens.spacing.md,
             borderRadius: tokens.borderRadius.md,
-        }]}>
+        }, style]}>
             {children}
         </View>
     );

@@ -9,12 +9,12 @@ const TotalBalance = () => {
     const { colors } = useTheme()
 
     return (
-        <View style={[styles.container, { borderWidth: 2, borderColor: colors.border }]}>
+        <View style={[styles.container, { borderWidth: 0, borderColor: colors.card, backgroundColor: colors.primary }]}>
             <View style={{ padding: tokens.spacing.md }}>
-                <ThemedText style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>TotalBalance</ThemedText>
+                <ThemedText style={{ color: colors.text, fontWeight: tokens.fontWeight.medium }}>Available Balance</ThemedText>
 
-                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold }}>$23,441.
-                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: colors.subtitle }}>
+                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold }}>$234.
+                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: colors.text }}>
                         00
                     </ThemedText>
                 </ThemedText>

@@ -7,6 +7,7 @@ import { Category } from '@/types';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '../common/ThemedText';
+import { tokens } from '@/constants/theme';
 
 interface CategoryBottomSheetProps {
     isVisible: boolean;
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: tokens.fontWeight.semibold,
         marginBottom: 8,
     },
     filterContainer: {

@@ -1,7 +1,7 @@
-import { useTheme } from '@react-navigation/native';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
 
 interface CategoryBarProps {
     data: any[];
