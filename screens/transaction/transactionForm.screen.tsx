@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-rout
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
+import ReceiptScanner from '@/components/ReceiptScanner';
 // import * as ImagePicker from 'expo-image-picker';
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { Category, RecurringTransaction, Transaction } from '@/types';
@@ -65,7 +66,7 @@ const TransactionFormScreen: React.FC = () => {
         selectedTags: '',
         transactionType: transactionTypes[0],
         source: { type: "manual" },
-        recurringId: undefined,
+        recurringId: undefined as string | undefined,
         attachments: undefined,
     });
     const [isMoreVisible, setIsMoreVisible] = useState(false);
@@ -99,6 +100,7 @@ const TransactionFormScreen: React.FC = () => {
                     transactionType: transactionTypes.find(t => t.name === currentRecurring.mode) || transactionTypes[0],
                     source: { type: 'manual' },
                     recurringId: currentRecurring.id,
+                    attachments: undefined,
                 });
                 setIsRecurringState(true);
                 setRecurringSchedule({
@@ -116,10 +118,12 @@ const TransactionFormScreen: React.FC = () => {
                     type: currentTransaction.type as 'income' | 'expense',
                     date: new Date(currentTransaction.date),
                     paidTo: currentTransaction.paidTo || '',
-                    paidBy: currentTransaction.paidBy || '',
+                    paidBy: '',
                     transactionType: transactionTypes.find(t => t.name === currentTransaction.mode) || transactionTypes[0],
                     source: currentTransaction.source,
                     recurringId: currentTransaction.recurringId || undefined,
+                    selectedTags: currentTransaction.selectedTags || '',
+                    attachments: undefined,
                 });
                 setIsRecurringState(!!currentTransaction.recurringId);
                 if (currentTransaction.recurringId) {
@@ -171,7 +175,7 @@ const TransactionFormScreen: React.FC = () => {
             await removeRecurringTransaction(currentRecurring.id);
 
             // Then create a normal transaction instead
-            const transactionData: Transaction = {
+            const transactionData = {
                 id,
                 amount: parseFloat(formState.amount),
                 note: formState.note,
@@ -283,9 +287,10 @@ const TransactionFormScreen: React.FC = () => {
                             onChangeText={validateAmount}
                             maxLength={10}
                         />
-                        <TouchableOpacity onPress={() => setShowScanner(true)} style={[styles.qrButton, { backgroundColor: colors.card }]}>
-                            <Ionicons name="qr-code" size={24} color={colors.text} />
-                        </TouchableOpacity>
+                        <ReceiptScanner onImageCaptured={(uri) => {
+                            console.log("Image captured", uri);
+                            setFormState(prev => ({ ...prev, attachments: [{ type: 'image', url: uri }] }));
+                        }} />
                     </View>
 
                     {/* Category Selection */}
@@ -456,7 +461,7 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
         marginBottom: 10,
         justifyContent: 'center',
-        alignItems:'center',
+        alignItems: 'center',
     },
     currencySymbol: {
         fontSize: 24,
@@ -500,80 +505,45 @@ const styles = StyleSheet.create({
         marginRight: 6,
         justifyContent: 'center',
     },
-    typeContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-        gap: 10
-    },
-    typeButton: {
-        flex: 1,
-        padding: 10,
-        alignItems: 'center',
-        borderRadius: 10,
-        borderWidth: 1,
-    },
-    submitButton: {
-        width: '100%',
-        padding: 15,
-        alignItems: 'center',
-        marginVertical: 10,
-        borderRadius: 10,
-    },
-    saveButtonContainer: {
-        position: 'absolute',
-        width: '100%',
-        padding: 20,
-        paddingBottom: 32,
-        alignItems: 'center',
-        bottom: 0,
-    },
-    saveButton: {
-        width: '100%',
-        alignItems: 'center',
-        height: 50,
-        borderRadius: 10,
-        justifyContent: 'center'
-    },
-    attachmentPreview: {
-        width: '100%',
-        height: 200,
-        resizeMode: 'cover',
-        marginBottom: 10,
-        borderRadius: 10,
-    },
     recurringSection: {
-        marginTop: 16,
-        marginBottom: 16,
+        marginTop: 20,
+        marginBottom: 20,
+        padding: 10,
+        borderWidth: 1,
+        borderRadius: 10,
     },
     recurringHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 8,
+        marginBottom: 10,
     },
     recurringOptions: {
-        gap: 10,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
+        marginTop: 10,
     },
     picker: {
-        flex: 1,
         height: 40,
-        borderWidth: 1,
-        borderRadius: 10,
+        marginBottom: 10,
     },
-    intervalInput: {
-        width: 50,
-        height: 40,
+    submitButton: {
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 20,
         borderWidth: 1,
-        borderRadius: 4,
-        marginHorizontal: 8,
-        paddingHorizontal: 8,
-        textAlign: 'center',
+    },
+    saveButtonContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 20,
+        backgroundColor: 'transparent',
+    },
+    saveButton: {
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
     },
 });
 

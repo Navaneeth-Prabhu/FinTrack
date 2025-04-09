@@ -19,11 +19,12 @@ export interface Transaction {
   location?: {
     coordinates: number, // [longitude, latitude]
   },
-  recurringId?: string | null,
+  recurringId?: string | undefined,
   attachments?: {
     type: string | null | undefined,
     url: string,
   },
+  selectedTags?: string,
   fromAccount?: {
     id: string,
     name: string,
