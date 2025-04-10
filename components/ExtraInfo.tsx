@@ -1,9 +1,11 @@
 import { useTheme } from "@/hooks/useTheme";
-import { FlatList, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { ThemedText } from "./common/ThemedText";
 import { fontSizes, tokens } from "@/constants/theme";
 import { ChartLine } from "lucide-react-native";
 import { Card } from "./common/Card";
+import { Touchable } from "react-native";
+import { router } from "expo-router";
 
 export function ExtraInfo() {
     const { colors } = useTheme();
@@ -20,12 +22,12 @@ export function ExtraInfo() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
                 <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, alignItems: 'flex-start', }}>
-                    <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.push('/(routes)/ai/chat') } style={styles.header}>
                         <View style={[styles.iconContainer, { backgroundColor: colors.background, }]}>
                             <ChartLine color={colors.primary} size={18} />
                         </View>
                         <Text style={{ fontWeight: tokens.fontWeight.medium, fontSize: fontSizes.FONT16, color: colors.text, flex: 1 }}>{item.title}</Text>
-                    </View>
+                    </TouchableOpacity >
                     {
                         item.amount && (
                             <Text style={{
