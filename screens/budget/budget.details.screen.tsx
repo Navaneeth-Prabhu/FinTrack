@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useLayoutEffect, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { BudgetCard } from '@/components/BudgetCard';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Text } from 'react-native';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -9,6 +10,8 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { format, addDays, subDays } from 'date-fns';
 import { BarChart } from 'react-native-gifted-charts';
+import { CategoryIcon } from '@/components/transactions/CategoryIcon';
+import { fontSizes, tokens } from '@/constants/theme';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -156,63 +159,81 @@ const BudgetDetailsScreen = () => {
   };
 
   return (
-<>
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
-        <ThemedText variant="h2">{budget.name || budget.category.name}</ThemedText>
-        {isLoading ? (
-          <ThemedText>Loading budget details...</ThemedText>
-        ) : (
-          <View style={styles.summary}>
-            <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
-            <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText>
-            <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
-            <View style={styles.progressBarContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${Math.min(progress, 100)}%`,
-                    backgroundColor: progress > 100 ? colors.error : colors.primary,
-                  },
-                ]}
+    <>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={[styles.header, { backgroundColor: colors.card }]}>
+          <ThemedText variant="h2">{budget.name || budget.category.name}</ThemedText>
+          {isLoading ? (
+            <ThemedText>Loading budget details...</ThemedText>
+          ) : (
+            <>
+              {/* <View style={styles.summary}>
+                <View style={styles.categoryContainer}>
+                  <CategoryIcon category={budget.category} />
+                  <View>
+                    <ThemedText variant='h2'
+                      style={{ fontSize: fontSizes.FONT24 }}>{budget.name || budget.category.name}</ThemedText>
+                    <ThemedText variant='body1'>
+                      <Text style={{ fontWeight: tokens.fontWeight.semibold }}>
+                        ${currentSpent?.toFixed(2) ?? 'N/A'}
+                      </Text> of ${budget.limit.toFixed(2)}
+                    </ThemedText>
+                  </View>
+                </View>
+                {/* <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
+                <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText> *\/}
+                <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${Math.min(progress, 100)}%`,
+                        backgroundColor: progress > 100 ? colors.error : colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
+              </View> */}
+              <BudgetCard
+                key={budget.id}
+                budget={{ ...budget, spent: currentSpent ?? 0, progress, startDate: displayedPeriod.start.toISOString() }}
               />
-            </View>
-            <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
-          </View>
-        )}
-      </View>
+            </>
+          )}
+        </View>
 
-      <View style={styles.transactionsContainer}>
-        <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
-        {periodTransactions.length > 0 ? (
-          <>
-            <BarChart
-              data={chartData}
-              width={screenWidth - 40} // Adjust for padding
-              height={220}
-              barWidth={30}
-              spacing={10}
-              noOfSections={5}
-              barBorderRadius={4}
-              frontColor={colors.primary}
-              yAxisTextStyle={{ color: colors.text }}
-              xAxisLabelTextStyle={{ color: colors.text }}
-              yAxisLabelPrefix="$"
-              backgroundColor={colors.card}
-              rulesColor={colors.text}
-              showLine={false}
-            // style={styles.chart}
-            />
-            {periodTransactions.map(transaction => (
-              <TransactionItem key={transaction.id} transaction={transaction} />
-            ))}
-          </>
-        ) : (
-          <ThemedText style={{ color: colors.subtitle }}>No transactions in this period</ThemedText>
-        )}
-      </View>
-    </ScrollView>
+        <View style={styles.transactionsContainer}>
+          <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
+          {periodTransactions.length > 0 ? (
+            <>
+              <BarChart
+                data={chartData}
+                width={screenWidth - 40} // Adjust for padding
+                height={220}
+                barWidth={30}
+                spacing={10}
+                noOfSections={5}
+                barBorderRadius={4}
+                frontColor={colors.primary}
+                yAxisTextStyle={{ color: colors.text }}
+                xAxisLabelTextStyle={{ color: colors.text }}
+                yAxisLabelPrefix="$"
+                backgroundColor={colors.card}
+                rulesColor={colors.text}
+                showLine={false}
+              // style={styles.chart}
+              />
+              {periodTransactions.map(transaction => (
+                <TransactionItem key={transaction.id} transaction={transaction} />
+              ))}
+            </>
+          ) : (
+            <ThemedText style={{ color: colors.subtitle }}>No transactions in this period</ThemedText>
+          )}
+        </View>
+      </ScrollView>
       <View style={styles.periodNavigation}>
         <TouchableOpacity onPress={handlePrevPeriod} style={styles.arrowButton}>
           <FontAwesome name="chevron-left" size={16} color={colors.text} />
@@ -222,7 +243,7 @@ const BudgetDetailsScreen = () => {
           <FontAwesome name="chevron-right" size={16} color={colors.text} />
         </TouchableOpacity>
       </View>
-</>
+    </>
 
   );
 };
@@ -258,6 +279,11 @@ const styles = StyleSheet.create({
   transactionsContainer: { padding: 15 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
   chart: { marginVertical: 15, borderRadius: 8 },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 });
 
 export default BudgetDetailsScreen;

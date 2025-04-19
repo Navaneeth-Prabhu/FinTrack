@@ -25,7 +25,7 @@ export const fetchCategoriesFromDB = async (): Promise<Category[]> => {
     icon: row.icon,
     type: row.type,
     color: row.color,
-    order: row.order,
+    order: row.orderId,
   }));
 };
 

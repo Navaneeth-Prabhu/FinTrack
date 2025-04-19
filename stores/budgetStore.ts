@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import { Budget, Transaction } from '@/types';
 import {
   fetchBudgetsFromDB,
@@ -126,11 +127,21 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
     // Trigger a UI update to reflect changes without a full DB refetch
     set({ lastUpdated: Date.now() });
 
-    // For complex cases (like category changes), we might want to consider
-    // which budgets are affected by the old and new transaction
-    if (action === 'update' && oldTransaction && oldTransaction.category.id !== transaction.category.id) {
-      console.log('Transaction category changed, multiple budgets may be affected');
-    }
+    const currentBudgets = get().budgets;
+    currentBudgets.forEach(budget => {
+      const { start, end } = get().getCurrentPeriod(budget);
+      get().calculateSpent(budget, start, end).then(spent => {
+        console.log(`Budget ${budget.category.name} spent: ${spent}, limit: ${budget.limit}`);
+        if (spent > budget.limit) {
+          console.log(`Budget ${budget.category.name} exceeded, triggering alert`);
+          Alert.alert(
+            'Budget Alert',
+            `You have exceeded your budget for ${budget.category.name}.`,
+            [{ text: 'OK' }]
+          );
+        }
+      });
+    });
   },
 
   // This method handles updating budgets for multiple transactions at once
@@ -146,6 +157,22 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
 
     // Trigger a UI update to reflect changes without a full DB refetch
     set({ lastUpdated: Date.now() });
+
+    const currentBudgets = get().budgets;
+    currentBudgets.forEach(budget => {
+      const { start, end } = get().getCurrentPeriod(budget);
+      get().calculateSpent(budget, start, end).then(spent => {
+        console.log(`Budget ${budget.category.name} spent: ${spent}, limit: ${budget.limit}`);
+        if (spent > budget.limit) {
+          console.log(`Budget ${budget.category.name} exceeded, triggering alert`);
+          Alert.alert(
+            'Budget Alert',
+            `You have exceeded your budget for ${budget.category.name}.`,
+            [{ text: 'OK' }]
+          );
+        }
+      });
+    });
   },
 
   // This method recalculates all budget data (typically used after initial load)
