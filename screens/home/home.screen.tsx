@@ -18,7 +18,7 @@ import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 import TotalBalance from '@/components/TotalBalance';
 import { ExtraInfo } from '@/components/ExtraInfo';
 import { readHistoricalSMS, startSMSListener } from '@/services/smsParser';
-import { getAppSignature } from '@/services/getAppSignature';
+
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();

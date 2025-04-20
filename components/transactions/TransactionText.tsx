@@ -22,7 +22,7 @@ export const TransactionDetails: React.FC<TransactionDetailsProps> = ({
         <View style={styles.container}>
             <View style={styles.titleContainer}>
                 <ThemedText variant='h3'>
-                    {transaction.category.name}
+                 {transaction.paidTo || transaction.category.name }
                 </ThemedText>
                 {isRecurring && (
                     <FontAwesome name="repeat" size={14} color={colors.muted} />

@@ -13,7 +13,8 @@ const categoryConstants: Category[] = [
   { id: '7', name: 'Medical', icon: '💊', type: 'expense', color: ColorsConstants[6], order: 6 },
   { id: '8', name: 'Education', icon: '🎓', type: 'expense', color: ColorsConstants[7], order: 7 },
   { id: '9', name: 'Gift', icon: '🎁', type: 'expense', color: ColorsConstants[8], order: 8 },
-  { id: '101', name: 'Other', icon: '...', type: 'expense', color: 'white', order: 9 },
+  { id: '10', name: 'Shopping', icon: '🛒', type: 'expense', color: ColorsConstants[8], order: 9 },
+  { id: '101', name: 'Other', icon: '❗', type: 'expense', color: 'white', order: 9 },
   { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: ColorsConstants[9], order: 2 },
 ];
 

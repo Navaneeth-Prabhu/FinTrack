@@ -11,6 +11,7 @@ import { FilterBottomSheet } from '@/components/bottomSheet/transactionFilterBot
 import { Ionicons } from '@expo/vector-icons';
 import { TimeView } from '@/types';
 import { TransactionList } from '@/components/transactions';
+import SMSImportButton from '@/components/SMSImportButton';
 
 export default function TimeLineScreen() {
     const { transactions, fetchTransactions } = useTransactionStore();
@@ -144,6 +145,7 @@ export default function TimeLineScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+            <SMSImportButton style={{ marginBottom: 16 }} />
 
             {activeFilters.length > 0 && (
                 <View style={styles.activeFiltersContainer}>

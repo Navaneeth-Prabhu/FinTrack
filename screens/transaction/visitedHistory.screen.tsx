@@ -23,8 +23,8 @@ const VisitedHistoryScreen = () => {
     // }
 
     // Otherwise, return all matching transactions
-    return transactions.filter((t: Transaction) => t.category.name === transaction?.category.name);
-    // return transactions.filter((t: Transaction) => t.paidTo === transaction?.paidTo);
+    // return transactions.filter((t: Transaction) => t.category.name === transaction?.category.name);
+    return transactions.filter((t: Transaction) => t.paidTo === transaction?.paidTo);
   }, [transactions, transaction]);
 
 

@@ -13,9 +13,9 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
 import usePreferenceStore from '@/stores/preferenceStore';
 import { useCategoryStore } from '@/stores/categoryStore';
+import { useTransactionStore } from '@/stores/transactionStore';
 import { Platform } from 'react-native';
-import { debugReadFinancialSMS, debugReadSMS } from '@/services/SMSDebugService';
-
+import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +30,8 @@ export default function RootLayout() {
 
   // Get biometrics preference from Zustand store
   const { biometrics } = usePreferenceStore();
+  const { categories, fetchCategories } = useCategoryStore();
+  const { saveTransaction } = useTransactionStore();
 
   // Check biometric support on mount
   useEffect(() => {
@@ -42,42 +44,29 @@ export default function RootLayout() {
 
   const loadCategories = async () => {
     try {
-      await useCategoryStore.getState().fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
   };
 
-  // New function to handle SMS reading for debugging
-  const initSMSDebug = async () => {
-    // Only run on Android
-    if (Platform.OS !== 'android') {
-      console.log('SMS reading is only available on Android');
-      return;
+  // Setup SMS scanning (returns a cleanup function)
+  useEffect(() => {
+    // Only setup SMS scanning if categories are loaded
+    if (categories && categories.length > 0) {
+      // Set up periodic scanning (every 30 minutes)
+      const cleanupSMSScan = setupPeriodicSMSScan(categories, saveTransaction, 30);
+
+      // Cleanup on component unmount
+      return cleanupSMSScan;
     }
-
-    try {
-      console.log('Starting SMS debug process...');
-
-      // Read and log general SMS messages
-      await debugReadSMS();
-
-      // Specifically look for financial messages
-      await debugReadFinancialSMS();
-
-      console.log('SMS debug process completed');
-    } catch (error) {
-      console.error('Error in SMS debug process:', error);
-    }
-  };
+  }, [categories, saveTransaction]);
 
   // Initialize app and handle biometric authentication conditionally
   useEffect(() => {
     if (loaded) {
       const initializeApp = async () => {
         try {
-          // await getAppSignature(); // Just logs the hash you'll need
-
           // Step 1: Fetch recurring transactions
           console.log('Fetching recurring transactions');
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();
@@ -90,11 +79,17 @@ export default function RootLayout() {
           console.log('Generating due transactions');
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
 
-          // NEW: Add SMS debugging early in the startup process
-          // This runs regardless of authentication status
-          await initSMSDebug();
+          // Step 4: Load categories if not already loaded
+          if (!categories || categories.length === 0) {
+            await loadCategories();
+          }
 
-          // Step 4: Prompt for biometric authentication if supported AND enabled in preferences
+          // Step 5: Initialize SMS features after categories are loaded
+          if (Platform.OS === 'android' && categories && categories.length > 0) {
+            await initializeSMSFeatures(categories, saveTransaction);
+          }
+
+          // Step 6: Prompt for biometric authentication if supported AND enabled in preferences
           if (isBiometricSupported && biometrics) {
             console.log('Prompting for biometric authentication');
             const result = await LocalAuthentication.authenticateAsync({
@@ -126,9 +121,8 @@ export default function RootLayout() {
       };
 
       initializeApp();
-      loadCategories();
     }
-  }, [loaded, isBiometricSupported, biometrics]); // Add biometrics as dependency
+  }, [loaded, isBiometricSupported, biometrics, categories, saveTransaction]);
 
   // Show nothing until authenticated and loaded
   if (!loaded || !isAuthenticated) {
