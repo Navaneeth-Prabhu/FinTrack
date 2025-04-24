@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Keyboard, ScrollView, Image, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Keyboard, ScrollView, Image, KeyboardAvoidingView, Platform, Switch, Alert } from 'react-native';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -164,7 +164,6 @@ const TransactionFormScreen: React.FC = () => {
         }
     }, [handleFormChange]);
 
-    // Memoized submit handler
     const handleSubmit = useCallback(async () => {
         if (!formState.category || !formState.amount) return;
 
@@ -216,6 +215,7 @@ const TransactionFormScreen: React.FC = () => {
             };
             // console.log('recurringData', editMode, recurringData);
             editMode === 'true' ? await updateRecurringTransaction(recurringData) : await saveRecurringTransaction(recurringData);
+            router.back();
         } else {
             const transactionData: Transaction = {
                 id,
@@ -224,18 +224,82 @@ const TransactionFormScreen: React.FC = () => {
                 category: formState.category,
                 type: formState.type,
                 date: formState.date.toISOString(),
-                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : undefined,
-                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : undefined,
+                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : null,
+                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : null,
                 mode: formState.transactionType.name,
                 createdAt: currentTransaction?.createdAt || Date.now().toString(),
                 lastModified: Date.now().toString(),
                 source: formState.source,
                 recurringId: formState.recurringId,
             };
-            editMode === 'true' ? await updateTransaction(transactionData) : await saveTransaction(transactionData);
+
+            if (editMode === 'true') {
+                try {
+                    const result = await updateTransaction(transactionData);
+
+                    // Check if there are similar payee transactions
+                    if (result && typeof result === 'object' && 'similarTransactions' in result) {
+                        const { similarTransactions } = result;
+
+                        if (similarTransactions && similarTransactions.length > 0) {
+                            // Show an alert to the user
+                            Alert.alert(
+                                "Update Similar Transactions",
+                                `Found ${similarTransactions.length} more transaction(s) with the same ${formState.type === 'expense' ? 'recipient' : 'payer'} "${formState.type === 'expense' ? formState.paidTo : formState.paidBy}". Update all with the category "${formState.category.name}"?`,
+                                [
+                                    {
+                                        text: "No",
+                                        style: "cancel",
+                                        onPress: () => router.back()
+                                    },
+                                    {
+                                        text: "Yes",
+                                        onPress: async () => {
+                                            try {
+                                                // Update all similar transactions with the new category
+                                                await useTransactionStore.getState().updateCategoryForSimilarPayeeTransactions(
+                                                    similarTransactions,
+                                                    formState.category!
+                                                );
+                                                router.back();
+                                            } catch (error) {
+                                                console.error("Error updating similar transactions:", error);
+                                                Alert.alert(
+                                                    "Error",
+                                                    "Failed to update similar transactions. Only the current transaction was updated."
+                                                );
+                                                router.back();
+                                            }
+                                        }
+                                    }
+                                ]
+                            );
+                            return;
+                        }
+                    }
+                    router.back();
+                } catch (error) {
+                    console.error("Error updating transaction:", error);
+                    Alert.alert(
+                        "Error",
+                        "Failed to update transaction. Please try again."
+                    );
+                }
+            } else {
+                try {
+                    await saveTransaction(transactionData);
+                    router.back();
+                } catch (error) {
+                    console.error("Error saving transaction:", error);
+                    Alert.alert(
+                        "Error",
+                        "Failed to save transaction. Please try again."
+                    );
+                }
+            }
         }
-        router.back();
-    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, isRecurring]);
+    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, isRecurring, router, saveTransaction, updateTransaction, removeRecurringTransaction, saveRecurringTransaction, updateRecurringTransaction]);
+
     const handleStartDateConfirm = (date: Date) => {
         setRecurringSchedule(prev => ({ ...prev, startDate: date.toISOString() }));
         setShowStartDatePicker(false);

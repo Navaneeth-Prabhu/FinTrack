@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, useColorScheme } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -12,8 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { TimeView } from '@/types';
 import { TransactionList } from '@/components/transactions';
 import SMSImportButton from '@/components/SMSImportButton';
+import { darkTheme, lightTheme } from '@/constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 export default function TimeLineScreen() {
+    const colorScheme = useColorScheme();
+    const {theme} = usePreferenceStore();
     const { transactions, fetchTransactions } = useTransactionStore();
     const { recurringTransactions } = useRecurringTransactionStore();
     const { categories } = useCategoryStore();
@@ -127,7 +132,7 @@ export default function TimeLineScreen() {
     };
 
     return (
-        <Screen scroll={false} style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }]}>
             <View style={styles.header}>
                 <ThemedText style={styles.title}>Transactions</ThemedText>
                 <View style={styles.headerActions}>
@@ -183,13 +188,14 @@ export default function TimeLineScreen() {
                 onApplyFilters={handleApplyFilters}
                 filterOptions={filterOptions}
             />
-        </Screen>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        paddingHorizontal: 16,
     },
     header: {
         flexDirection: 'row',

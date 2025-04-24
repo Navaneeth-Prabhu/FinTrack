@@ -95,7 +95,8 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#F8F9FC',          // Slightly cooler off-white for better contrast
+    background: '#f7f7f7',          // Slightly cooler off-white for better contrast
+    // background: '#F9FAFC',          // Slightly cooler off-white for better contrast
     secondaryBackground: '#FFFFFF', // Pure white
     foreground: '#2D2A40',          // Dark purple-gray for better brand alignment
     card: '#FFFFFF',                // White cards
@@ -108,7 +109,8 @@ export const lightTheme = {
     subtitle: '#6E6A8F',            // Medium purple-gray for subtitles
 
     // Semantic colors
-    accent: '#EFEEFF',              // Very light purple for subtle accents
+    accent: '#f7f6f9',              // Very light purple for subtle accents
+    // accent: '#EFEEFF',              // Very light purple for subtle accents
     accentForeground: '#2D2A40',    // Consistent text color
     muted: '#E8E9F0',               // Softer muted with purple tint
     mutedForeground: '#A6A4BA',     // Lighter purple-gray
@@ -146,7 +148,7 @@ export const darkTheme = {
     secondarycard: '#252525',       // Slightly lighter secondary cards
     cardForeground: '#F0F0F5',      // Match foreground
     primary: '#8F85FF',             // Your brand purple
-    primaryForeground: '#1A1A1A',   // Dark background for text on primary
+    primaryForeground: '#2A2A2A',   // Dark background for text on primary
     secondary: '#7269E3',           // Slightly darker purple for secondary
     text: '#F0F0F5',                // Match foreground
     subtitle: '#AAAAAF',            // Light gray with slight cool tint

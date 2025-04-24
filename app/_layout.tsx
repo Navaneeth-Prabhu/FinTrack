@@ -68,15 +68,15 @@ export default function RootLayout() {
       const initializeApp = async () => {
         try {
           // Step 1: Fetch recurring transactions
-          console.log('Fetching recurring transactions');
+          // console.log('Fetching recurring transactions');
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();
 
           // Step 2: Register the background task
-          console.log('Registering background task');
+          // console.log('Registering background task');
           await registerRecurringTask();
 
           // Step 3: Generate due transactions
-          console.log('Generating due transactions');
+          // console.log('Generating due transactions');
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
 
           // Step 4: Load categories if not already loaded
@@ -91,7 +91,7 @@ export default function RootLayout() {
 
           // Step 6: Prompt for biometric authentication if supported AND enabled in preferences
           if (isBiometricSupported && biometrics) {
-            console.log('Prompting for biometric authentication');
+            // console.log('Prompting for biometric authentication');
             const result = await LocalAuthentication.authenticateAsync({
               promptMessage: 'Authenticate to access FinTrack',
               cancelLabel: 'Cancel',
@@ -99,15 +99,15 @@ export default function RootLayout() {
             });
 
             if (result.success) {
-              console.log('Biometric authentication successful');
+              // console.log('Biometric authentication successful');
               setIsAuthenticated(true);
             } else {
-              console.log('Biometric authentication failed');
+              // console.log('Biometric authentication failed');
               // Keep app locked until success; adjust this logic as needed
               return; // Prevents proceeding if authentication fails
             }
           } else {
-            console.log('Biometric authentication skipped (not supported or disabled)');
+            // console.log('Biometric authentication skipped (not supported or disabled)');
             setIsAuthenticated(true); // Proceed without biometric
           }
 

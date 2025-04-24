@@ -16,6 +16,7 @@ const categoryConstants: Category[] = [
   { id: '10', name: 'Shopping', icon: '🛒', type: 'expense', color: ColorsConstants[8], order: 9 },
   { id: '101', name: 'Other', icon: '❗', type: 'expense', color: 'white', order: 9 },
   { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: ColorsConstants[9], order: 2 },
+  { id: '102', name: 'Transfer', icon: '🔁', type: 'transfer', color: ColorsConstants[9], order: 2 },
 ];
 
 let db: SQLite.SQLiteDatabase | null = null;
