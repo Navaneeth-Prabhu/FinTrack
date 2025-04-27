@@ -18,7 +18,8 @@ import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore
 import { format } from 'date-fns';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { fontSizes, tokens } from '@/constants/theme';
+import { darkTheme, fontSizes, lightTheme, tokens } from '@/constants/theme';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 const transactionTypes = [
     { id: '1', name: 'Cash', type: 'Bank' },
@@ -42,6 +43,7 @@ const INITIAL_FORM_STATE = {
 const TransactionFormScreen: React.FC = () => {
     const router = useRouter();
     const { colors } = useTheme();
+    const { theme } = usePreferenceStore();
     const { editMode, transactionId, isRecurring } = useLocalSearchParams();
     const amountInputRef = useRef<TextInput>(null);
     const [showScanner, setShowScanner] = useState(false);
@@ -316,9 +318,9 @@ const TransactionFormScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme == 'dark' ? darkTheme.background : lightTheme.card }}>
             <Header showBack title={editMode ? 'Edit Transaction' : 'New Transaction'} />
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView style={[styles.container]}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                     <View>
                         <ThemedText variant="h2">
