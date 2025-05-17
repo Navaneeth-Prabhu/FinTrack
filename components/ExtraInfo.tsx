@@ -21,7 +21,7 @@ export function ExtraInfo() {
             horizontal
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-                <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, alignItems: 'flex-start', }}>
+                <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, justifyContent: 'space-between' }}>
                     <TouchableOpacity onPress={() => router.push('/(routes)/ai/chat') } style={styles.header}>
                         <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground, }]}>
                             <ChartLine color={colors.primary} size={18} />
@@ -54,7 +54,6 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         justifyContent: 'flex-start',
         gap: 10,
-        flex: 1,
     },
     iconContainer: {
         backgroundColor: '#E0E0E0',

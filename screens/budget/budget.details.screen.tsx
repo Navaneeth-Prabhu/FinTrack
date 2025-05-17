@@ -12,6 +12,7 @@ import { format, addDays, subDays } from 'date-fns';
 import { BarChart } from 'react-native-gifted-charts';
 import { CategoryIcon } from '@/components/transactions/CategoryIcon';
 import { fontSizes, tokens } from '@/constants/theme';
+import CustomLineChart from '@/components/charts/CustomLineChart';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -145,11 +146,54 @@ const BudgetDetailsScreen = () => {
   };
 
   // Chart data for transactions
-  const chartData = periodTransactions.map(t => ({
-    value: Math.abs(t.amount),
-    label: format(new Date(t.date), 'd'),
-    frontColor: colors.primary,
-  }));
+  // Prepare chart data with both expense and budget values
+  const chartData = useMemo(() => {
+    if (!periodTransactions.length || !currentPeriod || !budget) return [];
+
+    // Group transactions by date
+    const groupedByDate = {};
+
+    periodTransactions.forEach(transaction => {
+      const dateStr = format(new Date(transaction.date), 'd');
+
+      if (!groupedByDate[dateStr]) {
+        groupedByDate[dateStr] = 0;
+      }
+
+      groupedByDate[dateStr] += Math.abs(transaction.amount);
+    });
+
+    // Create an array of all days in the period
+    const allDays = [];
+    const startDate = currentPeriod.start;
+    const endDate = currentPeriod.end;
+    let currentDate = startDate;
+
+    // Calculate budget values
+    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const budgetLimit = budget.limit;
+    const dailyIncrement = budgetLimit / totalDays;
+    let dayCount = 0;
+
+    while (currentDate <= endDate) {
+      const day = format(currentDate, 'd');
+      dayCount++;
+
+      // Add both expense and budget values in a single object
+      allDays.push({
+        label: day,
+        value: groupedByDate[day] || 0,
+        // Budget line increases linearly
+        value2: dailyIncrement * dayCount
+      });
+
+      // Move to next day
+      currentDate = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return allDays;
+  }, [periodTransactions, currentPeriod, budget]);
 
   const handlePrevPeriod = () => setPeriodOffset(prev => prev - 1);
   const handleNextPeriod = () => {
@@ -162,7 +206,7 @@ const BudgetDetailsScreen = () => {
     <>
       <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.header, { backgroundColor: colors.card }]}>
-          <ThemedText variant="h2">{budget.name || budget.category.name}</ThemedText>
+          {/* <ThemedText variant="h2">{budget.name || budget.category.name}</ThemedText> */}
           {isLoading ? (
             <ThemedText>Loading budget details...</ThemedText>
           ) : (
@@ -205,26 +249,27 @@ const BudgetDetailsScreen = () => {
         </View>
 
         <View style={styles.transactionsContainer}>
+          <ThemedText style={styles.sectionTitle}>Budget Progress</ThemedText>
+          {chartData.length > 0 &&
+            <View style={{ ...styles.chart, backgroundColor: colors.card }}>
+              <CustomLineChart
+                data={chartData}
+                secondLineColor="#FF5555"
+                lineColor="#7269E3"
+                gradientColors={["#8F85FF", "#6E88F720"]}
+                chartHeight={270}
+                yLabelCount={5}
+                curved={true}
+                showDots={true}
+                animate={true}
+                labelColor={colors.subtitle}
+              />
+            </View>
+          }
           <ThemedText style={styles.sectionTitle}>Transactions</ThemedText>
           {periodTransactions.length > 0 ? (
             <>
-              <BarChart
-                data={chartData}
-                width={screenWidth - 40} // Adjust for padding
-                height={220}
-                barWidth={30}
-                spacing={10}
-                noOfSections={5}
-                barBorderRadius={4}
-                frontColor={colors.primary}
-                yAxisTextStyle={{ color: colors.text }}
-                xAxisLabelTextStyle={{ color: colors.text }}
-                yAxisLabelPrefix="$"
-                backgroundColor={colors.card}
-                rulesColor={colors.text}
-                showLine={false}
-              // style={styles.chart}
-              />
+
               {periodTransactions.map(transaction => (
                 <TransactionItem key={transaction.id} transaction={transaction} />
               ))}

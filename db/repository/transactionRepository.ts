@@ -281,4 +281,84 @@ export const findTransactionsByPayee = async (
         mode: row.mode,
         recurringId: row.recurringId || undefined,
     }));
+
+};
+
+// Add this to your transactionRepository.ts file
+
+export const fetchFilteredTransactionsFromDB = async (
+    type?: 'income' | 'expense' | 'transfer',
+    startDate?: string,
+    endDate?: string
+): Promise<Transaction[]> => {
+    const db = await initDatabase();
+
+    let query = `
+      SELECT 
+        t.id, 
+        t.amount, 
+        t.type, 
+        t.date, 
+        t.createdAt, 
+        t.lastModified, 
+        t.categoryId,
+        t.paidTo,
+        t.paidBy,
+        t.sourceType,
+        t.mode AS mode,
+        t.recurringId,
+        c.id AS categoryId, 
+        c.name AS categoryName, 
+        c.icon AS categoryIcon, 
+        c.type AS categoryType, 
+        c.color AS categoryColor
+      FROM transactions t
+      LEFT JOIN categories c ON t.categoryId = c.id
+      WHERE 1=1
+    `;
+
+    const params: any[] = [];
+
+    // Add type filter if specified
+    if (type) {
+        query += ` AND t.type = ?`;
+        params.push(type);
+    }
+
+    // Add date range filter if specified
+    if (startDate) {
+        query += ` AND t.date >= ?`;
+        params.push(startDate);
+    }
+
+    if (endDate) {
+        query += ` AND t.date <= ?`;
+        params.push(endDate);
+    }
+
+    // Add ordering
+    query += ` ORDER BY t.date DESC`;
+
+    const transactions = await db.getAllAsync(query, ...params);
+
+    return transactions.map((row: any) => ({
+        id: row.id,
+        amount: row.amount,
+        type: row.type,
+        date: row.date,
+        paidTo: row.paidTo,
+        paidBy: row.paidBy,
+        createdAt: row.createdAt,
+        lastModified: row.lastModified,
+        category: {
+            id: row.categoryId,
+            name: row.categoryName,
+            icon: row.categoryIcon,
+            type: row.categoryType,
+            color: row.categoryColor,
+        },
+        source: { type: row.sourceType },
+        mode: row.mode,
+        recurringId: row.recurringId || undefined,
+    }));
 };

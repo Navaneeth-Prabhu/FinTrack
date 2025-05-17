@@ -23,6 +23,7 @@ import CustomLineChart, { PieChart } from '@/components/charts/CustomLineChart';
 import BarChart from '@/components/charts/ExpenseChartWidget';
 import { generateRandomChartData } from '@/components/charts/barchartData';
 import LineChart from '@/components/charts/CustomLineChart';
+import ReportChart from '@/components/charts/ReportChart';
 
 const HomeScreen = () => {
     const { colors } = useTheme();
@@ -119,17 +120,6 @@ const HomeScreen = () => {
         );
     };
 
-    // Generate monthly data with green theme
-    const monthlyData = generateRandomChartData('month', 'green');
-
-    // Or weekly data with blue theme
-    const weeklyData = generateRandomChartData('week', 'blue');
-
-    const handleBarPress = (item, index) => {
-        console.log(`Selected: ${item.label} with value $${item.value}`);
-        // Show more details, update state, etc.
-    };
-
     const data = [
         { label: 'Jan', value: 125 },
         { label: 'Feb', value: 220 },
@@ -142,7 +132,7 @@ const HomeScreen = () => {
 
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            <View style={{ height: tokens.spacing.xxl }} />
+            {/* <View style={{ height: tokens.spacing.xxl }} /> */}
             <TotalBalance />
             <ExtraInfo />
             {/* <ExpenseChartWidget /> */}
@@ -150,8 +140,8 @@ const HomeScreen = () => {
                 <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
                     <CustomLineChart
                         data={data}
-                        lineColor="#6E88F7"
-                        gradientColors={["#6E88F7", "#6E88F720"]}
+                        lineColor="#7269E3"
+                        gradientColors={["#8F85FF", "#6E88F720"]}
                         chartHeight={250}
                         yLabelCount={5}
                         curved={true}
@@ -161,24 +151,7 @@ const HomeScreen = () => {
                     />
                 </View>
             </View>
-            <BarChart
-                data={monthlyData}
-                type="month"
-                onBarPress={handleBarPress}
-                showBarBackground={false}
-                barBackgroundColor="#F0F4F8"
-                barGap={5}
-                textColor="#506690"
-                chartHeight={200}
-                topPadding={20}
-                yLabelCount={5}
-                yLabelsPosition="both"
-                yGridLines={true}
-                yGridLineColor="#E2E8F0"
-                barBorderRadius={4}
-                showTouchedValue={true}
-                fontSize={10}
-            />
+            <ReportChart />
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
                 marginHorizontal: tokens.spacing.md,

@@ -150,7 +150,7 @@ export default function TimeLineScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
-            <SMSImportButton style={{ marginBottom: 16 }} />
+            {/* <SMSImportButton style={{ marginBottom: 16 }} /> */}
 
             {activeFilters.length > 0 && (
                 <View style={styles.activeFiltersContainer}>

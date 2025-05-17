@@ -16,12 +16,14 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { Platform } from 'react-native';
 import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
+import { useTheme } from '@/hooks/useTheme';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { isDark, colorScheme } = useTheme();
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -145,7 +147,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
         </BottomSheetModalProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

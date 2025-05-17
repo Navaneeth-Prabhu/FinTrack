@@ -15,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
+import { CategoryIcon } from '@/components/transactions/CategoryIcon';
 
 interface Category {
     id: string;
@@ -81,14 +82,15 @@ const CategoryListScreen = () => {
                 ]}
             >
                 {/* Category Icon */}
-                <View
+                <CategoryIcon category={item} />
+                {/* <View
                     style={[
                         styles.iconContainer,
                         { backgroundColor: item.color }
                     ]}
                 >
                     <ThemedText style={styles.itemIcon}>{item.icon}</ThemedText>
-                </View>
+                </View> */}
 
                 {/* Category Name */}
                 <TouchableOpacity
@@ -186,6 +188,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginBottom: 8,
         borderWidth: 2,
+        gap: 10,
     },
     iconContainer: {
         width: 40,

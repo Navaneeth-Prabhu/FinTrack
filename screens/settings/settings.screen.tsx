@@ -35,7 +35,7 @@ const MoreScreen = () => {
     const darkThemeColor = '#A59BFF';
 
     return (
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 , backgroundColor: colors.background}}>
             <ScrollView showsVerticalScrollIndicator={false} style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>

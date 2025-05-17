@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Href, router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Category } from '@/types';
@@ -124,77 +124,75 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
         , [applyFilter, filter]);
 
     return (
-        <BottomSheetModalProvider>
-            <BottomSheetModal
-                ref={bottomSheetModalRef}
-                index={0}
-                snapPoints={useMemo(() => ['60%'], [])}
-                onChange={handleSheetChanges}
-                backdropComponent={renderBackdrop}
-                enablePanDownToClose
-                backgroundStyle={{ backgroundColor: colors.card }}
-                handleIndicatorStyle={{ display: 'none' }}
-                footerComponent={renderFooter}
-            >
-                <View style={[styles.contentContainer, { backgroundColor: colors.card }]}>
-                    <View style={styles.header}>
-                        <View style={styles.titleContainer}>
-                            <ThemedText style={[styles.title, { color: colors.text }]}>
-                                Select Category
-                            </ThemedText>
-                            <View style={styles.iconContainer} >
-                                <MaterialIcons
-                                    onPress={() => handleEditCategory()}
-                                    name="edit" size={20}
-                                    color={colors.text}
-                                />
-                                <Ionicons
-                                    onPress={() => onClose()}
-                                    name="close" size={26}
-                                    color={colors.text}
-                                />
-                            </View>
+        <BottomSheetModal
+            ref={bottomSheetModalRef}
+            index={1}
+            snapPoints={['50%', '60%']}
+            onChange={handleSheetChanges}
+            backdropComponent={renderBackdrop}
+            enablePanDownToClose
+            backgroundStyle={{ backgroundColor: colors.card }}
+            handleIndicatorStyle={{ display: 'none' }}
+            footerComponent={renderFooter}
+        >
+            <BottomSheetView style={[styles.contentContainer]}>
+                <View style={styles.header}>
+                    <View style={styles.titleContainer}>
+                        <ThemedText style={[styles.title, { color: colors.text }]}>
+                            Select Category
+                        </ThemedText>
+                        <View style={styles.iconContainer} >
+                            <MaterialIcons
+                                onPress={() => handleEditCategory()}
+                                name="edit" size={20}
+                                color={colors.text}
+                            />
+                            <Ionicons
+                                onPress={() => onClose()}
+                                name="close" size={26}
+                                color={colors.text}
+                            />
                         </View>
-
                     </View>
-                    <BottomSheetScrollView
-                        contentContainerStyle={{
-                            paddingBottom: 20, // Padding for smooth scrolling
-                        }}
-                    >
-                        <View style={styles.categoryContainer}>
-                            {filteredCategories.map((item, index) => (
-                                <TouchableOpacity
-                                    key={item.id}
-                                    style={[
-                                        styles.categoryButton,
-                                        {
-                                            backgroundColor: colors.card,
-                                            borderColor: item.color,
-                                            // borderColor: lightenColor(item.color, 40)
-                                        },
-                                    ]}
-                                    onPress={() => handleCategorySelect(item)}
-                                >
-                                    <ThemedText>
-                                        {item.icon} {item.name}
-                                    </ThemedText>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </BottomSheetScrollView>
+
                 </View>
-            </BottomSheetModal>
-        </BottomSheetModalProvider>
+                <BottomSheetScrollView
+                    contentContainerStyle={{
+                        paddingBottom: 20, // Padding for smooth scrolling
+                    }}
+                >
+                    <View style={styles.categoryContainer}>
+                        {filteredCategories.map((item, index) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={[
+                                    styles.categoryButton,
+                                    {
+                                        backgroundColor: colors.card,
+                                        borderColor: item.color,
+                                        // borderColor: lightenColor(item.color, 40)
+                                    },
+                                ]}
+                                onPress={() => handleCategorySelect(item)}
+                            >
+                                <ThemedText>
+                                    {item.icon} {item.name}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </BottomSheetScrollView>
+            </BottomSheetView>
+        </BottomSheetModal>
     );
 };
 
 
 const styles = StyleSheet.create({
     contentContainer: {
-        flex: 1,
+        // flex: 1,
         // padding: 16,
-        paddingHorizontal: 16
+        paddingHorizontal: 16,
     },
     header: {
         // backgroundColor: 'white',

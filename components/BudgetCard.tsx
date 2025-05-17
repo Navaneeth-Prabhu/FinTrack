@@ -54,7 +54,7 @@ const ProgressBarWithPointer: React.FC<{
                         { width: `${progressWidth}%`, backgroundColor: isOnTrack ? colors.primary : '#FF6347' },
                     ]}
                 >
-                    <Text style={styles.progressText}>{progress}</Text>
+                    <Text style={styles.progressText}>{progress.toFixed(1)}</Text>
                 </View>
             </View>
             <View style={[styles.idealPointerContainer, { left: `${idealPosition}%` }]}>

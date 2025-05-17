@@ -4,7 +4,8 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTheme } from '@/hooks/useTheme';
-import { ColorsConstants, emojiConstants } from '@/constants/categories';
+import { categoryIcons, ColorsConstants, emojiConstants } from '@/constants/categories';
+import { Colors } from '@/constants/Colors';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ITEMS_PER_ROW = 7;
@@ -22,6 +23,8 @@ const CategoryFromScreen = () => {
     const [icon, setIcon] = useState(category?.icon || '');
     const [type, setType] = useState(category?.type || 'expense');
     const [color, setColor] = useState(category?.color || 'white');
+    const [activeTab, setActiveTab] = useState('icons'); // Default tab
+    const [selectedIcon, setSelectedIcon] = useState({ type: 'emoji', value: emojiConstants[0] });
 
     useLayoutEffect(() => {
         if (edit === "true" && category) {
@@ -41,7 +44,9 @@ const CategoryFromScreen = () => {
             console.log("Missing required fields: name, icon, or type");
         }
     };
+    const IconComponent = categoryIcons.lucide.find(i => i.name === icon)?.component;
 
+    console.log("IconComponent", IconComponent);
     return (
         <>
             <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -50,7 +55,12 @@ const CategoryFromScreen = () => {
                 {/* Icon Preview */}
                 <View style={[styles.iconContainer, { backgroundColor: colors.card }]}>
                     <View style={[styles.iconCircle, { backgroundColor: color || colors.primary }]}>
-                        <Text style={styles.categoryIcon}>{icon}</Text>
+                        {
+                            IconComponent !== undefined
+                                ? <IconComponent size={24} strokeWidth={2} color={colors.text} />
+                                : <Text style={styles.categoryIcon}>{icon}</Text>
+                        }
+                       
                     </View>
                     <TextInput
                         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
@@ -89,6 +99,23 @@ const CategoryFromScreen = () => {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {activeTab === 'icons' && (
+                    <View style={styles.iconsGrid}>
+                        {categoryIcons.lucide.map((icon, index) => {
+                            const IconComponent = icon.component;
+                            return (
+                                <TouchableOpacity
+                                    key={`icon-${index}`}
+                                    style={[styles.iconItem, { backgroundColor: colors.card }]}
+                                    onPress={() => setIcon(icon.name)}
+                                >
+                                    <IconComponent size={24} strokeWidth={2} color={colors.text} />
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
 
             </ScrollView>
 
@@ -203,4 +230,41 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         justifyContent: 'center'
     },
+    // selectionContainer: {
+    //     width: '100%',
+    //     marginVertical: 10,
+    //   },
+    tabSelector: {
+        flexDirection: 'row',
+        marginBottom: 15,
+        borderRadius: 8,
+        overflow: 'hidden',
+        borderWidth: 1,
+        // borderColor: colors.border,
+        alignSelf: 'center',
+    },
+    tab: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        backgroundColor: Colors.dark.background,
+    },
+    activeTab: {
+        // backgroundColor: colors.primary,
+    },
+    iconsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    //   iconItem: {
+    //     width: '16%', // For 6 items per row
+    //     aspectRatio: 1,
+    //     justifyContent: 'center',
+    //     alignItems: 'center',
+    //     margin: '2%',
+    //     borderRadius: 8,
+    //   },
+    //   iconText: {
+    //     fontSize: 22,
+    //   }
 });

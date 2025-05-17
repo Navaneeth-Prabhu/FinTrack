@@ -1,12 +1,10 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Keyboard, ScrollView, Image, KeyboardAvoidingView, Platform, Switch, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Switch, Alert } from 'react-native';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import ReceiptScanner from '@/components/ReceiptScanner';
-// import * as ImagePicker from 'expo-image-picker';
-import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { Category, RecurringTransaction, Transaction } from '@/types';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useTheme } from '@/hooks/useTheme';
@@ -16,10 +14,12 @@ import { Header } from '@/components/layout/Header';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { format } from 'date-fns';
-import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { darkTheme, fontSizes, lightTheme, tokens } from '@/constants/theme';
 import usePreferenceStore from '@/stores/preferenceStore';
+
+type TransactionType = 'income' | 'expense' | 'transfer';
+type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const transactionTypes = [
     { id: '1', name: 'Cash', type: 'Bank' },
@@ -27,17 +27,136 @@ const transactionTypes = [
     { id: '3', name: 'Axis', type: 'Bank' },
 ];
 
-const INITIAL_FORM_STATE = {
-    amount: '',
-    note: '',
-    category: null as Category | null,
-    transactionType: transactionTypes[0],
-    type: 'expense' as 'income' | 'expense' | 'transfer',
-    date: new Date(),
-    paidTo: '',
-    paidBy: '',
-    selectedTags: '',
-    // attachment: null as string | null,
+// Transaction Type Bottom Sheet Component
+const TransactionTypeBottomSheet: React.FC<{
+    bottomSheetRef: React.RefObject<BottomSheetModal>;
+    selectedType: TransactionType;
+    onSelectType: (type: TransactionType) => void;
+    colors: any;
+}> = ({ bottomSheetRef, selectedType, onSelectType, colors }) => {
+    const snapPoints = useMemo(() => ['100%'], []);
+
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
+    );
+
+    const transactionOptions = [
+        { type: 'income' as TransactionType, icon: 'arrow-down-circle', color: colors.income, label: 'Income' },
+        { type: 'expense' as TransactionType, icon: 'arrow-up-circle', color: colors.expense, label: 'Expense' },
+        { type: 'transfer' as TransactionType, icon: 'swap-horizontal', color: colors.primary, label: 'Transfer' },
+    ];
+
+    return (
+        <BottomSheetModalProvider>
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                snapPoints={snapPoints}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: colors.card }}
+                handleIndicatorStyle={{ backgroundColor: colors.border }}
+                enablePanDownToClose={true}
+            >
+                <BottomSheetView style={styles.bottomSheetContent}>
+                    <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                        Select Transaction Type
+                    </ThemedText>
+                    {transactionOptions.map((option) => (
+                        <TouchableOpacity
+                            key={option.type}
+                            style={[
+                                styles.typeOption,
+                                { backgroundColor: colors.background },
+                                selectedType === option.type && { borderColor: option.color, borderWidth: 2 }
+                            ]}
+                            onPress={() => {
+                                onSelectType(option.type);
+                                bottomSheetRef.current?.dismiss();
+                            }}
+                        >
+                            <Ionicons name={option.icon} size={28} color={option.color} />
+                            <ThemedText style={[styles.typeOptionText, { color: colors.text }]}>
+                                {option.label}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </BottomSheetView>
+            </BottomSheetModal>
+        </BottomSheetModalProvider>
+    );
+};
+
+// Recurring Frequency Bottom Sheet Component
+const RecurringFrequencyBottomSheet: React.FC<{
+    bottomSheetRef: React.RefObject<BottomSheetModal>;
+    selectedFrequency: RecurringFrequency;
+    onSelectFrequency: (frequency: RecurringFrequency) => void;
+    colors: any;
+}> = ({ bottomSheetRef, selectedFrequency, onSelectFrequency, colors }) => {
+    const snapPoints = useMemo(() => ['45%'], []);
+
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
+    );
+
+    const frequencies: { value: RecurringFrequency; label: string }[] = [
+        { value: 'daily', label: 'Daily' },
+        { value: 'weekly', label: 'Weekly' },
+        { value: 'monthly', label: 'Monthly' },
+        { value: 'yearly', label: 'Yearly' },
+    ];
+
+    return (
+        <BottomSheetModalProvider>
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                snapPoints={snapPoints}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: colors.card }}
+                handleIndicatorStyle={{ backgroundColor: colors.border }}
+                enablePanDownToClose={true}
+            >
+                <BottomSheetView style={styles.bottomSheetContent}>
+                    <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                        Select Period
+                    </ThemedText>
+                    {frequencies.map((freq) => (
+                        <TouchableOpacity
+                            key={freq.value}
+                            style={[
+                                styles.frequencyOption,
+                                { backgroundColor: colors.background },
+                                selectedFrequency === freq.value && { borderColor: colors.primary, borderWidth: 2 }
+                            ]}
+                            onPress={() => {
+                                onSelectFrequency(freq.value);
+                                bottomSheetRef.current?.dismiss();
+                            }}
+                        >
+                            <ThemedText style={[styles.frequencyOptionText, { color: colors.text }]}>
+                                {freq.label}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </BottomSheetView>
+            </BottomSheetModal>
+        </BottomSheetModalProvider>
+    );
 };
 
 const TransactionFormScreen: React.FC = () => {
@@ -46,9 +165,12 @@ const TransactionFormScreen: React.FC = () => {
     const { theme } = usePreferenceStore();
     const { editMode, transactionId, isRecurring } = useLocalSearchParams();
     const amountInputRef = useRef<TextInput>(null);
-    const [showScanner, setShowScanner] = useState(false);
+    const typeBottomSheetRef = useRef<BottomSheetModal>(null);
+    const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
+
     const { transactions, saveTransaction, updateTransaction } = useTransactionStore();
     const { recurringTransactions, saveRecurringTransaction, updateRecurringTransaction, removeRecurringTransaction } = useRecurringTransactionStore();
+
     const currentTransaction = useMemo(() =>
         transactions.find(t => t.id === transactionId), [transactionId, transactions]
     );
@@ -61,30 +183,32 @@ const TransactionFormScreen: React.FC = () => {
         amount: '',
         note: '',
         category: null as Category | null,
-        type: 'expense' as 'income' | 'expense',
+        type: 'expense' as TransactionType,
         date: new Date(),
+        time: format(new Date(), 'HH:mm'),
         paidTo: '',
         paidBy: '',
+        fromAccount: '',
+        toAccount: '',
         selectedTags: '',
         transactionType: transactionTypes[0],
         source: { type: "manual" },
         recurringId: undefined as string | undefined,
         attachments: undefined,
     });
-    const [isMoreVisible, setIsMoreVisible] = useState(false);
+
     const [bottomSheetState, setBottomSheetState] = useState(false);
     const [isRecurringState, setIsRecurringState] = useState(isRecurring === 'true');
     const [recurringSchedule, setRecurringSchedule] = useState({
-        frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+        frequency: 'monthly' as RecurringFrequency,
         startDate: new Date().toISOString(),
         endDate: null as string | null,
-        time: format(new Date(), 'HH:mm'),
         interval: 1,
     });
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
-    // Selectors
 
     // Load existing transaction data for editing
     useEffect(() => {
@@ -94,10 +218,13 @@ const TransactionFormScreen: React.FC = () => {
                     amount: currentRecurring.amount.toString(),
                     note: currentRecurring.description || '',
                     category: currentRecurring.category,
-                    type: currentRecurring.type as 'income' | 'expense',
+                    type: currentRecurring.type as TransactionType,
                     date: new Date(currentRecurring.startDate),
+                    time: format(new Date(), 'HH:mm'),
                     paidTo: currentRecurring.payee || '',
                     paidBy: '',
+                    fromAccount: '',
+                    toAccount: '',
                     selectedTags: '',
                     transactionType: transactionTypes.find(t => t.name === currentRecurring.mode) || transactionTypes[0],
                     source: { type: 'manual' },
@@ -109,18 +236,21 @@ const TransactionFormScreen: React.FC = () => {
                     frequency: currentRecurring.frequency,
                     startDate: currentRecurring.startDate,
                     endDate: currentRecurring.endDate || null,
-                    time: currentRecurring.time || format(new Date(), 'HH:mm'),
                     interval: currentRecurring.interval,
                 });
             } else if (currentTransaction) {
+                const transactionDate = new Date(currentTransaction.date);
                 setFormState({
                     amount: currentTransaction.amount.toString(),
                     note: currentTransaction.note || '',
                     category: currentTransaction.category,
-                    type: currentTransaction.type as 'income' | 'expense',
-                    date: new Date(currentTransaction.date),
+                    type: currentTransaction.type as TransactionType,
+                    date: transactionDate,
+                    time: format(transactionDate, 'HH:mm'),
                     paidTo: currentTransaction.paidTo || '',
                     paidBy: '',
+                    fromAccount: '',
+                    toAccount: '',
                     transactionType: transactionTypes.find(t => t.name === currentTransaction.mode) || transactionTypes[0],
                     source: currentTransaction.source,
                     recurringId: currentTransaction.recurringId || undefined,
@@ -128,34 +258,12 @@ const TransactionFormScreen: React.FC = () => {
                     attachments: undefined,
                 });
                 setIsRecurringState(!!currentTransaction.recurringId);
-                if (currentTransaction.recurringId) {
-                    const recurring = recurringTransactions.find(r => r.id === currentTransaction.recurringId);
-                    if (recurring) {
-                        setRecurringSchedule({
-                            frequency: recurring.frequency,
-                            startDate: recurring.startDate,
-                            endDate: recurring.endDate || null,
-                            time: recurring.time || format(new Date(), 'HH:mm'),
-                            interval: recurring.interval,
-                        });
-                    }
-                }
             }
         }
     }, [editMode, currentTransaction, currentRecurring, isRecurring, recurringTransactions]);
 
-    // Show category bottom sheet if no category selected
-    useEffect(() => {
-        if (!formState.category && !bottomSheetState) {
-            const timer = setTimeout(() => {
-                setBottomSheetState((prev: any) => ({ ...prev, isCategoryVisible: true }));
-            }, 100);
-            return () => clearTimeout(timer);
-        }
-    }, [formState.category]);
-
     // Memoized form handlers
-    const handleFormChange = useCallback((field: keyof typeof INITIAL_FORM_STATE, value: any) => {
+    const handleFormChange = useCallback((field: keyof typeof formState, value: any) => {
         setFormState(prev => ({ ...prev, [field]: value }));
     }, []);
 
@@ -171,30 +279,10 @@ const TransactionFormScreen: React.FC = () => {
 
         const id = editMode === 'true' ? (transactionId as string) : Date.now().toString();
 
-        // Check if we need to delete a recurring transaction
-        if (editMode === 'true' && isRecurring === 'true' && !isRecurringState && currentRecurring) {
-            await removeRecurringTransaction(currentRecurring.id);
-
-            // Then create a normal transaction instead
-            const transactionData = {
-                id,
-                amount: parseFloat(formState.amount),
-                note: formState.note,
-                category: formState.category,
-                type: formState.type,
-                date: formState.date.toISOString(),
-                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : undefined,
-                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : undefined,
-                mode: formState.transactionType.name,
-                createdAt: Date.now().toString(),
-                lastModified: Date.now().toString(),
-                source: formState.source,
-                recurringId: undefined, // Make sure to remove the recurring ID reference
-            };
-            await saveTransaction(transactionData);
-            router.back();
-            return;
-        }
+        // Combine date and time for transaction
+        const [hours, minutes] = formState.time.split(':');
+        const transactionDateTime = new Date(formState.date);
+        transactionDateTime.setHours(parseInt(hours), parseInt(minutes));
 
         if (isRecurringState) {
             const recurringData: RecurringTransaction = {
@@ -207,15 +295,17 @@ const TransactionFormScreen: React.FC = () => {
                 startDate: recurringSchedule.startDate,
                 endDate: recurringSchedule.endDate || undefined,
                 description: formState.note,
-                payee: formState.type === 'expense' ? formState.paidTo : formState.paidBy,
-                time: recurringSchedule.time,
+                payee: formState.type === 'expense' ? formState.paidTo :
+                    formState.type === 'income' ? formState.paidBy :
+                        `${formState.fromAccount} to ${formState.toAccount}`,
+                time: format(new Date(), 'HH:mm'), // Use current time for recurring
                 mode: formState.transactionType.name,
                 isActive: 1,
                 lastGeneratedDate: undefined,
                 createdAt: currentRecurring?.createdAt || Date.now().toString(),
                 lastModified: Date.now().toString(),
             };
-            // console.log('recurringData', editMode, recurringData);
+
             editMode === 'true' ? await updateRecurringTransaction(recurringData) : await saveRecurringTransaction(recurringData);
             router.back();
         } else {
@@ -225,9 +315,11 @@ const TransactionFormScreen: React.FC = () => {
                 note: formState.note,
                 category: formState.category,
                 type: formState.type,
-                date: formState.date.toISOString(),
-                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : null,
-                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : null,
+                date: transactionDateTime.toISOString(),
+                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' :
+                    formState.type === 'transfer' ? formState.toAccount : null,
+                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' :
+                    formState.type === 'transfer' ? formState.fromAccount : null,
                 mode: formState.transactionType.name,
                 createdAt: currentTransaction?.createdAt || Date.now().toString(),
                 lastModified: Date.now().toString(),
@@ -236,71 +328,13 @@ const TransactionFormScreen: React.FC = () => {
             };
 
             if (editMode === 'true') {
-                try {
-                    const result = await updateTransaction(transactionData);
-
-                    // Check if there are similar payee transactions
-                    if (result && typeof result === 'object' && 'similarTransactions' in result) {
-                        const { similarTransactions } = result;
-
-                        if (similarTransactions && similarTransactions.length > 0) {
-                            // Show an alert to the user
-                            Alert.alert(
-                                "Update Similar Transactions",
-                                `Found ${similarTransactions.length} more transaction(s) with the same ${formState.type === 'expense' ? 'recipient' : 'payer'} "${formState.type === 'expense' ? formState.paidTo : formState.paidBy}". Update all with the category "${formState.category.name}"?`,
-                                [
-                                    {
-                                        text: "No",
-                                        style: "cancel",
-                                        onPress: () => router.back()
-                                    },
-                                    {
-                                        text: "Yes",
-                                        onPress: async () => {
-                                            try {
-                                                // Update all similar transactions with the new category
-                                                await useTransactionStore.getState().updateCategoryForSimilarPayeeTransactions(
-                                                    similarTransactions,
-                                                    formState.category!
-                                                );
-                                                router.back();
-                                            } catch (error) {
-                                                console.error("Error updating similar transactions:", error);
-                                                Alert.alert(
-                                                    "Error",
-                                                    "Failed to update similar transactions. Only the current transaction was updated."
-                                                );
-                                                router.back();
-                                            }
-                                        }
-                                    }
-                                ]
-                            );
-                            return;
-                        }
-                    }
-                    router.back();
-                } catch (error) {
-                    console.error("Error updating transaction:", error);
-                    Alert.alert(
-                        "Error",
-                        "Failed to update transaction. Please try again."
-                    );
-                }
+                await updateTransaction(transactionData);
             } else {
-                try {
-                    await saveTransaction(transactionData);
-                    router.back();
-                } catch (error) {
-                    console.error("Error saving transaction:", error);
-                    Alert.alert(
-                        "Error",
-                        "Failed to save transaction. Please try again."
-                    );
-                }
+                await saveTransaction(transactionData);
             }
+            router.back();
         }
-    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, isRecurring, router, saveTransaction, updateTransaction, removeRecurringTransaction, saveRecurringTransaction, updateRecurringTransaction]);
+    }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, router, saveTransaction, updateTransaction, saveRecurringTransaction, updateRecurringTransaction]);
 
     const handleStartDateConfirm = (date: Date) => {
         setRecurringSchedule(prev => ({ ...prev, startDate: date.toISOString() }));
@@ -312,163 +346,228 @@ const TransactionFormScreen: React.FC = () => {
         setShowEndDatePicker(false);
     };
 
-    const handleTimeConfirm = (date: Date) => {
-        setRecurringSchedule(prev => ({ ...prev, time: format(date, 'HH:mm') }));
+    const handleDateConfirm = (date: Date) => {
+        handleFormChange('date', date);
+        setShowDatePicker(false);
+    };
+
+    const handleTimeConfirm = (time: Date) => {
+        handleFormChange('time', format(time, 'HH:mm'));
         setShowTimePicker(false);
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme == 'dark' ? darkTheme.background : lightTheme.card }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }}>
             <Header showBack title={editMode ? 'Edit Transaction' : 'New Transaction'} />
-            <ScrollView style={[styles.container]}>
+            <ScrollView style={[styles.container]} showsVerticalScrollIndicator={false}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-                    <View>
-                        <ThemedText variant="h2">
-                            {editMode ? 'Edit' : 'Add New'}
-                            <Text
-                                style={{
-                                    color: formState.type === 'income' ? colors.income : colors.expense,
-                                    backgroundColor: colors.card,
-                                    borderRadius: 5,
-                                }}
-                            >
-                                {' '}
-                                {formState.type === 'income' ? 'Income' : 'Expense'}{' '}
-                            </Text>
+                    {/* Transaction Type Card */}
+
+                    <TouchableOpacity
+                        style={[styles.typeCard, { backgroundColor: colors.background, justifyContent: 'flex-start' }]}
+                        onPress={() => typeBottomSheetRef.current?.present()}
+                    >
+                        <ThemedText style={[styles.typeCardText, { color: colors.text }]}>
+                            {editMode == 'edit' ? 'Edit Transaction ' : 'New Transaction '}
                         </ThemedText>
-                    </View>
+                        <View style={[styles.typeCardContent, { backgroundColor: colors.card, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 }]}>
+                            <ThemedText style={[styles.typeCardText, { color: colors.text }]}>
+                                {formState.type.charAt(0).toUpperCase() + formState.type.slice(1)}
+                            </ThemedText>
+                            <Ionicons
+                                name={
+                                    formState.type === 'income' ? 'arrow-down-circle' :
+                                        formState.type === 'expense' ? 'arrow-up-circle' :
+                                            'swap-horizontal'
+                                }
+                                size={24}
+                                color={
+                                    formState.type === 'income' ? colors.income :
+                                        formState.type === 'expense' ? colors.expense :
+                                            colors.primary
+                                }
+                            />
+                            <Feather name="chevron-down" size={20} color={colors.text} />
+                        </View>
+                    </TouchableOpacity>
 
                     {/* Amount Input */}
-                    <View style={[styles.amountContainer, { borderColor: colors.border }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: fontSizes.FONT24, color: colors.text }}>₹ </Text>
-                        </View>
+                    <View style={[styles.amountContainer, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.currencySymbol, { color: colors.text }]}>₹</Text>
                         <TextInput
                             ref={amountInputRef}
                             style={[styles.amountInput, { color: colors.text }]}
-                            placeholder="0"
-                            placeholderTextColor={colors.text}
+                            placeholder="0.00"
+                            placeholderTextColor={colors.subtitle}
                             keyboardType="numeric"
                             value={formState.amount}
                             onChangeText={validateAmount}
                             maxLength={10}
                         />
                         <ReceiptScanner onImageCaptured={(uri) => {
-                            console.log("Image captured", uri);
                             setFormState(prev => ({ ...prev, attachments: [{ type: 'image', url: uri }] }));
                         }} />
                     </View>
 
+                    {/* Date and Time Selection */}
+                    <View style={styles.dateTimeRow}>
+                        <TouchableOpacity
+                            style={[styles.dateTimeField, { backgroundColor: colors.card }]}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <View style={styles.inputFieldContent}>
+                                <Feather name="calendar" size={18} color={colors.primary} />
+                                <ThemedText style={{ color: colors.text }}>
+                                    {format(formState.date, 'MMM d, yyyy')}
+                                </ThemedText>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.dateTimeField, { backgroundColor: colors.card }]}
+                            onPress={() => setShowTimePicker(true)}
+                        >
+                            <View style={styles.inputFieldContent}>
+                                <Feather name="clock" size={18} color={colors.primary} />
+                                <ThemedText style={{ color: colors.text }}>
+                                    {formState.time}
+                                </ThemedText>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+
                     {/* Category Selection */}
                     <TouchableOpacity
-                        style={[styles.input, { borderColor: formState.category ? formState.category.color : colors.border, backgroundColor: colors.card }]}
+                        style={[styles.inputField, { backgroundColor: colors.card }]}
                         onPress={() => setBottomSheetState(true)}
                     >
-                        <Text style={{ color: formState.category ? colors.text : colors.subtitle, textAlignVertical: 'center' }}>
-                            {formState.category ? `${formState.category.icon}   ${formState.category.name}` : 'Select Category'}
-                        </Text>
+                        <View style={styles.inputFieldContent}>
+                            {formState.category ? (
+                                <>
+                                    <Text style={{ fontSize: 20, marginRight: 8 }}>{formState.category.icon}</Text>
+                                    <ThemedText style={{ color: colors.text }}>{formState.category.name}</ThemedText>
+                                </>
+                            ) : (
+                                <ThemedText style={{ color: colors.subtitle }}>Select Category</ThemedText>
+                            )}
+                        </View>
+                        <Feather name="chevron-right" size={20} color={colors.subtitle} />
                     </TouchableOpacity>
 
-                    {/* Paid By/To Input */}
-                    <TextInput
-                        style={[styles.input, { color: colors.text, borderColor: colors.border, marginTop: 10, backgroundColor: colors.card }]}
-                        placeholder={formState.type === 'income' ? 'Paid By' : 'Paid To'}
-                        placeholderTextColor={colors.text}
-                        value={formState.type === 'income' ? formState.paidBy : formState.paidTo}
-                        onChangeText={text => handleFormChange(formState.type === 'income' ? 'paidBy' : 'paidTo', text)}
-                    />
+                    {/* Conditional Fields based on transaction type */}
+                    {formState.type === 'transfer' ? (
+                        <>
+                            <TextInput
+                                style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                                placeholder="From Account"
+                                placeholderTextColor={colors.subtitle}
+                                value={formState.fromAccount}
+                                onChangeText={text => handleFormChange('fromAccount', text)}
+                            />
+                            <TextInput
+                                style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                                placeholder="To Account"
+                                placeholderTextColor={colors.subtitle}
+                                value={formState.toAccount}
+                                onChangeText={text => handleFormChange('toAccount', text)}
+                            />
+                        </>
+                    ) : (
+                        <TextInput
+                            style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                            placeholder={formState.type === 'income' ? 'Received From' : 'Paid To'}
+                            placeholderTextColor={colors.subtitle}
+                            value={formState.type === 'income' ? formState.paidBy : formState.paidTo}
+                            onChangeText={text => handleFormChange(formState.type === 'income' ? 'paidBy' : 'paidTo', text)}
+                        />
+                    )}
 
-                    {/* Transaction Types Scroll */}
-                    <ScrollView horizontal style={styles.transactionTypeContainer} showsHorizontalScrollIndicator={false}>
+                    {/* Account Selection */}
+                    <ScrollView horizontal style={styles.accountContainer} showsHorizontalScrollIndicator={false}>
                         {transactionTypes.map(item => (
                             <TouchableOpacity
                                 key={item.id}
                                 onPress={() => handleFormChange('transactionType', item)}
-                                style={[styles.transactionTypeButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                style={[
+                                    styles.accountButton,
+                                    { backgroundColor: colors.card },
+                                    formState.transactionType.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
+                                ]}
                             >
-                                <ThemedText style={styles.transactionTypeText}>{item.name}</ThemedText>
+                                <ThemedText style={styles.accountText}>{item.name}</ThemedText>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
 
+                    {/* Note Input */}
+                    <TextInput
+                        style={[styles.noteInput, { backgroundColor: colors.card, color: colors.text }]}
+                        placeholder="Add a note"
+                        placeholderTextColor={colors.subtitle}
+                        value={formState.note}
+                        onChangeText={text => handleFormChange('note', text)}
+                        multiline
+                    />
+
                     {/* Recurring Transaction Section */}
-                    <View style={styles.recurringSection}>
+                    <View style={[styles.recurringCard, { backgroundColor: colors.card }]}>
                         <View style={styles.recurringHeader}>
-                            <ThemedText>Make this a recurring transaction</ThemedText>
+                            <ThemedText>Repeat Transaction</ThemedText>
                             <Switch
                                 value={isRecurringState}
                                 onValueChange={setIsRecurringState}
-                            // disabled={isRecurring === 'true' || !!formState.recurringId} // Disable if editing recurring or linked instance
+                                trackColor={{ false: colors.border, true: colors.primary }}
+                                thumbColor={colors.card}
                             />
                         </View>
+
                         {isRecurringState && (
                             <View style={styles.recurringOptions}>
-                                <Picker
-                                    selectedValue={recurringSchedule.frequency}
-                                    onValueChange={value => setRecurringSchedule(prev => ({ ...prev, frequency: value }))}
-                                    style={[styles.picker, { backgroundColor: colors.card }]}
-                                >
-                                    <Picker.Item label="Daily" value="daily" />
-                                    <Picker.Item label="Weekly" value="weekly" />
-                                    <Picker.Item label="Monthly" value="monthly" />
-                                    <Picker.Item label="Yearly" value="yearly" />
-                                </Picker>
                                 <TouchableOpacity
-                                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                    style={[styles.recurringField, { backgroundColor: colors.background }]}
+                                    onPress={() => frequencyBottomSheetRef.current?.present()}
+                                >
+                                    <ThemedText style={{ color: colors.text }}>
+                                        Repeat {recurringSchedule.frequency}
+                                    </ThemedText>
+                                    <Feather name="chevron-right" size={20} color={colors.text} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.recurringField, { backgroundColor: colors.background }]}
                                     onPress={() => setShowStartDatePicker(true)}
                                 >
-                                    <Text style={{ color: colors.text }}>
-                                        Start: {format(new Date(recurringSchedule.startDate), 'MMM d, yyyy')}
-                                    </Text>
+                                    <ThemedText style={{ color: colors.text }}>
+                                        Starts {format(new Date(recurringSchedule.startDate), 'MMM d, yyyy')}
+                                    </ThemedText>
                                 </TouchableOpacity>
+
                                 <TouchableOpacity
-                                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border }]}
-                                    onPress={() => setShowTimePicker(true)}
-                                >
-                                    <Text style={{ color: colors.text }}>Time: {recurringSchedule.time}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                    style={[styles.recurringField, { backgroundColor: colors.background }]}
                                     onPress={() => setShowEndDatePicker(true)}
                                 >
-                                    <Text style={{ color: recurringSchedule.endDate ? colors.text : colors.subtitle }}>
-                                        End: {recurringSchedule.endDate ? format(new Date(recurringSchedule.endDate), 'MMM d, yyyy') : 'Never'}
-                                    </Text>
+                                    <ThemedText style={{ color: recurringSchedule.endDate ? colors.text : colors.subtitle }}>
+                                        {recurringSchedule.endDate ?
+                                            `Ends ${format(new Date(recurringSchedule.endDate), 'MMM d, yyyy')}` :
+                                            'No end date'}
+                                    </ThemedText>
                                 </TouchableOpacity>
                             </View>
                         )}
                     </View>
 
-                    {/* More Options */}
-                    {isMoreVisible && (
-                        <>
-                            <TextInput
-                                style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                                placeholder="Notes"
-                                placeholderTextColor={colors.subtitle}
-                                value={formState.note}
-                                onChangeText={text => handleFormChange('note', text)}
-                                multiline
-                            />
-                        </>
-                    )}
-
-                    <TouchableOpacity
-                        style={[styles.submitButton, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row' }]}
-                        onPress={() => setIsMoreVisible(!isMoreVisible)}
-                    >
-                        <Text style={{ color: colors.text }}>{isMoreVisible ? 'Show less' : 'Show more'}</Text>
-                        <Feather name={isMoreVisible ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text} />
-                    </TouchableOpacity>
+                    {/* Add bottom padding for scroll */}
+                    <View style={{ height: 100 }} />
                 </KeyboardAvoidingView>
             </ScrollView>
 
+            {/* Save Button */}
             <View style={styles.saveButtonContainer}>
                 <TouchableOpacity
                     style={[styles.saveButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
                         if (!formState.category) {
-                            setBottomSheetState(true); // Open bottom sheet
+                            setBottomSheetState(true);
                         } else if (!formState.amount) {
                             amountInputRef.current?.focus();
                         } else {
@@ -482,6 +581,21 @@ const TransactionFormScreen: React.FC = () => {
                 </TouchableOpacity>
             </View>
 
+            {/* Bottom Sheets */}
+            <TransactionTypeBottomSheet
+                bottomSheetRef={typeBottomSheetRef}
+                selectedType={formState.type}
+                onSelectType={(type) => handleFormChange('type', type)}
+                colors={colors}
+            />
+
+            <RecurringFrequencyBottomSheet
+                bottomSheetRef={frequencyBottomSheetRef}
+                selectedFrequency={recurringSchedule.frequency}
+                onSelectFrequency={(frequency) => setRecurringSchedule(prev => ({ ...prev, frequency }))}
+                colors={colors}
+            />
+
             <CategoryBottomSheet
                 onSelectCategory={cat => handleFormChange('category', cat)}
                 isVisible={bottomSheetState}
@@ -490,7 +604,21 @@ const TransactionFormScreen: React.FC = () => {
                 setType={type => handleFormChange('type', type)}
             />
 
-            {/* Date/Time Pickers */}
+            {/* Date Pickers */}
+            <DateTimePickerModal
+                isVisible={showDatePicker}
+                mode="date"
+                date={formState.date}
+                onConfirm={handleDateConfirm}
+                onCancel={() => setShowDatePicker(false)}
+            />
+            <DateTimePickerModal
+                isVisible={showTimePicker}
+                mode="time"
+                date={new Date(`1970-01-01T${formState.time}:00`)}
+                onConfirm={handleTimeConfirm}
+                onCancel={() => setShowTimePicker(false)}
+            />
             <DateTimePickerModal
                 isVisible={showStartDatePicker}
                 mode="date"
@@ -505,13 +633,6 @@ const TransactionFormScreen: React.FC = () => {
                 onConfirm={handleEndDateConfirm}
                 onCancel={() => setShowEndDatePicker(false)}
             />
-            <DateTimePickerModal
-                isVisible={showTimePicker}
-                mode="time"
-                date={new Date(`1970-01-01T${recurringSchedule.time}:00Z`)}
-                onConfirm={handleTimeConfirm}
-                onCancel={() => setShowTimePicker(false)}
-            />
         </SafeAreaView>
     );
 };
@@ -519,97 +640,152 @@ const TransactionFormScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
+    },
+    dateTimeRow: {
+        flexDirection: 'row',
+        marginHorizontal: 16,
+        marginBottom: 12,
+        gap: 12,
+    },
+    dateTimeField: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 12,
+    },
+    typeCard: {
+        margin: 16,
+        padding: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    typeCardContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    typeCardText: {
+        fontSize: 18,
+        fontWeight: '600',
     },
     amountContainer: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        padding: 20,
+        borderRadius: 12,
         flexDirection: 'row',
-        borderBottomWidth: 1,
-        paddingBottom: 10,
-        marginBottom: 10,
-        justifyContent: 'center',
         alignItems: 'center',
     },
     currencySymbol: {
-        fontSize: 24,
+        fontSize: 32,
+        fontWeight: '600',
+        marginRight: 8,
     },
     amountInput: {
         flex: 1,
-        height: 100,
-        fontSize: 40,
+        fontSize: 32,
+        fontWeight: '600',
     },
-    qrButton: {
-        padding: 10,
-        borderRadius: 10,
-    },
-    input: {
-        width: '100%',
-        height: 40,
-        borderWidth: 1,
-        paddingHorizontal: 10,
-        borderRadius: 10,
-        justifyContent: 'center',
-    },
-    transactionTypeContainer: {
+    inputField: {
+        marginHorizontal: 16,
+        marginBottom: 12,
+        padding: 16,
+        borderRadius: 12,
         flexDirection: 'row',
-        marginBottom: 10,
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
-    transactionTypeButton: {
-        padding: 6,
-        paddingHorizontal: 14,
-        borderRadius: 6,
-        borderWidth: 1.5,
-        marginRight: 6,
-        justifyContent: 'center',
+    inputFieldContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
-    transactionTypeText: {
+    noteInput: {
+        marginHorizontal: 16,
+        marginBottom: 12,
+        padding: 16,
+        borderRadius: 12,
+        minHeight: 80,
+    },
+    accountContainer: {
+        paddingHorizontal: 16,
+        marginBottom: 16,
+    },
+    accountButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    accountText: {
         fontSize: 14,
     },
-    addTransactionTypeButton: {
-        padding: 6,
-        borderRadius: 6,
-        borderWidth: 1.5,
-        marginRight: 6,
-        justifyContent: 'center',
-    },
-    recurringSection: {
-        marginTop: 20,
-        marginBottom: 20,
-        padding: 10,
-        borderWidth: 1,
-        borderRadius: 10,
+    recurringCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        padding: 16,
+        borderRadius: 12,
     },
     recurringHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
     },
     recurringOptions: {
-        marginTop: 10,
+        marginTop: 16,
+        gap: 12,
     },
-    picker: {
-        height: 40,
-        marginBottom: 10,
-    },
-    submitButton: {
-        padding: 15,
-        borderRadius: 10,
+    recurringField: {
+        padding: 12,
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 20,
-        borderWidth: 1,
     },
     saveButtonContainer: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 20,
+        padding: 16,
+        paddingBottom: 32,
         backgroundColor: 'transparent',
     },
     saveButton: {
-        padding: 15,
-        borderRadius: 10,
+        padding: 16,
+        borderRadius: 12,
         alignItems: 'center',
+    },
+    bottomSheetContent: {
+        padding: 20,
+    },
+    bottomSheetTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    typeOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        gap: 16,
+    },
+    typeOptionText: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    frequencyOption: {
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+    },
+    frequencyOptionText: {
+        fontSize: 16,
+        textAlign: 'center',
     },
 });
 

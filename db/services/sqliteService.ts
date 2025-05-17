@@ -1,23 +1,8 @@
 import { Category } from '@/types';
 import * as SQLite from 'expo-sqlite';
 
-import { ColorsConstants } from '@/constants/categories';
+import { categoryConstants, ColorsConstants } from '@/constants/categories';
 
-const categoryConstants: Category[] = [
-  { id: '1', name: 'Bills & Utilities', icon: '📄', type: 'expense', color: ColorsConstants[0], order: 1 },
-  { id: '2', name: 'Salary', icon: '💼', type: 'income', color: ColorsConstants[1], order: 1 },
-  { id: '3', name: 'Food', icon: '🍉', type: 'expense', color: ColorsConstants[2], order: 2 },
-  { id: '4', name: 'Groceries', icon: '🥕', type: 'expense', color: ColorsConstants[3], order: 3 },
-  { id: '5', name: 'Travelling', icon: '✈️', type: 'expense', color: ColorsConstants[4], order: 4 },
-  { id: '6', name: 'Entertainment', icon: '🎬', type: 'expense', color: ColorsConstants[5], order: 5 },
-  { id: '7', name: 'Medical', icon: '💊', type: 'expense', color: ColorsConstants[6], order: 6 },
-  { id: '8', name: 'Education', icon: '🎓', type: 'expense', color: ColorsConstants[7], order: 7 },
-  { id: '9', name: 'Gift', icon: '🎁', type: 'expense', color: ColorsConstants[8], order: 8 },
-  { id: '10', name: 'Shopping', icon: '🛒', type: 'expense', color: ColorsConstants[8], order: 9 },
-  { id: '101', name: 'Other', icon: '❗', type: 'expense', color: 'white', order: 9 },
-  { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: ColorsConstants[9], order: 2 },
-  { id: '102', name: 'Transfer', icon: '🔁', type: 'transfer', color: ColorsConstants[9], order: 2 },
-];
 
 let db: SQLite.SQLiteDatabase | null = null;
 
