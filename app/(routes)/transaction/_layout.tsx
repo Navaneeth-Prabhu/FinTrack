@@ -1,10 +1,15 @@
+import { useTheme } from '@/hooks/useTheme';
 import { Stack } from 'expo-router';
 
 export default function TransactionLayout() {
+     const { colors } = useTheme();
     return (
         <Stack
             screenOptions={{
                 headerShown: false,
+                headerStyle: {
+                    backgroundColor: colors.background
+                },
             }}
         >
             <Stack.Screen
@@ -13,7 +18,9 @@ export default function TransactionLayout() {
                     headerShown: true,
                     title: '',
                     animation: 'slide_from_left',
-                    headerShadowVisible: false
+                    headerShadowVisible: false,
+                    headerTintColor: colors.text,
+                    statusBarStyle: 'dark',
                 }}
             />
             <Stack.Screen

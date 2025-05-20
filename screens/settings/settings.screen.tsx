@@ -35,8 +35,8 @@ const MoreScreen = () => {
     const darkThemeColor = '#A59BFF';
 
     return (
-        <SafeAreaView style={{ flex: 1 }}>
-            <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={{ flex: 1 , backgroundColor: colors.background}}>
+            <ScrollView showsVerticalScrollIndicator={false} style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
                     <ThemedText variant='h2'>My Profile</ThemedText>
@@ -164,6 +164,10 @@ const MoreScreen = () => {
                             <ThemedText style={styles.menuValue}>USD</ThemedText>
                             <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
                         </TouchableOpacity>
+                        {/* <TouchableOpacity onPress={() => router.push('/(auth)/EmailAuth')} style={[styles.menuItem, { backgroundColor: colors.card }]}>
+                            <MaterialCommunityIcons name="currency-usd" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
+                            <ThemedText style={styles.quickActionText}>Currency</ThemedText>
+                        </TouchableOpacity> */}
                     </View>
                 </View>
 
@@ -333,11 +337,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        // shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 2 },
+        // shadowOpacity: 0.05,
+        // shadowRadius: 8,
+        // elevation: 2,
     },
     darkCard: {
         backgroundColor: '#1C1C1E',
@@ -422,11 +426,11 @@ const styles = StyleSheet.create({
         width: '23%',
         paddingVertical: 12,
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 1,
+        // shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 1 },
+        // shadowOpacity: 0.05,
+        // shadowRadius: 5,
+        // elevation: 1,
     },
     darkQuickAction: {
         backgroundColor: '#1C1C1E',
@@ -502,11 +506,11 @@ const styles = StyleSheet.create({
     sectionContent: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        // shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 2 },
+        // shadowOpacity: 0.05,
+        // shadowRadius: 8,
+        // elevation: 2,
         overflow: 'hidden',
     },
     menuItem: {

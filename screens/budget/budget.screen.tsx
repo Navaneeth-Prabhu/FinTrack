@@ -5,6 +5,8 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { router, useFocusEffect } from 'expo-router';
 import { BudgetCard } from '@/components/BudgetCard'; // Import BudgetCard
 import { Budget } from '@/types';
+import { useTheme } from '@/hooks/useTheme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export interface BudgetDisplayData {
   budget: Budget;
@@ -15,6 +17,7 @@ export interface BudgetDisplayData {
 }
 
 function BudgetScreen() {
+  const { colors} = useTheme();
   const { budgets, fetchBudgets, getCurrentPeriod, calculateSpent, lastUpdated } = useBudgetStore();
   const [budgetData, setBudgetData] = useState<BudgetDisplayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +26,7 @@ function BudgetScreen() {
 
   const fetchBudgetData = useCallback(async () => {
     if (isFetching.current) {
-      console.log('Already fetching, skipping duplicate request');
+      // console.log('Already fetching, skipping duplicate request');
       return;
     }
 
@@ -86,9 +89,9 @@ function BudgetScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>My Budgets</ThemedText>
+        <ThemedText variant='h2'>My Budgets</ThemedText>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => router.push('/budget/budgetForm')}
@@ -117,7 +120,7 @@ function BudgetScreen() {
           ))}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -131,7 +134,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  title: { fontSize: 24, fontWeight: 'bold' },
   addButton: { backgroundColor: '#8A3FFC', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   addButtonText: { color: 'white', fontWeight: '600' },
   budgetList: { flex: 1, paddingHorizontal: 16 },

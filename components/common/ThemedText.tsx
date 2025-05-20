@@ -38,7 +38,7 @@ export function ThemedText({
     const variants: Record<TextVariant, TextStyle> = {
       h1: {
         ...createTextStyles(48),
-        fontFamily: 'Poppins-SemiBold',
+        // fontFamily: 'Poppins-SemiBold',
       },
       h2: {
         ...createTextStyles(24),
@@ -68,7 +68,7 @@ export function ThemedText({
       },
       caption: {
         ...createTextStyles(12),
-        fontFamily: 'Poppins-Regular',
+        // fontFamily: 'Poppins-Regular',
       },
     };
     return variants[variant];

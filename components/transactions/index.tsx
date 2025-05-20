@@ -1,5 +1,5 @@
 import React, { useCallback, memo } from 'react';
-import { SectionList, View, StyleSheet } from 'react-native';
+import { SectionList, View, StyleSheet, Platform, Alert } from 'react-native';
 import { Transaction, RecurringTransaction } from '@/types';
 import { TransactionItem } from './TransactionItem';
 import { ThemedText } from '@/components/common/ThemedText';
@@ -8,6 +8,9 @@ import { SectionHeader } from './SectionHeader';
 import { useTheme } from '@/hooks/useTheme';
 import ListSummary from './ListSummary';
 import { ListFooter } from './ListFooter';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { useTransactionStore } from '@/stores/transactionStore';
+import { importSMSTransactionsToStore } from '@/utils/SMSTransactionUtil';
 
 interface TransactionListProps {
     transactions: Transaction[];
@@ -41,6 +44,10 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 }) => {
     const { colors } = useTheme();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
+    const categories = useCategoryStore(state => state.categories);
+    const saveTransaction = useTransactionStore(state => state.saveTransaction);
+
+    const [loading, setLoading] = React.useState(false);
 
     // Memoized render functions to prevent recreation on each render
     const renderItem = useCallback(({ item, section }) => (
@@ -66,6 +73,46 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         return <EmptyList />;
     }
 
+
+
+    const handleImport = async () => {
+        if (Platform.OS !== 'android') {
+            Alert.alert('Not Available', 'SMS import is only available on Android devices');
+            return;
+        }
+
+        if (loading) return;
+        setLoading(true);
+
+        try {
+            const importCount = await importSMSTransactionsToStore(categories, saveTransaction);
+
+            if (importCount > 0) {
+                Alert.alert(
+                    'Import Successful',
+                    `Successfully imported ${importCount} transactions from your SMS messages.`
+                );
+            } else {
+                Alert.alert(
+                    'No Transactions Found',
+                    'No new financial transactions were found in your SMS messages.'
+                );
+            }
+        } catch (error) {
+            console.error('Error during SMS import:', error);
+            Alert.alert('Import Failed', 'There was an error importing transactions from SMS.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (Platform.OS !== 'android') {
+        return null;
+    }
+    const handleRefresh = useCallback(() => {
+        // Handle refresh logic here if needed
+        handleImport();
+    }, []);
     return (
         <View style={styles.container}>
             <SectionList
@@ -84,6 +131,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 windowSize={5}
                 updateCellsBatchingPeriod={50}
                 removeClippedSubviews={true}
+                onRefresh={() => { handleRefresh() }}
+                refreshing={loading}
             />
         </View>
     );
@@ -94,7 +143,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     itemSeparator: {
-        height: 6,
+        height: 8,
         width: '100%',
     },
     separator: {

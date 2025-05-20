@@ -11,13 +11,19 @@ import { registerRecurringTask } from '@/services/recurringBackground';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
-import usePreferenceStore from '@/stores/preferenceStore'; // Adjust the import path as needed
+import usePreferenceStore from '@/stores/preferenceStore';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { useTransactionStore } from '@/stores/transactionStore';
+import { Platform } from 'react-native';
+import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
+import { useTheme } from '@/hooks/useTheme';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { isDark, colorScheme } = useTheme();
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -26,6 +32,8 @@ export default function RootLayout() {
 
   // Get biometrics preference from Zustand store
   const { biometrics } = usePreferenceStore();
+  const { categories, fetchCategories } = useCategoryStore();
+  const { saveTransaction } = useTransactionStore();
 
   // Check biometric support on mount
   useEffect(() => {
@@ -36,26 +44,56 @@ export default function RootLayout() {
     })();
   }, []);
 
+  const loadCategories = async () => {
+    try {
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  // Setup SMS scanning (returns a cleanup function)
+  useEffect(() => {
+    // Only setup SMS scanning if categories are loaded
+    if (categories && categories.length > 0) {
+      // Set up periodic scanning (every 30 minutes)
+      const cleanupSMSScan = setupPeriodicSMSScan(categories, saveTransaction, 30);
+
+      // Cleanup on component unmount
+      return cleanupSMSScan;
+    }
+  }, [categories, saveTransaction]);
+
   // Initialize app and handle biometric authentication conditionally
   useEffect(() => {
     if (loaded) {
       const initializeApp = async () => {
         try {
           // Step 1: Fetch recurring transactions
-          console.log('Fetching recurring transactions');
+          // console.log('Fetching recurring transactions');
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();
 
           // Step 2: Register the background task
-          console.log('Registering background task');
+          // console.log('Registering background task');
           await registerRecurringTask();
 
           // Step 3: Generate due transactions
-          console.log('Generating due transactions');
+          // console.log('Generating due transactions');
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
 
-          // Step 4: Prompt for biometric authentication if supported AND enabled in preferences
+          // Step 4: Load categories if not already loaded
+          if (!categories || categories.length === 0) {
+            await loadCategories();
+          }
+
+          // Step 5: Initialize SMS features after categories are loaded
+          if (Platform.OS === 'android' && categories && categories.length > 0) {
+            await initializeSMSFeatures(categories, saveTransaction);
+          }
+
+          // Step 6: Prompt for biometric authentication if supported AND enabled in preferences
           if (isBiometricSupported && biometrics) {
-            console.log('Prompting for biometric authentication');
+            // console.log('Prompting for biometric authentication');
             const result = await LocalAuthentication.authenticateAsync({
               promptMessage: 'Authenticate to access FinTrack',
               cancelLabel: 'Cancel',
@@ -63,15 +101,15 @@ export default function RootLayout() {
             });
 
             if (result.success) {
-              console.log('Biometric authentication successful');
+              // console.log('Biometric authentication successful');
               setIsAuthenticated(true);
             } else {
-              console.log('Biometric authentication failed');
+              // console.log('Biometric authentication failed');
               // Keep app locked until success; adjust this logic as needed
               return; // Prevents proceeding if authentication fails
             }
           } else {
-            console.log('Biometric authentication skipped (not supported or disabled)');
+            // console.log('Biometric authentication skipped (not supported or disabled)');
             setIsAuthenticated(true); // Proceed without biometric
           }
 
@@ -86,7 +124,7 @@ export default function RootLayout() {
 
       initializeApp();
     }
-  }, [loaded, isBiometricSupported, biometrics]); // Add biometrics as dependency
+  }, [loaded, isBiometricSupported, biometrics, categories, saveTransaction]);
 
   // Show nothing until authenticated and loaded
   if (!loaded || !isAuthenticated) {
@@ -109,7 +147,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
         </BottomSheetModalProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

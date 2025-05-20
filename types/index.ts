@@ -6,8 +6,8 @@ export interface Transaction {
   date: string;
   createdAt: string;
   lastModified: string;
-  paidTo?: string;
-  paidBy?: string;
+  paidTo?: string | null | undefined; // Payee for income or transfer transactions
+  paidBy?: string | null | undefined; // Payer for expense or transfer transactions
   category: Category;
   source: {
     type: string;
@@ -19,11 +19,12 @@ export interface Transaction {
   location?: {
     coordinates: number, // [longitude, latitude]
   },
-  recurringId?: string | null,
+  recurringId?: string | undefined,
   attachments?: {
     type: string | null | undefined,
     url: string,
   },
+  selectedTags?: string,
   fromAccount?: {
     id: string,
     name: string,
@@ -43,7 +44,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   color: string;
   order?: number;  // Add order field
 }

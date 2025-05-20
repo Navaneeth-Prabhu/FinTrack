@@ -331,6 +331,7 @@ import { Transaction, Budget } from '../types';
 import { format } from 'date-fns';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from './common/ThemedText';
+import { tokens } from '@/constants/theme';
 
 interface FinancialHealthScoreProps {
     transactions: Transaction[];
@@ -478,6 +479,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
+        marginHorizontal: tokens.spacing.md
     },
     header: {
         flexDirection: 'row',

@@ -9,6 +9,7 @@ import { useTransactionStore } from '@/stores/transactionStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBar from '@/components/category/CategoryBar';
+import { categoryIcons } from '@/constants/categories';
 
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = width / 2 - 24;
@@ -125,12 +126,13 @@ const CategoryRecordScreen = () => {
         const progressColor = spendingPercentage >= 100 ? '#FF4444'
             : spendingPercentage >= 80 ? '#FFA500'
                 : item.color;
+        const IconComponent = categoryIcons.lucide.find(i => i.name === item.icon)?.component;
 
         return (
             <TouchableOpacity
                 style={styles.itemContainer}
                 onPress={() => router.push({
-                    pathname: '/(routes)category/categoryDetails/[id]',
+                    pathname: '/(routes)/category/categoryDetails/[id]',
                     params: {
                         id: item.id,
                         month: selectedDate.toISOString(),
@@ -138,7 +140,7 @@ const CategoryRecordScreen = () => {
                     }
                 })}
             >
-                <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.themeBorder }]}>
+                <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={[
                         styles.iconContainer,
                         { borderColor: item.color, backgroundColor: colors.card }
@@ -150,9 +152,11 @@ const CategoryRecordScreen = () => {
                                 opacity: 0.6
                             }]} />
                         )}
-                        <Text style={[styles.icon, { color: item.isBudget ? item.color : colors.text }]}>
-                            {item.icon}
-                        </Text>
+                        {IconComponent !== undefined ? (
+                            <IconComponent size={24} strokeWidth={2} color={item.color} style={styles.icon} />
+                        ) : (
+                            <ThemedText style={[styles.icon, { color: item.color }]}>{item.icon}</ThemedText>
+                        )}
                     </View>
                     <ThemedText style={styles.name}>{item.name}</ThemedText>
                     <ThemedText style={styles.amount}>
@@ -167,7 +171,7 @@ const CategoryRecordScreen = () => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <Animated.View style={[styles.chartContainer, { borderColor: colors.border }]}>
                 <CategoryBar data={progressData} />
             </Animated.View>

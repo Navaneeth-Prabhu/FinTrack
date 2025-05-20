@@ -15,6 +15,16 @@ import SmartAlerts from '@/components/SmartAlerts';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 import SmartBudgetInterface from '@/components/SmartBudgetInterface';
+import TotalBalance from '@/components/TotalBalance';
+import { ExtraInfo } from '@/components/ExtraInfo';
+import { readHistoricalSMS, startSMSListener } from '@/services/smsParser';
+import ExpenseChartWidget from '@/components/charts/ExpenseChartWidget';
+import CustomLineChart, { PieChart } from '@/components/charts/CustomLineChart';
+import BarChart from '@/components/charts/ExpenseChartWidget';
+import { generateRandomChartData } from '@/components/charts/barchartData';
+import LineChart from '@/components/charts/CustomLineChart';
+import ReportChart from '@/components/charts/ReportChart';
+
 const HomeScreen = () => {
     const { colors } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
@@ -28,6 +38,22 @@ const HomeScreen = () => {
         fetchCategories();
         fetchBudgets();
     }, [])
+    useEffect(() => {
+        let subscription;
+
+        const setupSMS = async () => {
+            subscription = await startSMSListener();
+        };
+
+        setupSMS();
+
+        return () => {
+            // Clean up on component unmount
+            if (subscription) {
+                subscription.remove();
+            }
+        };
+    }, []);
 
     // Calculate previous month's spending using date-fns
     const previousMonthSpending = useMemo(() => {
@@ -94,11 +120,41 @@ const HomeScreen = () => {
         );
     };
 
+    const data = [
+        { label: 'Jan', value: 125 },
+        { label: 'Feb', value: 220 },
+        { label: 'Mar', value: 180 },
+        { label: 'Apr', value: 250 },
+        { label: 'May', value: 310 },
+        { label: 'Jun', value: 190 },
+        { label: 'Jul', value: 270 },
+    ];
+
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            <Text>HomeScreen</Text>
+            {/* <View style={{ height: tokens.spacing.xxl }} /> */}
+            <TotalBalance />
+            <ExtraInfo />
+            {/* <ExpenseChartWidget /> */}
+            <View style={{ paddingHorizontal: tokens.spacing.md, }}>
+                <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
+                    <CustomLineChart
+                        data={data}
+                        lineColor="#7269E3"
+                        gradientColors={["#8F85FF", "#6E88F720"]}
+                        chartHeight={250}
+                        yLabelCount={5}
+                        curved={true}
+                        showDots={true}
+                        animate={true}
+                        labelColor={colors.subtitle}
+                    />
+                </View>
+            </View>
+                <ReportChart />
             <View style={{
-                backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden'
+                backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
+                marginHorizontal: tokens.spacing.md,
             }}>
                 {
                     top5Transactions.map((item, index) => (
@@ -109,7 +165,8 @@ const HomeScreen = () => {
                                 borderBottomWidth: index === top5Transactions.length - 1 ? 0 : 2,
                                 backgroundColor: colors.card,
                                 paddingHorizontal: tokens.spacing.md,
-                                paddingVertical: 4
+                                paddingVertical: 4,
+
                             }}>
                             <TransactionItem
                                 key={item.id}
@@ -121,9 +178,7 @@ const HomeScreen = () => {
                 }
             </View>
 
-            <View>
-                <CategoryCard type='30Days' />
-            </View>
+            <CategoryCard type='30Days' />
 
             <FinancialSummaryCard
                 transactions={transactions}

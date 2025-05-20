@@ -4,6 +4,8 @@ import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 import { formatDateString } from '@/utils/date';
+import { darkTheme, lightTheme } from '@/constants/theme';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 interface SectionHeaderProps {
   section: {
@@ -16,7 +18,7 @@ interface SectionHeaderProps {
 
 export const SectionHeader: React.FC<SectionHeaderProps> = ({ section }) => {
   const netBalance = section.totalIncome - section.totalExpense;
-
+  const { theme } = usePreferenceStore();
   const { colors } = useTheme();
   const formattedDate = section.isUpcoming
     ? 'UPCOMING'
@@ -28,7 +30,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ section }) => {
         styles.container,
         {
           borderBottomColor: colors.subtitle,
-          backgroundColor: colors.background,
+          backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card
         },
       ]}
     >

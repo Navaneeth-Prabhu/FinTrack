@@ -1,14 +1,18 @@
 // hooks/useTheme.ts
-import { Platform, useColorScheme } from 'react-native';
-import { useCallback } from 'react';
+import { Platform, useColorScheme as useNativeColorScheme } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
 // import * as NavigationBar from 'expo-navigation-bar';
 import { lightTheme, darkTheme, tokens } from '@/constants/theme';
-import useThemeStore from '@/stores/preferenceStore';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 export function useTheme() {
-    const colorScheme = useColorScheme();
-    const { theme } = useThemeStore();
-    const isDark = theme == 'dark' || (theme === 'system' && colorScheme === 'dark');
+    const systemColorScheme = useNativeColorScheme();
+    const { theme } = usePreferenceStore();
+    
+    // Determine if dark mode is active based on preference and system
+    const isDark = theme === 'dark' || (theme === 'system' && systemColorScheme === 'dark');
+    
+    // Get the current theme colors based on dark/light status
     const colors = isDark ? darkTheme : lightTheme;
 
     // Get semantic color with fallback
@@ -42,6 +46,12 @@ export function useTheme() {
     //     }
     // }, [colors, isDark]);
 
+    // Update the resolvedTheme in the store for any components that need it directly
+    useEffect(() => {
+        const resolvedTheme = isDark ? 'dark' : 'light';
+        usePreferenceStore.setState({ resolvedTheme });
+    }, [isDark]);
+
     return {
         isDark,
         colors,
@@ -49,6 +59,8 @@ export function useTheme() {
         getColor,
         getShadow,
         // setNavBarColor,
+        // Add a convenience property for direct theme value
+        colorScheme: isDark ? 'dark' : 'light',
     };
 }
 

@@ -5,10 +5,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { Budget } from '@/types';
 import { calculateIdealSpending, getEndDateForFrequency } from '@/utils/date';
 import { ThemedText } from './common/ThemedText';
-import { useBudgetStore } from '@/stores/budgetStore';
 import { router } from 'expo-router';
 import { differenceInDays, format, isAfter, isBefore, parseISO } from 'date-fns';
 import { CategoryIcon } from './transactions/CategoryIcon';
+import { fontSizes, tokens } from '@/constants/theme';
 
 export const calculateDailySpendingAllowance = (
     limit: number,
@@ -54,12 +54,12 @@ const ProgressBarWithPointer: React.FC<{
                         { width: `${progressWidth}%`, backgroundColor: isOnTrack ? colors.primary : '#FF6347' },
                     ]}
                 >
-                    <Text style={styles.progressText}>{progress}</Text>
+                    <Text style={styles.progressText}>{progress.toFixed(1)}</Text>
                 </View>
             </View>
             <View style={[styles.idealPointerContainer, { left: `${idealPosition}%` }]}>
                 <ThemedText variant='caption'>Ideal</ThemedText>
-                <View style={[styles.idealPointer, { borderBottomColor: colors.text }]} />
+                <View style={[styles.idealPointer, { borderColor: colors.text }]} />
             </View>
         </View>
     );
@@ -80,11 +80,17 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
                 <View style={{ padding: 16 }}>
 
                     <View style={styles.header}>
-                        <View>
+                        <View style={styles.categoryContainer}>
                             <CategoryIcon category={category} />
-                            <ThemedText variant='h3'>{category?.name}</ThemedText>
+                            <View>
+                                <ThemedText variant='h3'
+                                style={{ fontSize: fontSizes.FONT22}}>{category?.name}</ThemedText>
+                                <ThemedText variant='body1'>
+                                    <Text style={{ fontWeight: tokens.fontWeight.semibold }}>
+                                        ${spent.toFixed(2)}
+                                    </Text> of ${limit.toFixed(2)}</ThemedText>
+                            </View>
                         </View>
-                        <ThemedText variant='body1'>${spent.toFixed(2)} / ${limit.toFixed(2)}</ThemedText>
                     </View>
                     <ProgressBarWithPointer spent={spent} limit={limit} idealSpending={idealSpending} progress={progress} />
                     {/* <Text style={styles.progressText}>{progress.toFixed(1)}% Completed</Text> */}
@@ -119,11 +125,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 20,
+    },
+    categoryContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
     category: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: tokens.fontWeight.semibold,
         color: '#333',
     },
     progressContainer: {
@@ -140,7 +151,6 @@ const styles = StyleSheet.create({
     },
     progressFill: {
         height: '100%',
-        borderRadius: 5,
     },
     idealPointerContainer: {
         position: 'absolute',
@@ -156,7 +166,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderLeftColor: 'transparent',
         borderRightColor: 'transparent',
-        borderColor: '#FFFFFF',
     },
     pointerText: {
         fontSize: 10,
@@ -183,7 +192,7 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontWeight: tokens.fontWeight.semibold,
         textAlign: 'center',
         marginTop: 10,
     },

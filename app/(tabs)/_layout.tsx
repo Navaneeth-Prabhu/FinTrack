@@ -18,7 +18,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 60,
+          height: Platform.OS === 'ios' ? 88 : 70,
+          paddingTop: Platform.OS === 'ios' ? 10 : 10,
         }
         
       }}
@@ -28,19 +29,24 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => <LayoutPanelLeft color={color}/>,
+          headerTitle: '',
         }}
       />
       <Tabs.Screen
         name="timeline"
         options={{
-          title: 'Timeline',
+          title: 'Transactions',
+          headerShown: false,
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
           tabBarIcon: ({ color }) => <ArrowRightLeft color={color}/>,
         }}
       />
       <Tabs.Screen
         name="budgets"
         options={{
-          title: 'Budget',
+          title: 'Budgets',
           tabBarIcon: ({ color }) => <ChartPie color={color} />,
         }}
       />

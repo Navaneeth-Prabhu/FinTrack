@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, Text } from 'react-native';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { Budget } from '@/types';
 import { useCategoryStore } from '@/stores/categoryStore';
@@ -9,6 +9,7 @@ import { startOfMonth } from 'date-fns';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { fontSizes } from '@/constants/theme';
 
 const BudgetFormScreen = () => {
     const { saveBudget, budgets, updateBudget } = useBudgetStore();
@@ -18,7 +19,12 @@ const BudgetFormScreen = () => {
     const frequencies = ['daily', 'weekly', 'monthly', 'yearly', 'custom'];
 
     const currentBudget = useMemo(() => budgets.find(b => b.id === budgetId), [budgetId, budgets]);
-
+    const nonBudgetCategories = useMemo(() =>
+        categories.filter(c =>
+            c.type === 'expense' && !budgets.some(b => b.category.id === c.id)
+        ),
+        [categories, budgets]
+    );
     const [budget, setBudget] = useState<Budget>({
         id: new Date().toISOString(), // Temporary ID, replace with UUID if needed
         limit: 0,
@@ -106,22 +112,30 @@ const BudgetFormScreen = () => {
                     placeholder="Enter budget name"
                     value={budget.name}
                     onChangeText={(text) => handleInputChange('name', text)}
+                    placeholderTextColor={colors.muted}
                 />
 
                 {/* Budget Limit Input */}
                 <ThemedText style={styles.label}>Limit</ThemedText>
-                <TextInput
-                    style={[styles.input, { color: colors.text, borderColor: colors.accent }]}
-                    placeholder="Enter amount"
-                    keyboardType="numeric"
-                    value={budget.limit.toString()}
-                    onChangeText={(text) => handleInputChange('limit', parseFloat(text) || 0)}
-                />
+                <View style={{
+                    flexDirection: 'row', flex: 1, borderColor: colors.accent,
+                    alignItems: 'center', borderWidth: 2, borderRadius: 8,
+                    padding: 8
+                }}>
+                    <Text style={{ fontSize: fontSizes.FONT24, color: colors.text }}>₹ </Text>
+                    <TextInput
+                        style={{ color: colors.text, fontSize: fontSizes.FONT48, flex: 1 }}
+                        placeholder="Enter amount"
+                        keyboardType="numeric"
+                        value={budget.limit.toString()}
+                        onChangeText={(text) => handleInputChange('limit', parseFloat(text) || 0)}
+                    />
+                </View>
 
                 {/* Category Selection */}
                 <ThemedText style={styles.label}>Category</ThemedText>
                 <View style={styles.categoriesContainer}>
-                    {categories.map(category => (
+                    {nonBudgetCategories.map(category => (
                         <TouchableOpacity
                             key={category.id}
                             style={[
@@ -162,6 +176,7 @@ const BudgetFormScreen = () => {
                             keyboardType="numeric"
                             value={budget.periodLength?.toString() || ''}
                             onChangeText={(text) => handleInputChange('periodLength', parseInt(text) || undefined)}
+                            placeholderTextColor={colors.muted}
                         />
                     </>
                 )}

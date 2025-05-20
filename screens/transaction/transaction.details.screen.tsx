@@ -28,13 +28,17 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
 
     const merchantLoyaltyScore = useMemo(() => {
         if (!transaction) return 'N/A';
-        // if (
-        //     transaction.paidBy?.trim().toLowerCase() === 'unknown payer' ||
-        //     transaction.paidTo?.trim().toLowerCase() === 'unknown recipient'
-        // ) {
-        //     return 1;
-        // }
-        return transactions.filter(t => t.category.name === transaction.category.name).length;
+        if (
+            transaction.paidBy?.trim().toLowerCase() === 'unknown payer' ||
+            transaction.paidTo?.trim().toLowerCase() === 'unknown recipient'
+        ) {
+            return 1;
+        }
+        if (transaction.type === 'transfer' || transaction.type === 'expense') {
+            return transactions.filter((t: Transaction) => t.paidTo === transaction?.paidTo).length;
+        } else if (transaction.type === 'income') {
+            return transactions.filter((t: Transaction) => t.paidBy === transaction?.paidBy).length;
+        }
     }, [transactions, transaction]);
 
     useLayoutEffect(() => {
@@ -80,9 +84,9 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
     const data = isRecurring ? recurring : transaction;
 
     return (
-        <View style={{ flex: 1, gap: 24 }}>
+        <View style={{ flex: 1, gap: 24, backgroundColor: colors.background }}>
             {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20, backgroundColor: colors.background }}>
                 <View style={{
                     borderColor: data?.category.color,
                     borderWidth: 2,

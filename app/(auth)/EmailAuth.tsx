@@ -1,14 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
+import { EmailImportScreen } from '@/screens/auth/EmailImportScreen'
 
-const CategoryDetails = () => {
+const EmailAuth = () => {
     return (
         <View>
-            <Text>CategoryDetails</Text>
+            <EmailImportScreen />
         </View>
     )
 }
 
-export default CategoryDetails
+export default EmailAuth
 
 const styles = StyleSheet.create({})
