@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { darkTheme, fontSizes, lightTheme, tokens } from '@/constants/theme';
 import usePreferenceStore from '@/stores/preferenceStore';
+import { Colors } from '@/constants/Colors';
 
 type TransactionType = 'income' | 'expense' | 'transfer';
 type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -358,41 +359,51 @@ const TransactionFormScreen: React.FC = () => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }}>
-            <Header showBack title={editMode ? 'Edit Transaction' : 'New Transaction'} />
+            <Header showBack title='' transparent={true} />
             <ScrollView style={[styles.container]} showsVerticalScrollIndicator={false}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                     {/* Transaction Type Card */}
 
                     <TouchableOpacity
-                        style={[styles.typeCard, { backgroundColor: colors.background, justifyContent: 'flex-start' }]}
+                        style={[styles.typeCard, { justifyContent: 'flex-start' }]}
                         onPress={() => typeBottomSheetRef.current?.present()}
                     >
                         <ThemedText style={[styles.typeCardText, { color: colors.text }]}>
                             {editMode == 'edit' ? 'Edit Transaction ' : 'New Transaction '}
                         </ThemedText>
-                        <View style={[styles.typeCardContent, { backgroundColor: colors.card, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 }]}>
-                            <ThemedText style={[styles.typeCardText, { color: colors.text }]}>
-                                {formState.type.charAt(0).toUpperCase() + formState.type.slice(1)}
-                            </ThemedText>
-                            <Ionicons
-                                name={
-                                    formState.type === 'income' ? 'arrow-down-circle' :
-                                        formState.type === 'expense' ? 'arrow-up-circle' :
-                                            'swap-horizontal'
-                                }
-                                size={24}
-                                color={
-                                    formState.type === 'income' ? colors.income :
+                        <View style={[styles.typeCardContent, {
+                            backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background,
+                            paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8
+                        }]}>
+                            <View style={[styles.typeCardContent, { gap: 6 }]}>
+
+                                <ThemedText style={[styles.typeCardText, {
+                                    color: formState.type === 'income' ? colors.income :
                                         formState.type === 'expense' ? colors.expense :
                                             colors.primary
-                                }
-                            />
+                                }]}>
+                                    {formState.type.charAt(0).toUpperCase() + formState.type.slice(1)}
+                                </ThemedText>
+                                <Ionicons
+                                    name={
+                                        formState.type === 'income' ? 'arrow-down-circle' :
+                                            formState.type === 'expense' ? 'arrow-up-circle' :
+                                                'swap-horizontal'
+                                    }
+                                    size={24}
+                                    color={
+                                        formState.type === 'income' ? colors.income :
+                                            formState.type === 'expense' ? colors.expense :
+                                                colors.primary
+                                    }
+                                />
+                            </View>
                             <Feather name="chevron-down" size={20} color={colors.text} />
                         </View>
                     </TouchableOpacity>
 
                     {/* Amount Input */}
-                    <View style={[styles.amountContainer, { backgroundColor: colors.card }]}>
+                    <View style={[styles.amountContainer, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background }]}>
                         <Text style={[styles.currencySymbol, { color: colors.text }]}>₹</Text>
                         <TextInput
                             ref={amountInputRef}
@@ -412,7 +423,7 @@ const TransactionFormScreen: React.FC = () => {
                     {/* Date and Time Selection */}
                     <View style={styles.dateTimeRow}>
                         <TouchableOpacity
-                            style={[styles.dateTimeField, { backgroundColor: colors.card }]}
+                            style={[styles.dateTimeField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background }]}
                             onPress={() => setShowDatePicker(true)}
                         >
                             <View style={styles.inputFieldContent}>
@@ -424,7 +435,7 @@ const TransactionFormScreen: React.FC = () => {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.dateTimeField, { backgroundColor: colors.card }]}
+                            style={[styles.dateTimeField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background }]}
                             onPress={() => setShowTimePicker(true)}
                         >
                             <View style={styles.inputFieldContent}>
@@ -438,7 +449,7 @@ const TransactionFormScreen: React.FC = () => {
 
                     {/* Category Selection */}
                     <TouchableOpacity
-                        style={[styles.inputField, { backgroundColor: colors.card }]}
+                        style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border }]}
                         onPress={() => setBottomSheetState(true)}
                     >
                         <View style={styles.inputFieldContent}>
@@ -458,14 +469,14 @@ const TransactionFormScreen: React.FC = () => {
                     {formState.type === 'transfer' ? (
                         <>
                             <TextInput
-                                style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                                style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
                                 placeholder="From Account"
                                 placeholderTextColor={colors.subtitle}
                                 value={formState.fromAccount}
                                 onChangeText={text => handleFormChange('fromAccount', text)}
                             />
                             <TextInput
-                                style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                                style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
                                 placeholder="To Account"
                                 placeholderTextColor={colors.subtitle}
                                 value={formState.toAccount}
@@ -474,7 +485,7 @@ const TransactionFormScreen: React.FC = () => {
                         </>
                     ) : (
                         <TextInput
-                            style={[styles.inputField, { backgroundColor: colors.card, color: colors.text }]}
+                            style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
                             placeholder={formState.type === 'income' ? 'Received From' : 'Paid To'}
                             placeholderTextColor={colors.subtitle}
                             value={formState.type === 'income' ? formState.paidBy : formState.paidTo}
@@ -490,7 +501,7 @@ const TransactionFormScreen: React.FC = () => {
                                 onPress={() => handleFormChange('transactionType', item)}
                                 style={[
                                     styles.accountButton,
-                                    { backgroundColor: colors.card },
+                                    { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border },
                                     formState.transactionType.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
                                 ]}
                             >
@@ -501,12 +512,13 @@ const TransactionFormScreen: React.FC = () => {
 
                     {/* Note Input */}
                     <TextInput
-                        style={[styles.noteInput, { backgroundColor: colors.card, color: colors.text }]}
+                        style={[styles.noteInput, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
                         placeholder="Add a note"
                         placeholderTextColor={colors.subtitle}
                         value={formState.note}
                         onChangeText={text => handleFormChange('note', text)}
                         multiline
+                        numberOfLines={6}
                     />
 
                     {/* Recurring Transaction Section */}
@@ -663,7 +675,7 @@ const styles = StyleSheet.create({
     typeCardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 16,
     },
     typeCardText: {
         fontSize: 18,
@@ -695,6 +707,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        borderWidth: 2,
     },
     inputFieldContent: {
         flexDirection: 'row',

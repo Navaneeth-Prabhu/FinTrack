@@ -127,7 +127,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
         <BottomSheetModal
             ref={bottomSheetModalRef}
             index={1}
-            snapPoints={['50%', '60%']}
+            snapPoints={useMemo(() => ['55%'], [])}
             onChange={handleSheetChanges}
             backdropComponent={renderBackdrop}
             enablePanDownToClose

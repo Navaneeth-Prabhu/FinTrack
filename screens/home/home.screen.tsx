@@ -151,7 +151,7 @@ const HomeScreen = () => {
                     />
                 </View>
             </View>
-            <ReportChart />
+                <ReportChart />
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
                 marginHorizontal: tokens.spacing.md,
