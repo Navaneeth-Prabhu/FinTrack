@@ -136,7 +136,7 @@ const HomeScreen = () => {
             <TotalBalance />
             <ExtraInfo />
             {/* <ExpenseChartWidget /> */}
-            <View style={{ paddingHorizontal: tokens.spacing.md, }}>
+            {/* <View style={{ paddingHorizontal: tokens.spacing.md, }}>
                 <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
                     <CustomLineChart
                         data={data}
@@ -150,8 +150,8 @@ const HomeScreen = () => {
                         labelColor={colors.subtitle}
                     />
                 </View>
-            </View>
-                <ReportChart />
+            </View> */}
+            <ReportChart />
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
                 marginHorizontal: tokens.spacing.md,
