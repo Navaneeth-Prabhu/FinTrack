@@ -23,7 +23,7 @@ const FilterChip: React.FC<ActiveFilterChipsProps> = ({
         <TouchableOpacity
             style={[styles.chip, {
                 // backgroundColor: selected ? colors.accent : colors.accent,
-                borderColor: selected ? selectedColor : colors.accent,
+                borderColor: selected ? selectedColor : colors.border,
                 borderWidth: 2
             }]}
             onPress={() => onPress(label)}

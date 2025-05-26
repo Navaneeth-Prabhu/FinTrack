@@ -145,12 +145,10 @@ const BudgetDetailsScreen = () => {
     }
   };
 
-  // Chart data for transactions
-  // Prepare chart data with both expense and budget values
   const chartData = useMemo(() => {
     if (!periodTransactions.length || !currentPeriod || !budget) return [];
 
-    // Group transactions by date
+    // Group transactions by date and sum them
     const groupedByDate = {};
 
     periodTransactions.forEach(transaction => {
@@ -163,7 +161,15 @@ const BudgetDetailsScreen = () => {
       groupedByDate[dateStr] += Math.abs(transaction.amount);
     });
 
-    // Create an array of all days in the period
+    // Determine the spending cutoff date (for value1)
+    const today = new Date();
+    const lastTransactionDate = new Date(Math.max(...periodTransactions.map(t => new Date(t.date))));
+    const spendingCutoffDate = new Date(Math.min(
+      Math.max(today, lastTransactionDate),
+      currentPeriod.end
+    ));
+
+    // Create array for the full period (for budget line)
     const allDays = [];
     const startDate = currentPeriod.start;
     const endDate = currentPeriod.end;
@@ -174,16 +180,23 @@ const BudgetDetailsScreen = () => {
     const budgetLimit = budget.limit;
     const dailyIncrement = budgetLimit / totalDays;
     let dayCount = 0;
+    let cumulativeExpenses = 0;
 
     while (currentDate <= endDate) {
       const day = format(currentDate, 'd');
       dayCount++;
 
-      // Add both expense and budget values in a single object
+      // Add today's expenses to cumulative total (only if within spending cutoff)
+      const todayExpenses = groupedByDate[day] || 0;
+      if (currentDate <= spendingCutoffDate) {
+        cumulativeExpenses += todayExpenses;
+      }
+
       allDays.push({
         label: day,
-        value: groupedByDate[day] || 0,
-        // Budget line increases linearly
+        // Show spending value only up to cutoff date, null afterwards
+        value: currentDate <= spendingCutoffDate ? cumulativeExpenses : null,
+        // Budget line continues for full period
         value2: dailyIncrement * dayCount
       });
 
@@ -211,35 +224,6 @@ const BudgetDetailsScreen = () => {
             <ThemedText>Loading budget details...</ThemedText>
           ) : (
             <>
-              {/* <View style={styles.summary}>
-                <View style={styles.categoryContainer}>
-                  <CategoryIcon category={budget.category} />
-                  <View>
-                    <ThemedText variant='h2'
-                      style={{ fontSize: fontSizes.FONT24 }}>{budget.name || budget.category.name}</ThemedText>
-                    <ThemedText variant='body1'>
-                      <Text style={{ fontWeight: tokens.fontWeight.semibold }}>
-                        ${currentSpent?.toFixed(2) ?? 'N/A'}
-                      </Text> of ${budget.limit.toFixed(2)}
-                    </ThemedText>
-                  </View>
-                </View>
-                {/* <ThemedText>Spent: ${currentSpent?.toFixed(2) ?? 'N/A'}</ThemedText>
-                <ThemedText>Limit: ${budget.limit.toFixed(2)}</ThemedText> *\/}
-                <ThemedText>Remaining: ${remaining?.toFixed(2) ?? 'N/A'}</ThemedText>
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${Math.min(progress, 100)}%`,
-                        backgroundColor: progress > 100 ? colors.error : colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <ThemedText>Progress: ${progress.toFixed(1)}%</ThemedText>
-              </View> */}
               <BudgetCard
                 key={budget.id}
                 budget={{ ...budget, spent: currentSpent ?? 0, progress, startDate: displayedPeriod.start.toISOString() }}
@@ -323,7 +307,7 @@ const styles = StyleSheet.create({
   },
   transactionsContainer: { padding: 15 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  chart: { marginVertical: 15, borderRadius: 8 },
+  chart: { marginBottom: 15, borderRadius: 8 },
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',

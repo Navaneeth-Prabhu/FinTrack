@@ -337,8 +337,8 @@ const ReportChart = () => {
             {/* Chart or loading indicator */}
             {isLoading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#0066cc" />
-                    <Text style={styles.loadingText}>Loading data...</Text>
+                    {/* <ActivityIndicator size="large" color="#0066cc" /> */}
+                    {/* <Text style={styles.loadingText}>Loading data...</Text> */}
                 </View>
             ) : (
                 <TouchableOpacity
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     chartContainer: {
-        height: 190,
+        height: 200,
         position: 'relative',
     },
 });

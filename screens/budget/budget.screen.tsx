@@ -91,7 +91,7 @@ function BudgetScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <ThemedText variant='h2'>My Budgets</ThemedText>
+        <ThemedText variant='h2'>Budgets</ThemedText>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => router.push('/budget/budgetForm')}

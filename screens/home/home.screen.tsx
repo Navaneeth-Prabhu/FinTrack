@@ -132,7 +132,7 @@ const HomeScreen = () => {
 
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            {/* <View style={{ height: tokens.spacing.xxl }} /> */}
+            <View style={{ height: tokens.spacing.xxl }} />
             <TotalBalance />
             <ExtraInfo />
             {/* <ExpenseChartWidget /> */}
@@ -151,7 +151,7 @@ const HomeScreen = () => {
                     />
                 </View>
             </View>
-                <ReportChart />
+            <ReportChart />
             <View style={{
                 backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
                 marginHorizontal: tokens.spacing.md,
@@ -171,6 +171,7 @@ const HomeScreen = () => {
                             <TransactionItem
                                 key={item.id}
                                 transaction={item}
+                                dateFormate={'MMM dd, yyyy'}
                             // isUpcoming={section.isUpcoming}
                             />
                         </View>

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { BottomSheetModal, BottomSheetFooter, BottomSheetFooterProps, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetFooter, BottomSheetFooterProps, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { ThemedText } from '../common/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import FilterChip from '../FilterChip';
@@ -33,11 +33,11 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
     filterOptions
 }) => {
     const { colors } = useTheme();
-    
+
     // Memoize the snapPoints array to prevent unnecessary re-renders
-    const snapPoints = useMemo(() => ['90%'], []);
-    
-    // Backdrop component
+    const snapPoints = useMemo(() => ['80%'], []);
+
+    // Backdrop component - memoized
     const renderBackdrop = useCallback(
         (props: any) => (
             <BottomSheetBackdrop
@@ -50,64 +50,56 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
         []
     );
 
-    const renderFooter = (props: BottomSheetFooterProps) => (
-        <BottomSheetFooter {...props} bottomInset={0}>
-            <View style={[styles.footerContainer, { backgroundColor: colors.background }]}>
-                <TouchableOpacity
-                    style={[styles.footerButton, styles.clearButton]}
-                    onPress={onClearFilters}
-                >
-                    <ThemedText variant='body1'>Clear</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.footerButton, { backgroundColor: colors.primary }]}
-                    onPress={onApplyFilters}
-                >
-                    <ThemedText variant='body1'>Apply</ThemedText>
-                </TouchableOpacity>
-            </View>
-        </BottomSheetFooter>
-    );
+    // Memoize the close handler to prevent recreation
+    const handleClose = useCallback(() => {
+        bottomSheetRef.current?.close();
+    }, [bottomSheetRef]);
+
+    // Memoize time period options to prevent recreation
+    const timePeriodOptions = useMemo(() =>
+        ['Day', 'Week', 'Month', 'Year', 'Custom'] as TimeView[],
+        []);
 
     return (
         <BottomSheetModal
             ref={bottomSheetRef}
-            index={0}
             snapPoints={snapPoints}
             backgroundStyle={{ backgroundColor: colors.background }}
             handleIndicatorStyle={{ backgroundColor: colors.border }}
-            footerComponent={renderFooter}
             backdropComponent={renderBackdrop}
             enablePanDownToClose={true}
             enableContentPanningGesture={true}
             enableHandlePanningGesture={true}
             enableOverDrag={true}
         >
-            <View style={styles.content}>
+            <BottomSheetView style={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
-                        <ThemedText variant='body1' style={[{ fontSize: 24, color: colors.text }]}>
+                        <ThemedText variant='h3'>
                             Filters
                         </ThemedText>
-                        <View style={styles.iconContainer} >
-                            <Ionicons
-                                onPress={() => bottomSheetRef.current?.close()}
-                                name="close" size={26}
-                                color={colors.text}
-                            />
+                        <View style={styles.iconContainer}>
+                            <TouchableOpacity onPress={handleClose}>
+                                <Ionicons
+                                    name="close"
+                                    size={26}
+                                    color={colors.text}
+                                />
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
-                
-                <View >
+
+                {/* Time Period Section */}
+                <View>
                     <ThemedText variant='body1' style={{ marginBottom: 14 }}>Time Period</ThemedText>
                     <View style={styles.optionsRow}>
-                        {['Day', 'Week', 'Month', 'Year', 'Custom'].map((view) => (
+                        {timePeriodOptions.map((view) => (
                             <FilterChip
                                 key={view}
                                 label={view}
                                 selected={selectedView === view}
-                                onPress={() => onViewSelect(view as TimeView)}
+                                onPress={() => onViewSelect(view)}
                                 selectedColor={colors.primary}
                             />
                         ))}
@@ -122,10 +114,12 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                             <FilterChip
                                 key={type.value}
                                 label={type.label}
-                                selected={filterState.transactionType === type.value}
+                                selected={filterState.transactionType.includes(type.value)}
                                 onPress={() => onFilterChange('transactionType', type.value)}
-                                selectedColor={type.value == 'income' ? colors.income :
-                                    type.value == 'expense' ? colors.expense : colors.primary}
+                                selectedColor={
+                                    type.value === 'income' ? colors.income :
+                                        type.value === 'expense' ? colors.expense : colors.primary
+                                }
                             />
                         ))}
                     </View>
@@ -134,19 +128,35 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                 {/* Categories Section */}
                 <View>
                     <ThemedText variant='body1' style={{ marginBottom: 14 }}>Categories</ThemedText>
-                    <View style={[styles.optionsRow]}>
+                    <View style={styles.optionsRow}>
                         {filterOptions.categories.map(category => (
                             <FilterChip
                                 key={category.id}
                                 label={category.name}
                                 selected={filterState.categories.includes(category.name)}
-                                onPress={() => onFilterChange('category', category.name)}
+                                onPress={() => onFilterChange('categories', category.name)}
                                 selectedColor={category.color}
                             />
                         ))}
                     </View>
                 </View>
-            </View>
+
+                {/* Footer Section */}
+                <View style={[styles.footerContainer, { backgroundColor: colors.background }]}>
+                    <TouchableOpacity
+                        style={[styles.footerButton, styles.clearButton]}
+                        onPress={onClearFilters}
+                    >
+                        <ThemedText variant='body1'>Clear</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.footerButton, { backgroundColor: colors.primary }]}
+                        onPress={onApplyFilters}
+                    >
+                        <ThemedText variant='body1'>Apply</ThemedText>
+                    </TouchableOpacity>
+                </View>
+            </BottomSheetView>
         </BottomSheetModal>
     );
 };
@@ -191,14 +201,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
         paddingVertical: 12,
-        paddingBottom: 32
+        paddingBottom: 32,
+        gap: 18
     },
     footerButton: {
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 8,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     clearButton: {
         backgroundColor: 'transparent',

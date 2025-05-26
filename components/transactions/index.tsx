@@ -24,7 +24,6 @@ const MemoizedTransactionItem = memo(TransactionItem);
 // Memoized SectionHeader component
 const MemoizedSectionHeader = memo(SectionHeader);
 
-
 // Empty list component
 const EmptyList = memo(() => {
     const { colors } = useTheme();
@@ -42,11 +41,11 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     overView = true,
     recurringTransactions,
 }) => {
+    // ALL HOOKS MUST BE CALLED FIRST - NO CONDITIONAL LOGIC BEFORE THIS
     const { colors } = useTheme();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
     const categories = useCategoryStore(state => state.categories);
     const saveTransaction = useTransactionStore(state => state.saveTransaction);
-
     const [loading, setLoading] = React.useState(false);
 
     // Memoized render functions to prevent recreation on each render
@@ -68,12 +67,6 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     const ListFooterComponent = useCallback(() => (
         <ListFooter totals={totals} count={transactions.length} />
     ), [totals, transactions.length]);
-
-    if (sections.length === 0) {
-        return <EmptyList />;
-    }
-
-
 
     const handleImport = async () => {
         if (Platform.OS !== 'android') {
@@ -106,13 +99,24 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         }
     };
 
-    if (Platform.OS !== 'android') {
-        return null;
-    }
     const handleRefresh = useCallback(() => {
         // Handle refresh logic here if needed
         handleImport();
     }, []);
+
+    // NOW HANDLE CONDITIONAL RENDERING - AFTER ALL HOOKS ARE CALLED
+
+    // Handle Android-only functionality
+    if (Platform.OS !== 'android') {
+        return null;
+    }
+
+    // Handle empty state
+    if (sections.length === 0) {
+        return <EmptyList />;
+    }
+
+    // Main render
     return (
         <View style={styles.container}>
             <SectionList

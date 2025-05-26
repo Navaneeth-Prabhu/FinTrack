@@ -19,17 +19,18 @@ interface TransactionItemProps {
 }
 
 export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
-    ({ transaction, isUpcoming }) => {
+    ({ transaction, isUpcoming, dateFormate }) => {
         const router = useRouter();
         const { colors } = useTheme();
 
+        // Use dateFormate prop if provided, otherwise use defaults
         const formattedDate = isUpcoming
             ? formatDateString(transaction.date, {
-                dateFormat: 'MMM dd, yyyy',
+                dateFormat: dateFormate || 'MMM dd, yyyy',
                 includeTime: false,
                 excludeYearIfCurrent: true
             })
-            : formatDateString(transaction.date, { timeOnly: true });
+            : formatDateString(transaction.date, dateFormate ? { dateFormat: dateFormate } : { timeOnly: true });
 
         const handlePress = () => {
             if (isUpcoming && transaction.recurringId) {
