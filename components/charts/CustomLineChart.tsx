@@ -5,6 +5,7 @@ import { Circle, LinearGradient, vec, useFont, DashPathEffect } from "@shopify/r
 import Animated, { useAnimatedProps } from "react-native-reanimated";
 import SpaceMono from "@/assets/fonts/SpaceMono-Regular.ttf";
 import { useTheme } from "@/hooks/useTheme";
+import { tokens } from "@/constants/theme";
 
 Animated.addWhitelistedNativeProps({ text: true });
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
@@ -172,7 +173,7 @@ function CustomLineChart({
                                     <View style={[styles.legendDot, { backgroundColor: secondLineColor }]} />
                                     <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text>
                                 </View>
-                                <Text style={[styles.valueText, { color: labelColor }]}>
+                                <Text style={[styles.valueText, { color: labelColor, fontSize: tokens.fontSize.sm }]}>
                                     {getCurrentBudgetValue().toFixed(2)} €
                                 </Text>
                             </View>
@@ -203,7 +204,7 @@ function CustomLineChart({
                                 <AnimatedTextInput
                                     editable={false}
                                     underlineColorAndroid={'transparent'}
-                                    style={[styles.valueText, { color: labelColor }]}
+                                    style={[styles.valueText, { color: labelColor, fontSize: tokens.fontSize.sm }]}
                                     animatedProps={animatedBudgetText}
                                 />
                             </View>
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     valuesContainer: {
-        gap: 12,
+        gap: 2,
     },
     valueRow: {
         flexDirection: 'row',

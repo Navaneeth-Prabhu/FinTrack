@@ -75,7 +75,7 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
             <BottomSheetView style={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
-                        <ThemedText variant='body1' style={[{ fontSize: 24, color: colors.text }]}>
+                        <ThemedText variant='h3'>
                             Filters
                         </ThemedText>
                         <View style={styles.iconContainer}>

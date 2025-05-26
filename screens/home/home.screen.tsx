@@ -132,7 +132,7 @@ const HomeScreen = () => {
 
     return (
         <View style={{ flex: 1, gap: 16 }}>
-            {/* <View style={{ height: tokens.spacing.xxl }} /> */}
+            <View style={{ height: tokens.spacing.xxl }} />
             <TotalBalance />
             <ExtraInfo />
             {/* <ExpenseChartWidget /> */}

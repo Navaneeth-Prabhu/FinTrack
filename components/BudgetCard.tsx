@@ -173,9 +173,10 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     progressText: {
-        fontSize: 14,
-        color: '#555',
+        fontSize: 12,
+        color: '#11111',
         textAlign: 'center',
+        textAlignVertical: 'center',
         // marginVertical: 5,
     },
     dateContainer: {

@@ -17,6 +17,7 @@ import { useTransactionStore } from '@/stores/transactionStore';
 import { Platform } from 'react-native';
 import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
 import { useTheme } from '@/hooks/useTheme';
+import SplashScreenComponent from '../components/SplashScreen';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
@@ -29,6 +30,7 @@ export default function RootLayout() {
   });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Get biometrics preference from Zustand store
   const { biometrics } = usePreferenceStore();
@@ -125,6 +127,16 @@ export default function RootLayout() {
       initializeApp();
     }
   }, [loaded, isBiometricSupported, biometrics, categories, saveTransaction]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show splash screen for 2 seconds
+  if (showSplash) {
+    return <SplashScreenComponent />;
+  }
 
   // Show nothing until authenticated and loaded
   if (!loaded || !isAuthenticated) {
