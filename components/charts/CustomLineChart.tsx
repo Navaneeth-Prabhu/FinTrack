@@ -140,7 +140,7 @@ function CustomLineChart({
             .filter(item => item.value2 !== null && item.value2 !== undefined && !isNaN(item.value2!))
             .map(item => item.value2!)
             .filter((v): v is number => v !== null && v !== undefined);
-        
+
         const maxBudget = validBudgetValues.length > 0 ? Math.max(...validBudgetValues) : 0;
         return isNaN(maxBudget) || maxBudget === undefined || maxBudget === null ? 0 : maxBudget;
     };
@@ -160,18 +160,18 @@ function CustomLineChart({
                         <View style={styles.valueRow}>
                             <View style={styles.legendContainer}>
                                 <View style={[styles.legendDot, { backgroundColor: lineColor }]} />
-                                <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text>
+                                {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text> */}
                             </View>
                             <Text style={[styles.valueText, { color: labelColor }]}>
                                 {displayValue}
                             </Text>
                         </View>
-                        
+
                         {hasSecondLine && (
                             <View style={styles.valueRow}>
                                 <View style={styles.legendContainer}>
                                     <View style={[styles.legendDot, { backgroundColor: secondLineColor }]} />
-                                    <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text>
+                                    {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text> */}
                                 </View>
                                 <Text style={[styles.valueText, { color: labelColor, fontSize: tokens.fontSize.sm }]}>
                                     {getCurrentBudgetValue().toFixed(2)} €
@@ -185,7 +185,7 @@ function CustomLineChart({
                         <View style={styles.valueRow}>
                             <View style={styles.legendContainer}>
                                 <View style={[styles.legendDot, { backgroundColor: lineColor }]} />
-                                <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text>
+                                {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text> */}
                             </View>
                             <AnimatedTextInput
                                 editable={false}
@@ -194,12 +194,12 @@ function CustomLineChart({
                                 animatedProps={animatedSpendingText}
                             />
                         </View>
-                        
+
                         {hasSecondLine && (
                             <View style={styles.valueRow}>
                                 <View style={styles.legendContainer}>
                                     <View style={[styles.legendDot, { backgroundColor: secondLineColor }]} />
-                                    <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text>
+                                    {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text> */}
                                 </View>
                                 <AnimatedTextInput
                                     editable={false}
@@ -307,6 +307,19 @@ function CustomLineChart({
                     </>
                 )}
             </CartesianChart>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <View style={styles.legendContainer}>
+                    <View style={[styles.legendDot, { backgroundColor: lineColor }]} />
+                    <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text>
+                </View>
+                {hasSecondLine && (
+                    <View style={styles.legendContainer}>
+                        <View style={[styles.legendDot, { backgroundColor: secondLineColor }]} />
+                        <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text>
+                    </View>
+                )}
+            </View>
         </View>
     );
 }
@@ -330,8 +343,9 @@ const styles = StyleSheet.create({
     },
     valueRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        // justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 10
     },
     legendContainer: {
         flexDirection: 'row',

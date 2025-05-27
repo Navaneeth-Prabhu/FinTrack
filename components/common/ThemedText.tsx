@@ -32,43 +32,44 @@ export function ThemedText({
   children,
   ...props
 }: TextProps) {
+  // All hooks must be called unconditionally at the top
   const { colors } = useTheme();
 
   const getVariantStyles = (): TextStyle => {
     const variants: Record<TextVariant, TextStyle> = {
       h1: {
         ...createTextStyles(48),
-        // fontFamily: 'Poppins-SemiBold',
+        fontFamily: 'Urbanist_600Bold',
       },
       h2: {
         ...createTextStyles(24),
-        // fontFamily: 'Poppins-SemiBold',
-        fontWeight: '500',
+        fontFamily: 'Urbanist_600SemiBold',
+        fontWeight: undefined,
       },
       h3: {
         ...createTextStyles(20),
-        // fontFamily: 'Poppins-SemiBold',
-        fontWeight: '600',
+        fontFamily: 'Urbanist_600SemiBold',
+        fontWeight: undefined,
       },
       subtitle: {
         ...createTextStyles(18),
-        // fontFamily: 'Poppins-Medium',
+        fontFamily: 'Urbanist_500Medium',
         color: colors.subtitle,
-        fontWeight: '500'
+        fontWeight: undefined,
       },
       body1: {
         ...createTextStyles(16),
-        // fontFamily: 'Poppins-Regular',
+        fontFamily: 'Urbanist_400Regular',
         color: colors.subtitle,
       },
       body2: {
         ...createTextStyles(14),
-        // fontFamily: 'Poppins-Regular',
+        fontFamily: 'Urbanist_400Regular',
         color: colors.subtitle,
       },
       caption: {
         ...createTextStyles(12),
-        // fontFamily: 'Poppins-Regular',
+        fontFamily: 'Urbanist_400Regular',
       },
     };
     return variants[variant];

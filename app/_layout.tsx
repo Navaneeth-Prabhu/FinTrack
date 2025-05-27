@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
+import { useFonts, Urbanist_400Regular, Urbanist_500Medium, Urbanist_600SemiBold, Urbanist_700Bold } from '@expo-google-fonts/urbanist';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -18,21 +18,23 @@ import { Platform } from 'react-native';
 import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
 import { useTheme } from '@/hooks/useTheme';
 import SplashScreenComponent from '../components/SplashScreen';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // All hooks must be called at the top, before any return
   const { isDark, colorScheme } = useTheme();
-
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Urbanist_400Regular,
+    Urbanist_500Medium,
+    Urbanist_600SemiBold,
+    Urbanist_700Bold,
   });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
-
-  // Get biometrics preference from Zustand store
   const { biometrics } = usePreferenceStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { saveTransaction } = useTransactionStore();
@@ -132,6 +134,15 @@ export default function RootLayout() {
     const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Update navigation bar color and button style on theme change (Android only)
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      // Set navigation bar color to match theme
+      NavigationBar.setBackgroundColorAsync(isDark ? '#1E1E1E' : '#FFFFFF');
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+    }
+  }, [isDark]);
 
   // Show splash screen for 2 seconds
   if (showSplash) {

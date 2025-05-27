@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,6 +13,7 @@ const SplashScreen: React.FC = () => {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
+      <StatusBar translucent backgroundColor="transparent" style="light" />
       <View style={styles.logoContainer}>
         <Image
           source={require('../assets/images/splash-icon.png')}
