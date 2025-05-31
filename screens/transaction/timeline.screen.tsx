@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TimeView } from '@/types';
 import { TransactionList } from '@/components/transactions';
 import SMSImportButton from '@/components/SMSImportButton';
-import { darkTheme, lightTheme } from '@/constants/theme';
+import { darkTheme, fontSizes, lightTheme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import usePreferenceStore from '@/stores/preferenceStore';
 
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
         marginBottom: 8
     },
     title: {
-        fontSize: 20,
+        fontSize: fontSizes.FONT24,
         fontWeight: '600'
     },
     headerActions: {

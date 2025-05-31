@@ -11,10 +11,10 @@ const TotalBalance = () => {
     return (
         <View style={[styles.container, { borderWidth: 0, borderColor: colors.card, backgroundColor: colors.primary }]}>
             <View style={{ padding: tokens.spacing.md }}>
-                <ThemedText style={{ color: colors.text, fontWeight: tokens.fontWeight.medium }}>Available Balance</ThemedText>
+                <ThemedText variant='body1' style={{ color: 'white', fontWeight: tokens.fontWeight.semibold,  }}>Available Balance</ThemedText>
 
-                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold }}>$234.
-                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: colors.text }}>
+                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>$234.
+                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>
                         00
                     </ThemedText>
                 </ThemedText>

@@ -24,6 +24,8 @@ import BarChart from '@/components/charts/ExpenseChartWidget';
 import { generateRandomChartData } from '@/components/charts/barchartData';
 import LineChart from '@/components/charts/CustomLineChart';
 import ReportChart from '@/components/charts/ReportChart';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'react-native';
 
 const HomeScreen = () => {
     const { colors } = useTheme();
@@ -39,7 +41,7 @@ const HomeScreen = () => {
         fetchBudgets();
     }, [])
     useEffect(() => {
-        let subscription;
+        let subscription: any;
 
         const setupSMS = async () => {
             subscription = await startSMSListener();
@@ -130,82 +132,96 @@ const HomeScreen = () => {
         { label: 'Jul', value: 270 },
     ];
 
+    // Detect light theme by checking if background color is very bright (e.g., starts with #f or #e)
+    const isLightTheme = /^#(f|e|c|d)/i.test(colors.background);
+
     return (
-        <View style={{ flex: 1, gap: 16 }}>
-            <View style={{ height: tokens.spacing.xxl }} />
-            <TotalBalance />
-            <ExtraInfo />
-            {/* <ExpenseChartWidget /> */}
-            <View style={{ paddingHorizontal: tokens.spacing.md, }}>
-                <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
-                    <CustomLineChart
-                        data={data}
-                        lineColor="#7269E3"
-                        gradientColors={["#8F85FF", "#6E88F720"]}
-                        chartHeight={250}
-                        yLabelCount={5}
-                        curved={true}
-                        showDots={true}
-                        animate={true}
-                        labelColor={colors.subtitle}
-                    />
-                </View>
-            </View>
-            <ReportChart />
-            <View style={{
-                backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
-                marginHorizontal: tokens.spacing.md,
-            }}>
-                {
-                    top5Transactions.map((item, index) => (
-                        <View
-                            key={item.id}
-                            style={{
-                                borderBottomColor: colors.background,
-                                borderBottomWidth: index === top5Transactions.length - 1 ? 0 : 2,
-                                backgroundColor: colors.card,
-                                paddingHorizontal: tokens.spacing.md,
-                                paddingVertical: 4,
-
-                            }}>
-                            <TransactionItem
+        <View style={{ flex: 1 }}>
+            {isLightTheme && (
+                <LinearGradient
+                    colors={["#8662e6", "#f7f7f7", "transparent"]}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', zIndex: 0 }}
+                    pointerEvents="none"
+                />
+            )}
+            <StatusBar translucent backgroundColor="#8662e6" barStyle={isLightTheme ? 'dark-content' : 'light-content'} />
+            <View style={{ flex: 1, gap: 24 }}>
+                <View style={{ height: tokens.spacing.xxl }} />
+                <TotalBalance />
+                <ExtraInfo />
+                {/* <ExpenseChartWidget /> */}
+                {/* <View style={{ paddingHorizontal: tokens.spacing.md, }}>
+                    <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
+                        <CustomLineChart
+                            data={data}
+                            lineColor={colors.primary}
+                            gradientColors={["#8662e6", "#6E88F720"]}
+                            chartHeight={250}
+                            yLabelCount={5}
+                            curved={true}
+                            showDots={true}
+                            animate={true}
+                            labelColor={colors.subtitle}
+                            titleColor={colors.text}
+                        />
+                    </View>
+                </View> */}
+                <ReportChart />
+                <View style={{
+                    backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
+                    marginHorizontal: tokens.spacing.md,
+                }}>
+                    {
+                        top5Transactions.map((item, index) => (
+                            <View
                                 key={item.id}
-                                transaction={item}
-                                dateFormate={'MMM dd, yyyy'}
-                            // isUpcoming={section.isUpcoming}
-                            />
-                        </View>
-                    ))
-                }
+                                style={{
+                                    borderBottomColor: colors.background,
+                                    borderBottomWidth: index === top5Transactions.length - 1 ? 0 : 2,
+                                    backgroundColor: colors.card,
+                                    paddingHorizontal: tokens.spacing.md,
+                                    paddingVertical: 4,
+
+                                }}>
+                                <TransactionItem
+                                    key={item.id}
+                                    transaction={item}
+                                    dateFormate={'MMM dd, yyyy'}
+                                // isUpcoming={section.isUpcoming}
+                                />
+                            </View>
+                        ))
+                    }
+                </View>
+
+                <CategoryCard type='30Days' />
+
+                <FinancialSummaryCard
+                    transactions={transactions}
+                    budgets={budgets}
+                    savingsBalance={savingsBalance}
+                    previousMonthSpending={previousMonthSpending}
+                />
+
+                <FinancialHealthScore
+                    transactions={transactions}
+                    budgets={budgets}
+                    onTipPress={handleTipPress}
+                />
+
+                <SmartAlerts
+                    transactions={transactions}
+                    recurringTransactions={recurringTransactions}
+                />
+
+                {/* <SmartBalanceForecast
+                    transactions={transactions}
+                    recurringTransactions={recurringTransactions}
+                    currentBalance={savingsBalance}
+                /> */}
+
+                {/* <SmartBudgetInterface /> */}
             </View>
-
-            <CategoryCard type='30Days' />
-
-            <FinancialSummaryCard
-                transactions={transactions}
-                budgets={budgets}
-                savingsBalance={savingsBalance}
-                previousMonthSpending={previousMonthSpending}
-            />
-
-            <FinancialHealthScore
-                transactions={transactions}
-                budgets={budgets}
-                onTipPress={handleTipPress}
-            />
-
-            <SmartAlerts
-                transactions={transactions}
-                recurringTransactions={recurringTransactions}
-            />
-
-            {/* <SmartBalanceForecast
-                transactions={transactions}
-                recurringTransactions={recurringTransactions}
-                currentBalance={savingsBalance}
-            /> */}
-
-            {/* <SmartBudgetInterface /> */}
         </View>
     )
 }

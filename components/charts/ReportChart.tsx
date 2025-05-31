@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, RefObject } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
 import { useTheme } from '@/hooks/useTheme';
@@ -8,24 +7,32 @@ import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/
 import { ChevronDown } from 'lucide-react-native';
 import { fontSizes, tokens } from '@/constants/theme';
 import BarChart from './ExpenseChartWidget';
+import { Transaction } from '@/types';
+
+// Define type for chart data bars
+interface ChartBarData {
+    label: string;
+    value: number;
+    frontColor?: string;
+}
 
 const ReportChart = () => {
     const { colors } = useTheme();
-    const frequencyBottomSheetRef = useRef(null);
+    const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
 
     // State
-    const [transactions, setTransactions] = useState([]);
-    const [period, setPeriod] = useState('week'); // 'week', 'month', 'year'
-    const [chartData, setChartData] = useState([]);
-    const [type, setType] = useState('expense'); // 'income', 'expense'
-    const [isLoading, setIsLoading] = useState(true);
-    const [totalAmount, setTotalAmount] = useState(0);
-    const [incomeTotalAmount, setIncomeTotalAmount] = useState(0);
-    const [expenseTotalAmount, setExpenseTotalAmount] = useState(0);
-    const [selectedBarIndex, setSelectedBarIndex] = useState(-1); // Use -1 for no selection
-    const [selectedBarValue, setSelectedBarValue] = useState(0);
-    const [displayValue, setDisplayValue] = useState(0);
-    const [selectedLabel, setSelectedLabel] = useState('Total');
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [period, setPeriod] = useState<'week' | 'month' | 'year'>('week');
+    const [chartData, setChartData] = useState<ChartBarData[]>([]);
+    const [type, setType] = useState<'income' | 'expense'>('expense');
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [totalAmount, setTotalAmount] = useState<number>(0);
+    const [incomeTotalAmount, setIncomeTotalAmount] = useState<number>(0);
+    const [expenseTotalAmount, setExpenseTotalAmount] = useState<number>(0);
+    const [selectedBarIndex, setSelectedBarIndex] = useState<number>(-1); // Use -1 for no selection
+    const [selectedBarValue, setSelectedBarValue] = useState<number>(0);
+    const [displayValue, setDisplayValue] = useState<number>(0);
+    const [selectedLabel, setSelectedLabel] = useState<string>('Total');
 
     // Load transactions when period or type changes
     useEffect(() => {
@@ -55,8 +62,8 @@ const ReportChart = () => {
 
     // Animation effect for display value
     useEffect(() => {
-        let frameId;
-        const animateValue = (start, end, duration) => {
+        let frameId: number | undefined;
+        const animateValue = (start: number, end: number, duration: number) => {
             const startTime = Date.now();
             const change = end - start;
 
@@ -86,52 +93,44 @@ const ReportChart = () => {
         animateValue(displayValue, targetValue, 300);
 
         return () => {
-            if (frameId) {
+            if (frameId !== undefined) {
                 cancelAnimationFrame(frameId);
             }
         };
     }, [selectedBarIndex, selectedBarValue, totalAmount]);
 
     // Load transactions based on period
-    const loadTransactions = async () => {
+    const loadTransactions = async (): Promise<void> => {
         try {
             setIsLoading(true);
-            
             const allTransactions = await fetchTransactionsFromDB();
-            
             // Calculate date range based on period
             const now = new Date();
-            let startDate, endDate;
-
+            let startDate: Date, endDate: Date;
             if (period === 'week') {
                 const startOfWeek = new Date(now);
                 startOfWeek.setDate(now.getDate() - now.getDay());
                 startOfWeek.setHours(0, 0, 0, 0);
-
                 const endOfWeek = new Date(now);
                 endOfWeek.setDate(now.getDate() + (6 - now.getDay()));
                 endOfWeek.setHours(23, 59, 59, 999);
-
                 startDate = startOfWeek;
                 endDate = endOfWeek;
             } else if (period === 'month') {
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                 const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                 endOfMonth.setHours(23, 59, 59, 999);
-
                 startDate = startOfMonth;
                 endDate = endOfMonth;
-            } else if (period === 'year') {
+            } else {
                 const startOfYear = new Date(now.getFullYear(), 0, 1);
                 const endOfYear = new Date(now.getFullYear(), 11, 31);
                 endOfYear.setHours(23, 59, 59, 999);
-
                 startDate = startOfYear;
                 endDate = endOfYear;
             }
-
             // Filter transactions by date range
-            const dateFiltered = allTransactions.filter(t => {
+            const dateFiltered = allTransactions.filter((t: Transaction) => {
                 const txDate = new Date(t.date);
                 return txDate >= startDate && txDate <= endDate;
             });
@@ -159,9 +158,9 @@ const ReportChart = () => {
     };
 
     // Generate chart data
-    const generateChartData = useCallback(() => {
+    const generateChartData = useCallback((): ChartBarData[] => {
         const now = new Date();
-        let data = [];
+        let data: ChartBarData[] = [];
 
         // Define color based on transaction type
         const defaultColor = type === 'income' ? '#4CAF50' : colors.primary;
@@ -245,7 +244,7 @@ const ReportChart = () => {
     }, [period, transactions, type, colors]);
 
     // Handle bar press from BarChart
-    const handleBarPress = useCallback((item, index) => {
+    const handleBarPress = useCallback((item: ChartBarData, index: number) => {
         console.log(`Bar pressed: ${item.label} (${index}) - Current selected: ${selectedBarIndex}`);
         
         // Toggle selection on/off
@@ -272,7 +271,7 @@ const ReportChart = () => {
     }, [selectedBarIndex]);
 
     // Format currency for display
-    const formatCurrency = useCallback((amount = 0) => {
+    const formatCurrency = useCallback((amount: number = 0): string => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -283,10 +282,10 @@ const ReportChart = () => {
 
     // Handle bottom sheet
     const handleBottomSheetOpen = useCallback(() => {
-        frequencyBottomSheetRef.current?.present();
+        (frequencyBottomSheetRef.current as BottomSheetModal | null)?.present();
     }, []);
 
-    const renderBackdrop = useCallback((props : any) => (
+    const renderBackdrop = useCallback((props: any) => (
         <BottomSheetBackdrop
             {...props}
             disappearsOnIndex={-1}
@@ -296,10 +295,10 @@ const ReportChart = () => {
     ), []);
 
     // Period selector handler
-    const handlePeriodChange = useCallback((newPeriod) => {
+    const handlePeriodChange = useCallback((newPeriod: 'week' | 'month' | 'year') => {
         if (period !== newPeriod) {
             setPeriod(newPeriod);
-            frequencyBottomSheetRef.current?.close();
+            (frequencyBottomSheetRef.current as BottomSheetModal | null)?.close();
         }
     }, [period]);
 
@@ -388,7 +387,7 @@ const ReportChart = () => {
                     }}>
                         Select Period
                     </Text>
-                    {['week', 'month', 'year'].map((p) => (
+                    {(['week', 'month', 'year'] as Array<'week' | 'month' | 'year'>).map((p) => (
                         <TouchableOpacity
                             key={p}
                             style={[

@@ -22,6 +22,7 @@ interface CustomLineChartProps {
     secondLineColor?: string;
     gradientColors?: string[];
     labelColor?: string;
+    titleColor?: string;
     chartHeight?: number;
     yLabelCount?: number;
     curved?: boolean;
@@ -37,6 +38,7 @@ function CustomLineChart({
     secondLineColor = "#FF5555",
     gradientColors = ["#6E88F7", "#6E88F720"],
     labelColor = "white",
+    titleColor = "white",
     chartHeight = 300,
     yLabelCount = 3,
     curved = false,
@@ -162,7 +164,7 @@ function CustomLineChart({
                                 <View style={[styles.legendDot, { backgroundColor: lineColor }]} />
                                 {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{spendingLabel}</Text> */}
                             </View>
-                            <Text style={[styles.valueText, { color: labelColor }]}>
+                            <Text style={[styles.valueText, { color: titleColor }]}>
                                 {displayValue}
                             </Text>
                         </View>
@@ -173,7 +175,7 @@ function CustomLineChart({
                                     <View style={[styles.legendDot, { backgroundColor: secondLineColor }]} />
                                     {/* <Text style={[styles.legendLabel, { color: labelColor }]}>{budgetLabel}</Text> */}
                                 </View>
-                                <Text style={[styles.valueText, { color: labelColor, fontSize: tokens.fontSize.sm }]}>
+                                <Text style={[styles.valueText, { color: titleColor, fontSize: tokens.fontSize.sm }]}>
                                     {getCurrentBudgetValue().toFixed(2)} €
                                 </Text>
                             </View>
@@ -190,7 +192,7 @@ function CustomLineChart({
                             <AnimatedTextInput
                                 editable={false}
                                 underlineColorAndroid={'transparent'}
-                                style={[styles.valueText, { color: labelColor }]}
+                                style={[styles.valueText, { color: titleColor }]}
                                 animatedProps={animatedSpendingText}
                             />
                         </View>
@@ -204,7 +206,7 @@ function CustomLineChart({
                                 <AnimatedTextInput
                                     editable={false}
                                     underlineColorAndroid={'transparent'}
-                                    style={[styles.valueText, { color: labelColor, fontSize: tokens.fontSize.sm }]}
+                                    style={[styles.valueText, { color: titleColor, fontSize: tokens.fontSize.sm }]}
                                     animatedProps={animatedBudgetText}
                                 />
                             </View>

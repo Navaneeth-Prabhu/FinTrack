@@ -95,14 +95,16 @@ import { Dimensions, DimensionValue, PixelRatio } from "react-native";
 
 export const lightTheme = {
     // Base colors
-    background: '#f7f7f7',          // Slightly cooler off-white for better contrast
+    // background: '#f7f7f7',          // Slightly cooler off-white for better contrast
+    background: '#f6f4fe',          // Slightly cooler off-white for better contrast
     // background: '#F9FAFC',          // Slightly cooler off-white for better contrast
     secondaryBackground: '#FFFFFF', // Pure white
     foreground: '#2D2A40',          // Dark purple-gray for better brand alignment
     card: '#FFFFFF',                // White cards
     secondarycard: '#F4F5F9',       // Subtle differentiation for secondary cards
     cardForeground: '#2D2A40',      // Match foreground for consistency
-    primary: '#8F85FF',             // Your brand purple
+    primary: '#8662e6',             // Your brand purple
+    // primary: '#6d44e1',             // Your brand purple
     primaryForeground: 'rgba(143, 133, 255, 0.15)',
     secondary: '#7269E3',           // Darker purple for secondary actions
     text: '#2D2A40',                // Match foreground for consistency
