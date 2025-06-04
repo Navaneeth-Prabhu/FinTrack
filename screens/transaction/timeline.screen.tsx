@@ -85,7 +85,7 @@ export default function TimeLineScreen() {
             transactionType: [...appliedFilters.transactionType],
             categories: [...appliedFilters.categories],
         });
-        
+
         if (bottomSheetRef.current) {
             bottomSheetRef.current.present();
         } else {
@@ -143,7 +143,7 @@ export default function TimeLineScreen() {
             transactionType: [...tempFilterState.transactionType],
             categories: [...tempFilterState.categories],
         });
-        
+
         if (bottomSheetRef.current) {
             bottomSheetRef.current.dismiss();
         }
@@ -175,7 +175,7 @@ export default function TimeLineScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }]}>
             <View style={styles.header}>
-                <ThemedText style={styles.title}>Transactions</ThemedText>
+                <ThemedText variant="h3" style={styles.title}>Transactions</ThemedText>
                 <View style={styles.headerActions}>
                     <TouchableOpacity
                         style={styles.iconButton}
@@ -248,13 +248,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
         paddingVertical: 12,
         marginBottom: 8
     },
     title: {
         fontSize: fontSizes.FONT24,
-        fontWeight: '600'
     },
     headerActions: {
         flexDirection: 'row',

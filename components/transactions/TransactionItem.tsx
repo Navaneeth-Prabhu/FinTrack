@@ -53,23 +53,26 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
             >
                 <Animated.View
                     style={[styles.item, { opacity: isUpcoming ? 0.5 : 1 }]}
-                // sharedTransitionTag={`transaction-${transaction.id}`}
                 >
                     <CategoryIcon category={transaction.category} />
-                    <TransactionDetails
-                        transaction={transaction}
-                        date={formattedDate}
-                        isRecurring={transaction.source.type === 'auto'}
-                    />
+                    <View style={{ flexShrink: 1, minWidth: 0 }}>
+                        <TransactionDetails
+                            transaction={transaction}
+                            date={formattedDate}
+                            isRecurring={transaction.source.type === 'auto'}
+                        />
+                    </View>
                 </Animated.View>
-                <TransactionAmount
-                    amount={transaction.amount}
-                    type={transaction.type}
-                    isUpcoming={isUpcoming}
-                />
+                <View style={styles.amountContainer}>
+                    <TransactionAmount
+                        amount={transaction.amount}
+                        type={transaction.type}
+                        isUpcoming={isUpcoming}
+                    />
+                </View>
             </Pressable>
         );
-    }
+    }   
 );
 
 const styles = StyleSheet.create({
@@ -83,7 +86,15 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
         gap: 16,
+        flex: 1,
+        minWidth: 0,
+    },
+    amountContainer: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        minWidth: 80,
+        paddingLeft: 4,
     },
 });

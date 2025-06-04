@@ -2,7 +2,7 @@ import { Text as RNText, TextStyle, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { fontSizes } from '@/constants/theme';
 
-type TextVariant = 
+type TextVariant =
   | 'h1'
   | 'h2'
   | 'h3'
@@ -17,6 +17,7 @@ interface TextProps {
   align?: 'auto' | 'left' | 'right' | 'center' | 'justify';
   style?: TextStyle | TextStyle[];
   children: React.ReactNode;
+  numberOfLines?: number;
 }
 ``
 const createTextStyles = (scale: number) => ({
@@ -30,6 +31,7 @@ export function ThemedText({
   align,
   style,
   children,
+  numberOfLines,
   ...props
 }: TextProps) {
   // All hooks must be called unconditionally at the top
@@ -84,7 +86,7 @@ export function ThemedText({
   });
 
   return (
-    <RNText style={[styles.text, style]} {...props}>
+    <RNText style={[styles.text, style]} {...props} numberOfLines={numberOfLines}>
       {children}
     </RNText>
   );

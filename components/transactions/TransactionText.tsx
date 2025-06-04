@@ -21,14 +21,14 @@ export const TransactionDetails: React.FC<TransactionDetailsProps> = ({
     return (
         <View style={styles.container}>
             <View style={styles.titleContainer}>
-                <ThemedText variant='h3'>
-                 {transaction.paidTo || transaction.category.name }
+                <ThemedText variant='h3' numberOfLines={2} style={{ color: colors.text }}>
+                    {transaction.paidTo || transaction.category.name} 
                 </ThemedText>
                 {isRecurring && (
                     <FontAwesome name="repeat" size={14} color={colors.muted} />
                 )}
             </View>
-            <ThemedText variant='body1'  style={[{ color: colors.subtitle }]}>
+            <ThemedText variant='body1' style={[{ color: colors.subtitle }]}>
                 {date}
             </ThemedText>
         </View>

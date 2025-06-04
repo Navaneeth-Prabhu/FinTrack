@@ -58,26 +58,25 @@ const ChartScreen = () => {
     const isUser = item.sender === 'user';
     return (
       <View style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}>
-        {!isUser && (
+        {/* {!isUser && (
           <View style={styles.avatarAI}>
             <Text style={styles.avatarText}>🤖</Text>
           </View>
-        )}
+        )} */}
         <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}> 
           <Text style={[styles.messageText, { color: isUser ? '#fff' : colors.text }]}>{item.text}</Text>
         </View>
-        {isUser && (
+        {/* {isUser && (
           <View style={styles.avatarUser}>
             <Ionicons name="person-circle" size={32} color={colors.primary} />
           </View>
-        )}
+        )} */}
       </View>
     );
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}> 
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI Chat</Text>
       </View>
@@ -98,7 +97,7 @@ const ChartScreen = () => {
         {isTyping && (
           <View style={styles.typingRow}>
             <View style={styles.avatarAI}>
-              <Text style={styles.avatarText}>🤖</Text>
+              {/* <Text style={styles.avatarText}>🤖</Text> */}
             </View>
             <View style={styles.bubble}>
               <Text style={styles.typingText}>AI is typing...</Text>
@@ -187,7 +186,7 @@ const styles = StyleSheet.create({
     minWidth: 40,
   },
   aiBubble: {
-    backgroundColor: '#f3f3f3',
+    // backgroundColor: '#f3f3f3',
     marginRight: 'auto',
   },
   userBubble: {
