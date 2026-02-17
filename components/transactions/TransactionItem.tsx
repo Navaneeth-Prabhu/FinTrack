@@ -32,19 +32,19 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
             })
             : formatDateString(transaction.date, dateFormate ? { dateFormat: dateFormate } : { timeOnly: true });
 
-        const handlePress = () => {
+        const handlePress = React.useCallback(() => {
             if (isUpcoming && transaction.recurringId) {
                 router.push({
-                    pathname: '(routes)/transaction/[id]',
+                    pathname: '/(routes)/transaction/[id]',
                     params: { id: transaction.recurringId, isRecurring: 'true' },
                 });
             } else {
                 router.push({
-                    pathname: '(routes)/transaction/[id]',
+                    pathname: '/(routes)/transaction/[id]',
                     params: { id: transaction.id, isRecurring: 'false' },
                 });
             }
-        };
+        }, [isUpcoming, transaction.recurringId, transaction.id, router]);
 
         return (
             <Pressable
@@ -72,7 +72,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
                 </View>
             </Pressable>
         );
-    }   
+    }
 );
 
 const styles = StyleSheet.create({

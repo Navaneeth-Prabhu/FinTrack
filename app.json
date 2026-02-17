@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "fintrack",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fintrack.FinTrack",
@@ -21,7 +21,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.fintrack.FinTrack"
+      "package": "com.fintrack.FinTrack",
+      "permissions": [
+        "READ_SMS",
+        "RECEIVE_SMS"
+      ]
     },
     "web": {
       "bundler": "metro",

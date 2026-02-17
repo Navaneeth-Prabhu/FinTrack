@@ -17,7 +17,7 @@ import SmartBalanceForecast from '@/components/SmartBalanceForecast';
 import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 import TotalBalance from '@/components/TotalBalance';
 import { ExtraInfo } from '@/components/ExtraInfo';
-import { readHistoricalSMS, startSMSListener } from '@/services/smsParser';
+// SMS functionality is handled centrally via smsService.ts and initialized in _layout.tsx
 import ExpenseChartWidget from '@/components/charts/ExpenseChartWidget';
 import CustomLineChart, { PieChart } from '@/components/charts/CustomLineChart';
 import BarChart from '@/components/charts/ExpenseChartWidget';
@@ -36,26 +36,21 @@ const HomeScreen = () => {
     let top5Transactions = transactions.slice(0, 5);
 
     useEffect(() => {
-        fetchTransactions();
-        fetchCategories();
-        fetchBudgets();
-    }, [])
-    useEffect(() => {
-        let subscription: any;
-
-        const setupSMS = async () => {
-            subscription = await startSMSListener();
-        };
-
-        setupSMS();
-
-        return () => {
-            // Clean up on component unmount
-            if (subscription) {
-                subscription.remove();
+        const loadData = async () => {
+            try {
+                await Promise.all([
+                    fetchTransactions(),
+                    fetchCategories(),
+                    fetchBudgets()
+                ]);
+            } catch (error) {
+                console.error('Error loading data:', error);
             }
         };
-    }, []);
+        loadData();
+    }, [])
+    // SMS listener removed - SMS functionality is centralized in smsService.ts
+    // and initialized in app/_layout.tsx via initializeSMSFeatures()
 
     // Calculate previous month's spending using date-fns
     const previousMonthSpending = useMemo(() => {

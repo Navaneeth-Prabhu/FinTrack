@@ -15,7 +15,7 @@ import usePreferenceStore from '@/stores/preferenceStore';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { Platform } from 'react-native';
-import { initializeSMSFeatures, setupPeriodicSMSScan } from '@/services/smsInitService';
+import { initializeSMSFeatures } from '@/services/smsInitService';
 import { useTheme } from '@/hooks/useTheme';
 import SplashScreenComponent from '../components/SplashScreen';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -57,16 +57,7 @@ export default function RootLayout() {
   };
 
   // Setup SMS scanning (returns a cleanup function)
-  useEffect(() => {
-    // Only setup SMS scanning if categories are loaded
-    if (categories && categories.length > 0) {
-      // Set up periodic scanning (every 30 minutes)
-      const cleanupSMSScan = setupPeriodicSMSScan(categories, saveTransaction, 30);
-
-      // Cleanup on component unmount
-      return cleanupSMSScan;
-    }
-  }, [categories, saveTransaction]);
+  // Periodic SMS scanning removed for optimization - only scans on app open
 
   // Initialize app and handle biometric authentication conditionally
   useEffect(() => {
@@ -92,7 +83,10 @@ export default function RootLayout() {
 
           // Step 5: Initialize SMS features after categories are loaded
           if (Platform.OS === 'android' && categories && categories.length > 0) {
-            await initializeSMSFeatures(categories, saveTransaction);
+            // Run SMS initialization in background without blocking startup
+            initializeSMSFeatures(categories, saveTransaction).catch(err =>
+              console.error('Background SMS init failed:', err)
+            );
           }
 
           // Step 6: Prompt for biometric authentication if supported AND enabled in preferences

@@ -39,7 +39,14 @@ export default function TimeLineScreen() {
     const [selectedView, setSelectedView] = useState<TimeView>('Month');
 
     useEffect(() => {
-        fetchTransactions();
+        const loadTransactions = async () => {
+            try {
+                await fetchTransactions();
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+            }
+        };
+        loadTransactions();
     }, []);
 
     // Memoize active filters for display
