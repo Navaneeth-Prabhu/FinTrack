@@ -63,7 +63,6 @@
     "react-native-date-picker": "^5.0.10",
     "react-native-draggable-flatlist": "^4.0.1",
     "react-native-gesture-handler": "~2.20.2",
-    "react-native-get-sms-android": "^2.1.0",
     "react-native-gifted-charts": "^1.4.57",
     "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-reanimated": "~3.16.1",

@@ -1,5 +1,6 @@
-import React, { useCallback, memo } from 'react';
-import { SectionList, View, StyleSheet, Platform, Alert } from 'react-native';
+import React, { useCallback, memo, useMemo } from 'react';
+import { View, StyleSheet, Platform, Alert } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Transaction, RecurringTransaction } from '@/types';
 import { TransactionItem } from './TransactionItem';
 import { ThemedText } from '@/components/common/ThemedText';
@@ -18,13 +19,30 @@ interface TransactionListProps {
     recurringTransactions?: RecurringTransaction[];
 }
 
-// Memoized TransactionItem to prevent unnecessary re-renders
-const MemoizedTransactionItem = memo(TransactionItem);
+// ─── Item type union ─────────────────────────────────────────────────────────
+type HeaderItem = {
+    type: 'header';
+    section: {
+        title: string;
+        totalIncome: number;
+        totalExpense: number;
+        isUpcoming?: boolean;
+    };
+    isFirst: boolean;
+};
 
-// Memoized SectionHeader component
+type TransactionItem2 = {
+    type: 'transaction';
+    transaction: Transaction;
+    isUpcoming: boolean;
+};
+
+type ListItem = HeaderItem | TransactionItem2;
+
+// ─── Sub-components (memoized outside parent to keep references stable) ───────
+const MemoizedTransactionItem = memo(TransactionItem);
 const MemoizedSectionHeader = memo(SectionHeader);
 
-// Empty list component
 const EmptyList = memo(() => {
     const { colors } = useTheme();
     return (
@@ -36,29 +54,78 @@ const EmptyList = memo(() => {
     );
 });
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export const TransactionList: React.FC<TransactionListProps> = memo(({
     transactions,
     overView = true,
     recurringTransactions,
 }) => {
-    // ALL HOOKS MUST BE CALLED FIRST - NO CONDITIONAL LOGIC BEFORE THIS
+    // ── Hooks (always at top, no early returns before this) ──────────────────
     const { colors } = useTheme();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
     const categories = useCategoryStore(state => state.categories);
     const saveTransaction = useTransactionStore(state => state.saveTransaction);
     const [loading, setLoading] = React.useState(false);
 
-    // Memoized render functions to prevent recreation on each render
-    const renderItem = useCallback(({ item, section }) => (
-        <MemoizedTransactionItem transaction={item} isUpcoming={section.isUpcoming} />
-    ), []);
+    // ── Flatten sections → single array for FlashList ────────────────────────
+    // FlashList requires a flat data array; we embed headers as items and track
+    // their indices for stickyHeaderIndices.
+    const { flatData, stickyIndices } = useMemo<{
+        flatData: ListItem[];
+        stickyIndices: number[];
+    }>(() => {
+        const data: ListItem[] = [];
+        const sticky: number[] = [];
 
-    const renderSectionHeader = useCallback(({ section }) => (
-        <MemoizedSectionHeader section={section} />
-    ), []);
+        sections.forEach((section, sectionIndex) => {
+            sticky.push(data.length);
+            data.push({
+                type: 'header',
+                section: {
+                    title: section.title,
+                    totalIncome: section.totalIncome,
+                    totalExpense: section.totalExpense,
+                    isUpcoming: section.isUpcoming,
+                },
+                isFirst: sectionIndex === 0,
+            });
 
-    const keyExtractor = useCallback((item: Transaction, index: number) =>
-        `transaction-${item.id ?? index}`, []);
+            section.data.forEach(transaction => {
+                data.push({
+                    type: 'transaction',
+                    transaction,
+                    isUpcoming: !!section.isUpcoming,
+                });
+            });
+        });
+
+        return { flatData: data, stickyIndices: sticky };
+    }, [sections]);
+
+    // ── Render callbacks (stable references via useCallback) ─────────────────
+    const renderItem = useCallback(({ item }: { item: ListItem }) => {
+        if (item.type === 'header') {
+            return (
+                <View style={[
+                    styles.headerWrapper,
+                    { marginTop: item.isFirst ? 0 : 12, backgroundColor: colors.background },
+                ]}>
+                    <MemoizedSectionHeader section={item.section} />
+                </View>
+            );
+        }
+        return (
+            <View style={styles.itemWrapper}>
+                <MemoizedTransactionItem
+                    transaction={item.transaction}
+                    isUpcoming={item.isUpcoming}
+                />
+            </View>
+        );
+    }, [colors.background]);
+
+    // Tells FlashList which recycling pool to use — critical for performance
+    const getItemType = useCallback((item: ListItem) => item.type, []);
 
     const ListHeader = useCallback(() => (
         overView ? <ListSummary totals={totals} /> : null
@@ -68,28 +135,20 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         <ListFooter totals={totals} count={transactions.length} />
     ), [totals, transactions.length]);
 
-    const handleImport = async () => {
+    // ── SMS import handler ────────────────────────────────────────────────────
+    const handleImport = useCallback(async () => {
         if (Platform.OS !== 'android') {
             Alert.alert('Not Available', 'SMS import is only available on Android devices');
             return;
         }
-
         if (loading) return;
         setLoading(true);
-
         try {
             const importCount = await importSMSTransactionsToStore(categories, saveTransaction);
-
             if (importCount > 0) {
-                Alert.alert(
-                    'Import Successful',
-                    `Successfully imported ${importCount} transactions from your SMS messages.`
-                );
+                Alert.alert('Import Successful', `Successfully imported ${importCount} transactions from your SMS messages.`);
             } else {
-                Alert.alert(
-                    'No Transactions Found',
-                    'No new financial transactions were found in your SMS messages.'
-                );
+                Alert.alert('No Transactions Found', 'No new financial transactions were found in your SMS messages.');
             }
         } catch (error) {
             console.error('Error during SMS import:', error);
@@ -97,62 +156,50 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         } finally {
             setLoading(false);
         }
-    };
+    }, [loading, categories, saveTransaction]);
 
     const handleRefresh = useCallback(() => {
-        // Handle refresh logic here if needed
         handleImport();
-    }, []);
+    }, [handleImport]);
 
-    // NOW HANDLE CONDITIONAL RENDERING - AFTER ALL HOOKS ARE CALLED
+    // ── Conditional renders (after all hooks) ─────────────────────────────────
+    if (Platform.OS !== 'android') return null;
+    if (flatData.length === 0) return <EmptyList />;
 
-    // Handle Android-only functionality
-    if (Platform.OS !== 'android') {
-        return null;
-    }
-
-    // Handle empty state
-    if (sections.length === 0) {
-        return <EmptyList />;
-    }
-
-    // Main render
+    // ── Main render ───────────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
-            <SectionList
-                sections={sections}
-                keyExtractor={keyExtractor}
+            <FlashList
+                data={flatData}
                 renderItem={renderItem}
-                renderSectionHeader={renderSectionHeader}
+                getItemType={getItemType}
+                estimatedItemSize={72}
+                stickyHeaderIndices={stickyIndices}
                 showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
-                SectionSeparatorComponent={() => <View style={styles.separator} />}
-                stickySectionHeadersEnabled
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                updateCellsBatchingPeriod={50}
-                removeClippedSubviews={true}
-                onRefresh={() => { handleRefresh() }}
+                onRefresh={handleRefresh}
                 refreshing={loading}
+                // Performance tuning
+                overrideItemLayout={(layout, item) => {
+                    // Give FlashList more accurate size hints to reduce layout thrash
+                    layout.size = item.type === 'header' ? 40 : 72;
+                }}
             />
         </View>
     );
 });
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    itemSeparator: {
-        height: 8,
-        width: '100%',
+    headerWrapper: {
+        // Background ensures sticky header covers scrolling content
     },
-    separator: {
-        height: 16,
-        width: '100%'
+    itemWrapper: {
+        marginBottom: 8,
     },
     emptyContainer: {
         flex: 1,
@@ -163,5 +210,5 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         textAlign: 'center',
-    }
+    },
 });
