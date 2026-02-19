@@ -17,6 +17,7 @@ import DataExportSection from './DataExportSection';
 import DataImportSection from './DataImportSection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BiometricToggle from './BiometricSection';
+import CloudSyncSection from '@/components/settings/CloudSyncSection';
 
 const MoreScreen = () => {
     const { theme, setTheme } = useThemeStore();
@@ -35,7 +36,7 @@ const MoreScreen = () => {
     const darkThemeColor = '#A59BFF';
 
     return (
-        <SafeAreaView style={{ flex: 1 , backgroundColor: colors.background}}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <ScrollView showsVerticalScrollIndicator={false} style={[styles.container, { backgroundColor: colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -192,16 +193,10 @@ const MoreScreen = () => {
                             <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
-                                <MaterialCommunityIcons name="sync" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
-                            </View>
-                            <ThemedText style={styles.menuText}>Cloud Sync</ThemedText>
-                            <View style={styles.toggleContainer}>
-                                <Text style={styles.toggleValue}>Auto</Text>
-                                <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
-                            </View>
-                        </TouchableOpacity>
+                        <CloudSyncSection
+                            themeColor={themeColor}
+                            darkThemeColor={darkThemeColor}
+                        />
 
                         <DataExportSection />
                         <DataImportSection />
