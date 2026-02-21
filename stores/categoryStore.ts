@@ -1,21 +1,13 @@
 import { create } from 'zustand';
+import { Category } from '@/types';
 import {
   deleteCategoryFromDB,
   fetchCategoriesFromDB,
   saveCategoryToDB,
   updateCategoryInDB,
-  updateCategoriesOrderInDB  // You'll need to implement this
+  updateCategoriesOrderInDB
 } from '@/db/repository/categoryRepository';
 import { useTransactionStore } from './transactionStore';
-
-export interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  type: 'income' | 'expense';
-  color: string;
-  order?: number;  // Add order field
-}
 
 interface CategoryState {
   categories: Category[];

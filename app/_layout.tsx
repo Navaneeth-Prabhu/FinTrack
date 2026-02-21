@@ -84,9 +84,10 @@ export default function RootLayout() {
           // Step 5: Initialize SMS features after categories are loaded
           if (Platform.OS === 'android' && categories && categories.length > 0) {
             // Run SMS initialization in background without blocking startup
-            initializeSMSFeatures(categories, saveTransaction).catch(err =>
-              console.error('Background SMS init failed:', err)
-            );
+            initializeSMSFeatures({
+              categories,
+              saveTransactionFn: saveTransaction,
+            }).catch(err => console.error('[SMS::Init] Background init failed:', err));
           }
 
           // Step 6: Prompt for biometric authentication if supported AND enabled in preferences

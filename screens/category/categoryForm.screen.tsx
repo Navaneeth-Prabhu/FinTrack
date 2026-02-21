@@ -20,9 +20,9 @@ const CategoryFromScreen = () => {
     const category = categories.find(c => c.id === id);
     const { colors } = useTheme();
     const [name, setName] = useState(category?.name || '');
-    const [icon, setIcon] = useState(category?.icon || '');
+    const [icon, setIcon] = useState(category?.icon || '❗');
     const [type, setType] = useState(category?.type || 'expense');
-    const [color, setColor] = useState(category?.color || 'white');
+    const [color, setColor] = useState(category?.color || '#888888');
     const [activeTab, setActiveTab] = useState('icons'); // Default tab
     const [selectedIcon, setSelectedIcon] = useState({ type: 'emoji', value: emojiConstants[0] });
 
@@ -60,7 +60,7 @@ const CategoryFromScreen = () => {
                                 ? <IconComponent size={24} strokeWidth={2} color={colors.text} />
                                 : <Text style={styles.categoryIcon}>{icon}</Text>
                         }
-                       
+
                     </View>
                     <TextInput
                         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
@@ -69,6 +69,28 @@ const CategoryFromScreen = () => {
                         value={name}
                         onChangeText={setName}
                     />
+                </View>
+
+                {/* Type Selection */}
+                <ThemedText style={styles.sectionTitle}>Transaction Type</ThemedText>
+                <View style={[styles.typeSelectionContainer, { backgroundColor: colors.card }]}>
+                    {(['income', 'expense', 'transfer', 'investment'] as const).map((t) => (
+                        <TouchableOpacity
+                            key={t}
+                            style={[
+                                styles.typeButton,
+                                type === t && { backgroundColor: t === 'income' ? colors.income : t === 'expense' ? colors.expense : colors.primary }
+                            ]}
+                            onPress={() => setType(t)}
+                        >
+                            <ThemedText style={[
+                                styles.typeButtonText,
+                                type === t ? { color: 'white' } : {}
+                            ]}>
+                                {t.charAt(0).toUpperCase() + t.slice(1)}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ))}
                 </View>
 
                 {/* Colors Selection */}
@@ -267,4 +289,21 @@ const styles = StyleSheet.create({
     //   iconText: {
     //     fontSize: 22,
     //   }
+    typeSelectionContainer: {
+        flexDirection: 'row',
+        padding: 8,
+        borderRadius: 12,
+        gap: 8,
+        justifyContent: 'space-between',
+    },
+    typeButton: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    typeButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+    }
 });

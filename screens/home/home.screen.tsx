@@ -19,7 +19,7 @@ import TotalBalance from '@/components/TotalBalance';
 import { ExtraInfo } from '@/components/ExtraInfo';
 // SMS functionality is handled centrally via smsService.ts and initialized in _layout.tsx
 import ExpenseChartWidget from '@/components/charts/ExpenseChartWidget';
-import CustomLineChart, { PieChart } from '@/components/charts/CustomLineChart';
+import CustomLineChart from '@/components/charts/CustomLineChart';
 import BarChart from '@/components/charts/ExpenseChartWidget';
 import { generateRandomChartData } from '@/components/charts/barchartData';
 import LineChart from '@/components/charts/CustomLineChart';

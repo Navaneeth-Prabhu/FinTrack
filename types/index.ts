@@ -2,7 +2,7 @@
 export interface Transaction {
   id: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense' | 'transfer' | 'investment';
   date: string;
   createdAt: string;
   lastModified: string;
@@ -44,7 +44,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense' | 'transfer' | 'investment';
   color: string;
   order?: number;  // Add order field
 }
@@ -68,7 +68,7 @@ export interface Budget {
 export interface RecurringTransaction {
   id: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense' | 'transfer' | 'investment';
   category: Category;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number; // Added
@@ -81,7 +81,26 @@ export interface RecurringTransaction {
   isActive: number; // INTEGER in SQLite, so use number
   createdAt: string;
   lastModified: string;
-  mode?: string
+  mode?: string;
+  fromAccount?: {
+    id: string,
+    name: string,
+  },
+  toAccount?: {
+    id: string,
+    name: string,
+  }
 }
 
 export type TimeView = 'Day' | 'Week' | 'Month' | 'Year' | 'Custom';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: 'bank' | 'cash' | 'credit_card' | 'wallet' | 'investment';
+  balance: number;
+  currency?: string;
+  isIncludeInNetWorth: boolean;
+  color?: string;
+  icon?: string;
+}

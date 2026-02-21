@@ -1,4 +1,4 @@
-// src/store/transactionStore.ts (simplified)
+// src/store/transactionStore.ts
 import { create } from 'zustand';
 import { Transaction, Category } from '@/types';
 import {
@@ -12,6 +12,7 @@ import {
   findTransactionsByPayee,
 } from '@/db/repository/transactionRepository';
 import { useBudgetStore } from './budgetStore';
+import { useAccountStore } from './accountStore';
 
 interface TransactionState {
   transactions: Transaction[];
@@ -20,7 +21,7 @@ interface TransactionState {
 
   fetchTransactions: () => Promise<void>;
   saveTransaction: (transaction: Transaction) => Promise<Transaction>;
-  updateTransaction: (transaction: Transaction) => Promise<Transaction>;
+  updateTransaction: (transaction: Transaction) => Promise<Transaction | { updatedTransaction: Transaction, similarTransactions: Transaction[] }>;
   removeTransaction: (id: string) => Promise<void>;
   saveBulkTransactions: (transactions: Transaction[]) => Promise<Transaction[]>;
   updateBulkTransactions: (transactions: Transaction[]) => Promise<Transaction[]>;
@@ -28,8 +29,30 @@ interface TransactionState {
   updateTransactionsWithCategory: (category: Category) => Promise<void>;
   findSimilarPayeeTransactions: (transaction: Transaction, newCategory: Category) => Promise<Transaction[]>;
   updateCategoryForSimilarPayeeTransactions: (transactions: Transaction[], newCategory: Category) => Promise<void>;
-
 }
+
+// Helper to adjust Account balances when a transaction is added or removed
+const applyTransactionToAccounts = async (t: Transaction, isAdd: boolean) => {
+  const { adjustBalance } = useAccountStore.getState();
+  const multiplier = isAdd ? 1 : -1;
+
+  try {
+    if (t.type === 'income' && t.toAccount) {
+      await adjustBalance(t.toAccount.id, t.amount * multiplier);
+    } else if (t.type === 'expense' && t.fromAccount) {
+      await adjustBalance(t.fromAccount.id, -t.amount * multiplier);
+    } else if ((t.type === 'transfer' || t.type === 'investment')) {
+      if (t.fromAccount) {
+        await adjustBalance(t.fromAccount.id, -t.amount * multiplier);
+      }
+      if (t.toAccount) {
+        await adjustBalance(t.toAccount.id, t.amount * multiplier);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to update account balances:", e);
+  }
+};
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
   transactions: [],
@@ -41,7 +64,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       set({ isLoading: true, error: null });
       const transactions = await fetchTransactionsFromDB();
       set({ transactions, isLoading: false });
-      // useBudgetStore.getState().recalculateAllBudgets(); // Full recalc on load
     } catch (error) {
       set({
         isLoading: false,
@@ -56,7 +78,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       await saveTransactionToDB(transaction);
       const newTransactions = [transaction, ...get().transactions];
       set({ transactions: newTransactions });
+
       useBudgetStore.getState().updateBudgetForTransaction(transaction, 'add');
+      await applyTransactionToAccounts(transaction, true);
+
       return transaction;
     } catch (error) {
       set({
@@ -66,48 +91,43 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 
-  // Modify the existing updateTransaction function to check for similar payees
   updateTransaction: async (transaction: Transaction) => {
     try {
       const oldTransaction = get().transactions.find(t => t.id === transaction.id);
       if (!oldTransaction) throw new Error('Transaction not found');
 
-      console.log(oldTransaction, transaction, 'oldTransaction', 'transaction');
-      // Only check for category updates (if only category changed)
-      const onlyCategoryChanged =
-        oldTransaction.amount === transaction.amount &&
-        oldTransaction.date === transaction.date &&
-        oldTransaction.paidTo === transaction.paidTo &&
-        oldTransaction.paidBy === transaction.paidBy &&
-        oldTransaction.mode === transaction.mode &&
-        oldTransaction.source.type === transaction.source.type &&
-        oldTransaction.category?.id !== transaction.category?.id;
+      const categoryChanged = oldTransaction.category?.id !== transaction.category?.id;
 
-      // First, update the current transaction
+      // Reverse old effect, then apply new effect
+      await applyTransactionToAccounts(oldTransaction, false);
       const updatedTransaction = await updateTransactionInDB(transaction);
+      await applyTransactionToAccounts(updatedTransaction, true);
+
       const newTransactions = get().transactions.map(t =>
         t.id === updatedTransaction.id ? updatedTransaction : t
       );
       set({ transactions: newTransactions });
       useBudgetStore.getState().updateBudgetForTransaction(updatedTransaction, 'update', oldTransaction);
-      console.log(onlyCategoryChanged, 'onlyCategoryChanged', updatedTransaction.category.id, transaction.category.id);
-      // If only category was changed and there's a payee, check for similar transactions
-      if (onlyCategoryChanged) {
-        const payee = transaction.type === 'expense' ? transaction.paidTo : transaction.paidBy;
-        if (payee) {
+
+      console.log("[Smart Update] categoryChanged:", categoryChanged);
+      if (categoryChanged) {
+        const payee = transaction.type === 'expense' || transaction.type === 'transfer' || transaction.type === 'investment' ? transaction.paidTo : transaction.paidBy;
+        console.log("[Smart Update] Payee extracted:", payee);
+        if (payee && payee.trim() !== '' && payee !== 'Unknown Recipient' && payee !== 'Unknown Payer') {
           const similarTransactions = await get().findSimilarPayeeTransactions(
             transaction,
-            transaction.category
+            oldTransaction.category
           );
+          console.log("[Smart Update] Found similar transactions count:", similarTransactions.length);
 
           if (similarTransactions.length > 0) {
-            // Return both the updated transaction and similar transactions
-            // for the UI to handle the alert
             return {
               updatedTransaction,
               similarTransactions
-            };
+            } as any;
           }
+        } else {
+          console.log("[Smart Update] skipped: payee is empty or unknown.");
         }
       }
 
@@ -126,6 +146,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       if (!transactionToRemove) throw new Error('Transaction not found');
 
       await deleteTransactionFromDB(id);
+      await applyTransactionToAccounts(transactionToRemove, false);
+
       const newTransactions = get().transactions.filter(t => t.id !== id);
       set({ transactions: newTransactions });
       useBudgetStore.getState().updateBudgetForTransaction(transactionToRemove, 'remove');
@@ -140,6 +162,11 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   saveBulkTransactions: async (transactions: Transaction[]) => {
     try {
       const savedTransactions = await saveBulkTransactionsToDB(transactions);
+
+      for (const t of savedTransactions) {
+        await applyTransactionToAccounts(t, true);
+      }
+
       const newTransactions = [...savedTransactions, ...get().transactions];
       set({ transactions: newTransactions });
       useBudgetStore.getState().updateBudgetsForBulkTransactions(savedTransactions, 'add');
@@ -160,7 +187,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         return old;
       });
 
+      for (const oldT of oldTransactions) {
+        await applyTransactionToAccounts(oldT, false);
+      }
+
       const updatedTransactions = await updateBulkTransactionsInDB(transactions);
+
+      for (const newT of updatedTransactions) {
+        await applyTransactionToAccounts(newT, true);
+      }
+
       const newTransactions = get().transactions.map(t =>
         updatedTransactions.find(ut => ut.id === t.id) || t
       );
@@ -184,6 +220,11 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       });
 
       await deleteBulkTransactionsFromDB(ids);
+
+      for (const t of transactionsToRemove) {
+        await applyTransactionToAccounts(t, false);
+      }
+
       const newTransactions = get().transactions.filter(t => !ids.includes(t.id));
       set({ transactions: newTransactions });
       useBudgetStore.getState().updateBudgetsForBulkTransactions(transactionsToRemove, 'remove');
@@ -219,21 +260,23 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       throw error;
     }
   },
-  findSimilarPayeeTransactions: async (transaction: Transaction, newCategory: Category) => {
+  findSimilarPayeeTransactions: async (transaction: Transaction, oldCategory: Category) => {
     try {
-      const payee = transaction.type === 'expense' || transaction.type === 'transfer' ? transaction.paidTo : transaction.paidBy;
+      const payee = transaction.type === 'expense' || transaction.type === 'transfer' || transaction.type === 'investment' ? transaction.paidTo : transaction.paidBy;
+      console.log(`[Smart Update DB Query] finding by payee: ${payee}, type: ${transaction.type}, excludeId: ${transaction.id}`);
       if (!payee) return [];
 
-      // Find transactions with the same payee and type (excluding the current transaction)
       const similarTransactions = await findTransactionsByPayee(
         payee,
         transaction.type,
         transaction.id
       );
+      console.log(`[Smart Update DB Query] Returned ${similarTransactions.length} items from DB`);
 
-      console.log('Similar transactions found:', similarTransactions.length);
-      // Only return transactions that have a different category than the new one
-      return similarTransactions.filter(t => t.category.id !== newCategory.id);
+      // We only want to auto-update transactions that currently have the SAME category as the old one
+      const filtered = similarTransactions.filter(t => t.category?.id === oldCategory?.id);
+      console.log(`[Smart Update DB Query] After filtering by old category (${oldCategory?.name}), remaining: ${filtered.length}`);
+      return filtered;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to find similar transactions',
@@ -244,14 +287,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   updateCategoryForSimilarPayeeTransactions: async (transactions: Transaction[], newCategory: Category) => {
     try {
-      // Prepare transactions with updated category
       const transactionsToUpdate = transactions.map(transaction => ({
         ...transaction,
         category: newCategory,
         lastModified: Date.now().toString()
       }));
 
-      // Use existing bulk update function
       await get().updateBulkTransactions(transactionsToUpdate);
     } catch (error) {
       set({
@@ -260,6 +301,5 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       throw error;
     }
   },
-
 
 }));

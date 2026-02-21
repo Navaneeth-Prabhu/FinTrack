@@ -1,6 +1,6 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native'
 import React, { useLayoutEffect, useMemo } from 'react'
-import { Transaction } from '@/types'
+import { Transaction, RecurringTransaction } from '@/types'
 import { ThemedText } from '@/components/common/ThemedText'
 import { useTheme } from '@/hooks/useTheme'
 import { Card } from '@/components/common/Card'
@@ -60,12 +60,25 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => {
-                            if (isRecurring) {
-                                removeRecurringTransaction(String(recurring?.id));
-                            } else {
-                                removeTransaction(String(transaction?.id));
-                            }
-                            router.back();
+                            Alert.alert(
+                                "Delete Transaction",
+                                "Are you sure you want to delete this transaction?",
+                                [
+                                    { text: "Cancel", style: "cancel" },
+                                    {
+                                        text: "Delete",
+                                        style: "destructive",
+                                        onPress: () => {
+                                            if (isRecurring) {
+                                                removeRecurringTransaction(String(recurring?.id));
+                                            } else {
+                                                removeTransaction(String(transaction?.id));
+                                            }
+                                            router.back();
+                                        }
+                                    }
+                                ]
+                            );
                         }}
 
                         style={{ marginRight: 15 }}
@@ -99,7 +112,11 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     <ThemedText variant="h2">{data?.category.icon}</ThemedText>
                 </View>
                 <View style={{ flex: 1, gap: 8 }}>
-                    <ThemedText variant="h2">{data?.paidTo || (isRecurring ? 'Recurring Template' : 'N/A')}</ThemedText>
+                    <ThemedText variant="h2">
+                        {isRecurring
+                            ? (data as RecurringTransaction)?.payee || 'Recurring Template'
+                            : (data as Transaction)?.paidTo || (data as Transaction)?.paidBy || 'N/A'}
+                    </ThemedText>
                     <ThemedText variant="h3" style={{ color: colors.subtitle }}>
                         {data?.category.name} {isRecurring ? '(Template)' : linkedRecurring ? '(Recurring Instance)' : ''}
                     </ThemedText>

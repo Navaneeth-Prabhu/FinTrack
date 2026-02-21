@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { parseISO, format, isSameMonth, addMonths, startOfMonth, endOfMonth, differenceInMonths } from 'date-fns';
+import { parseISO, format, isSameMonth, addMonths, subMonths, startOfMonth, endOfMonth, differenceInMonths } from 'date-fns';
 // import { formatLargeNumber } from '@/src/utils';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -21,11 +21,11 @@ const CategoryDetails = () => {
     const { categories } = useCategoryStore()
 
     const categoryDetail = categories.find((category) => category.id === id);
-    const parsedMonth = parseISO(month);
-    const [selectedMonth, setSelectedMonth] = useState(parsedMonth || new Date());
-    const [filteredTransactions, setFilteredTransactions] = useState([]);
-    const [chartData, setChartData] = useState([]);
-    const [availableMonths, setAvailableMonths] = useState([]);
+    const parsedMonth = month && typeof month === 'string' ? parseISO(month) : new Date();
+    const [selectedMonth, setSelectedMonth] = useState<Date>(parsedMonth);
+    const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+    const [chartData, setChartData] = useState<any[]>([]);
+    const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -50,7 +50,7 @@ const CategoryDetails = () => {
             (item) => item.category.name === category
         );
 
-        const groupedData = filteredCategoryTransactions.reduce((acc, item) => {
+        const groupedData = filteredCategoryTransactions.reduce((acc: Record<string, { amount: number, date: Date }>, item) => {
             const date = parseISO(item.date);
             const monthKey = format(date, 'yyyy-MM');
             if (!acc[monthKey]) {
@@ -116,7 +116,7 @@ const CategoryDetails = () => {
                     barWidth={40}
                     noOfSections={4}
                     barBorderRadius={4}
-                    frontColor={categoryDetail.color || colors.primary}
+                    frontColor={categoryDetail?.color || colors.primary}
                     activeOpacity={0.7}
                     initialSpacing={10}
                     yAxisThickness={0}

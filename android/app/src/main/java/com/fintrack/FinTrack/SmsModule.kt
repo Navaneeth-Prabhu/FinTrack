@@ -30,25 +30,17 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
 
             // Filter: only bank/service sender IDs (alphanumeric, not personal numbers)
             // Also apply date filter if minDate > 0
-            val selectionParts = mutableListOf(
-                "address NOT LIKE '+%'",
-                "address NOT LIKE '0%'",
-                "address NOT LIKE '1%'",
-                "address NOT LIKE '2%'",
-                "address NOT LIKE '3%'",
-                "address NOT LIKE '4%'",
-                "address NOT LIKE '5%'",
-                "address NOT LIKE '6%'",
-                "address NOT LIKE '7%'",
-                "address NOT LIKE '8%'",
-                "address NOT LIKE '9%'"
-            )
+            val selectionParts = mutableListOf<String>()
+
+            // REMOVED aggressive sender filtering (e.g. "address NOT LIKE '0%'")
+            // to support emulator numbers and legitimate shortcodes (e.g. 56767).
+            // Filtering is handled by content analysis in JS.
 
             if (minDate > 0) {
                 selectionParts.add("date >= ${minDate.toLong()}")
             }
 
-            val selection = selectionParts.joinToString(" AND ")
+            val selection = if (selectionParts.isEmpty()) null else selectionParts.joinToString(" AND ")
 
             val cursor: Cursor? = reactContext.contentResolver.query(
                 uri,

@@ -1,313 +1,196 @@
-// SMSTransactionUtil.js
-import { getTransactionsFromSMS } from '@/services/smsParser';
-import { Category } from '@/types';
+// utils/SMSTransactionUtil.ts
+// Converts parsed SMS transactions → app Transaction format.
+// Uses the 3-tier smsCategorizationService for intelligent categorization.
+
+import { getTransactionsFromSMS, ParsedSMS } from '@/services/smsParser';
+import {
+  categorizeWithContext,
+  CategorizationOptions,
+  getSMSAIPreference,
+} from '@/services/smsCategorizationService';
+import { Category, Transaction } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Keys for AsyncStorage
+// ─── Storage keys ─────────────────────────────────────────────────────────────
 const PROCESSED_SMS_IDS_KEY = 'processed_sms_ids';
 
-// Get already processed SMS IDs
-export const getProcessedSMSIds = async () => {
+// ─── Deduplication helpers ────────────────────────────────────────────────────
+export const getProcessedSMSIds = async (): Promise<string[]> => {
   try {
-    const idsString = await AsyncStorage.getItem(PROCESSED_SMS_IDS_KEY);
-    return idsString ? JSON.parse(idsString) : [];
-  } catch (error) {
-    console.error('Error getting processed SMS IDs:', error);
+    const raw = await AsyncStorage.getItem(PROCESSED_SMS_IDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
     return [];
   }
 };
 
-// Save processed SMS IDs
-export const saveProcessedSMSIds = async (ids) => {
+export const saveProcessedSMSIds = async (ids: string[]): Promise<void> => {
   try {
-    const existingIds = await getProcessedSMSIds();
-    const allIds = [...new Set([...existingIds, ...ids])];
-    await AsyncStorage.setItem(PROCESSED_SMS_IDS_KEY, JSON.stringify(allIds));
-  } catch (error) {
-    console.error('Error saving processed SMS IDs:', error);
+    const existing = await getProcessedSMSIds();
+    const merged = [...new Set([...existing, ...ids])];
+    // Keep only the newest 5000 IDs to avoid unbounded storage growth
+    const trimmed = merged.slice(-5000);
+    await AsyncStorage.setItem(PROCESSED_SMS_IDS_KEY, JSON.stringify(trimmed));
+  } catch (err) {
+    console.error('[SMS::Util] Error saving processed IDs:', err);
   }
 };
 
-// Convert an SMS transaction to your app's transaction format
-export const convertToAppTransaction = (smsTransaction, categories) => {
-  // Get current date/time as ISO string for metadata creation timestamps
+// ─── Payment method detection ──────────────────────────────────────────────────
+function resolvePaymentMode(parsed: ParsedSMS & { smsId?: string }): string {
+  if (parsed.paymentMethod) return parsed.paymentMethod;
+  const body = (parsed.rawSMS ?? '').toLowerCase();
+  if (body.includes('upi') || body.includes('vpa')) return 'UPI';
+  if (body.includes('credit card')) return 'Credit Card';
+  if (body.includes('debit card')) return 'Debit Card';
+  if (body.includes('imps')) return 'IMPS';
+  if (body.includes('neft')) return 'NEFT';
+  if (body.includes('rtgs')) return 'RTGS';
+  if (body.includes('net banking') || body.includes('netbanking')) return 'Net Banking';
+  if (body.includes('wallet') || body.includes('paytm') || body.includes('phonepe')) return 'Wallet';
+  if (body.includes('atm') || body.includes('cash')) return 'Cash';
+  return 'Other';
+}
+
+// ─── Bank identification from parsed data ──────────────────────────────────────
+function resolveAccount(parsed: ParsedSMS & { smsId?: string }): string | undefined {
+  if (parsed.bank && parsed.accountLast4) return `${parsed.bank} ••••${parsed.accountLast4}`;
+  if (parsed.bank) return parsed.bank;
+  if (parsed.accountLast4) return `••••${parsed.accountLast4}`;
+  const body = (parsed.rawSMS ?? '').toLowerCase();
+  const sender = (parsed.sender ?? '').toLowerCase();
+  const combined = `${sender} ${body}`;
+  if (combined.includes('hdfc')) return 'HDFC Bank';
+  if (combined.includes('icici')) return 'ICICI Bank';
+  if (combined.includes('sbi') || combined.includes('onlsbi')) return 'SBI';
+  if (combined.includes('axis')) return 'Axis Bank';
+  if (combined.includes('kotak')) return 'Kotak Mahindra';
+  if (combined.includes('paytm')) return 'Paytm';
+  if (combined.includes('phonepe')) return 'PhonePe';
+  return undefined;
+}
+
+// ─── Convert a single parsed SMS to app Transaction ────────────────────────────
+export const convertToAppTransaction = async (
+  parsed: ParsedSMS & { smsId?: string; date: string },
+  categories: Category[],
+  options: CategorizationOptions,
+): Promise<Transaction> => {
   const now = new Date().toISOString();
 
-  // CRITICAL: Use the extracted date from SMS as the transaction date
-  // This is the actual date when the transaction occurred
-  const transactionDate = smsTransaction.date || now;
+  // Categorize — uses raw SMS body for extra context if merchant alone doesn't match
+  const categoryResult = await categorizeWithContext(
+    parsed.merchant,
+    parsed.rawSMS,
+    parsed.amount,
+    parsed.type,
+    categories,
+    options,
+  );
 
-  // Log date information for debugging
-  if (smsTransaction.dateStr) {
-    console.log(`Converting SMS transaction to app format: ${smsTransaction.dateStr}`);
-    if (smsTransaction.date) {
-      console.log(`Extracted date: ${new Date(smsTransaction.date).toLocaleString()}`);
-    } else {
-      console.log(`No date extracted from SMS, using fallback`);
-    }
-  }
-
-  // Find appropriate category
-  const findCategory = () => {
-    const type = smsTransaction.type || 'expense';
-
-    // Default to "Other" category
-    const defaultCategory = categories.find(c => c.name.toLowerCase() === 'other' && c.type === type) ||
-      categories.find(c => c.id === '101');
-
-    if (!smsTransaction.merchant) return defaultCategory;
-
-    const merchant = smsTransaction.merchant.toLowerCase();
-
-    // Try to match merchant to category
-    // Food
-    if (
-      merchant.includes('restaurant') ||
-      merchant.includes('food') ||
-      merchant.includes('cafe') ||
-      merchant.includes('swiggy') ||
-      merchant.includes('zomato') ||
-      merchant.includes('hotel') ||
-      merchant.includes('dining') ||
-      merchant.includes('pizza') ||
-      merchant.includes('burger')
-    ) {
-      const foodCategory = categories.find(c => c.name === 'Food' && c.type === type);
-      if (foodCategory) return foodCategory;
-    }
-
-    // Groceries
-    if (
-      merchant.includes('mart') ||
-      merchant.includes('grocer') ||
-      merchant.includes('super') ||
-      merchant.includes('market') ||
-      merchant.includes('store') ||
-      merchant.includes('shop') ||
-      merchant.includes('big basket') ||
-      merchant.includes('bigbasket') ||
-      merchant.includes('d-mart') ||
-      merchant.includes('reliance fresh')
-    ) {
-      const groceryCategory = categories.find(c => c.name === 'Groceries' && c.type === type);
-      if (groceryCategory) return groceryCategory;
-    }
-
-    // Travel
-    if (
-      merchant.includes('travel') ||
-      merchant.includes('uber') ||
-      merchant.includes('ola') ||
-      merchant.includes('flight') ||
-      merchant.includes('train') ||
-      merchant.includes('metro') ||
-      merchant.includes('taxi') ||
-      merchant.includes('cab') ||
-      merchant.includes('rapido') ||
-      merchant.includes('irctc') ||
-      merchant.includes('airline') ||
-      merchant.includes('airways') ||
-      merchant.includes('bus') ||
-      merchant.includes('ticket')
-    ) {
-      const travelCategory = categories.find(c => c.name === 'Travelling' && c.type === type);
-      if (travelCategory) return travelCategory;
-    }
-
-    // Shopping
-    if (
-      merchant.includes('amazon') ||
-      merchant.includes('myntra') ||
-      merchant.includes('flipkart') ||
-      merchant.includes('ajio') ||
-      merchant.includes('retail') ||
-      merchant.includes('shop') ||
-      merchant.includes('store') ||
-      merchant.includes('mall') ||
-      merchant.includes('fashion') ||
-      merchant.includes('clothing') ||
-      merchant.includes('apparel')
-    ) {
-      const shoppingCategory = categories.find(c => c.name === 'Shopping' && c.type === type);
-      if (shoppingCategory) return shoppingCategory;
-    }
-
-    // Entertainment
-    if (
-      merchant.includes('movie') ||
-      merchant.includes('game') ||
-      merchant.includes('netflix') ||
-      merchant.includes('amazon prime') ||
-      merchant.includes('entertainment') ||
-      merchant.includes('cinema') ||
-      merchant.includes('theater') ||
-      merchant.includes('pvr') ||
-      merchant.includes('hotstar') ||
-      merchant.includes('disney+') ||
-      merchant.includes('bookmyshow')
-    ) {
-      const entertainmentCategory = categories.find(c => c.name === 'Entertainment' && c.type === type);
-      if (entertainmentCategory) return entertainmentCategory;
-    }
-
-    // Bills
-    if (
-      merchant.includes('bill') ||
-      merchant.includes('electric') ||
-      merchant.includes('water') ||
-      merchant.includes('gas') ||
-      merchant.includes('broadband') ||
-      merchant.includes('phone') ||
-      merchant.includes('mobile') ||
-      merchant.includes('utility') ||
-      merchant.includes('recharge') ||
-      merchant.includes('jio') ||
-      merchant.includes('airtel') ||
-      merchant.includes('vi') ||
-      merchant.includes('vodafone') ||
-      merchant.includes('tata sky') ||
-      merchant.includes('dish tv')
-    ) {
-      const billsCategory = categories.find(c => c.name === 'Bills & Utilities' && c.type === type);
-      if (billsCategory) return billsCategory;
-    }
-
-    // Health
-    if (
-      merchant.includes('hospital') ||
-      merchant.includes('clinic') ||
-      merchant.includes('doctor') ||
-      merchant.includes('medical') ||
-      merchant.includes('pharmacy') ||
-      merchant.includes('medicine') ||
-      merchant.includes('health') ||
-      merchant.includes('apollo') ||
-      merchant.includes('max') ||
-      merchant.includes('fortis')
-    ) {
-      const healthCategory = categories.find(c => c.name === 'Health' && c.type === type);
-      if (healthCategory) return healthCategory;
-    }
-
-    return defaultCategory;
-  };
-
-  // Guess payment mode with more options
-  const guessPaymentMode = () => {
-    const body = smsTransaction.rawSMS?.toLowerCase() || '';
-
-    if (body.includes('upi')) return 'UPI';
-    if (body.includes('card') || body.includes('credit') || body.includes('debit')) return 'Card';
-    if (body.includes('atm') || body.includes('cash')) return 'Cash';
-    if (body.includes('imps')) return 'IMPS';
-    if (body.includes('neft')) return 'NEFT';
-    if (body.includes('rtgs')) return 'RTGS';
-    if (body.includes('net banking') || body.includes('netbanking')) return 'Net Banking';
-    if (body.includes('wallet') || body.includes('paytm') || body.includes('phonepe')) return 'Wallet';
-
-    return 'Other';
-  };
-
-  // Guess the account from the SMS
-  const guessAccount = () => {
-    const body = smsTransaction.rawSMS?.toLowerCase() || '';
-    const sender = smsTransaction.sender?.toLowerCase() || '';
-
-    // Try to identify the bank/account
-    if (sender.includes('hdfc') || body.includes('hdfc')) return 'HDFC';
-    if (sender.includes('sbi') || body.includes('sbi')) return 'SBI';
-    if (sender.includes('icici') || body.includes('icici')) return 'ICICI';
-    if (sender.includes('axis') || body.includes('axis')) return 'Axis';
-    if (sender.includes('kotak') || body.includes('kotak')) return 'Kotak';
-    if (sender.includes('paytm') || body.includes('paytm')) return 'Paytm';
-    if (sender.includes('phonepe') || body.includes('phonepe')) return 'PhonePe';
-
-    return undefined;
+  const matchedCategory: Category = categories.find(c => c.id === categoryResult.categoryId) ?? {
+    id: categoryResult.categoryId ?? (parsed.type === 'income' ? 'other_income' : 'other_expense'),
+    name: categoryResult.categoryName,
+    icon: '❗',
+    color: '#888888',
+    type: parsed.type === 'income' ? 'income' : 'expense',
   };
 
   return {
-    id: new Date().getTime().toString(), // Unique ID based on timestamp
-    amount: smsTransaction.amount,
-    type: smsTransaction.type,
-    date: transactionDate, // Use extracted date from SMS
+    id: `sms_${parsed.smsId ?? Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    amount: parsed.amount,
+    type: parsed.type,
+    date: parsed.date,
     createdAt: now,
     lastModified: now,
-    paidTo: smsTransaction.merchant || 'Unknown',
-    paidBy: guessAccount() || smsTransaction.sender || undefined,
-    category: findCategory(),
+    paidTo: parsed.type !== 'income' ? (parsed.merchant ?? 'Unknown') : undefined,
+    paidBy: parsed.type === 'income' ? (parsed.merchant ?? parsed.sender) : resolveAccount(parsed),
+    category: matchedCategory,
     source: {
       type: 'sms',
-      rawData: smsTransaction.rawSMS,
+      rawData: parsed.rawSMS,
     },
-    mode: guessPaymentMode(),
-    note: `Auto-import from SMS: ${smsTransaction.dateStr || 'Unknown date'} - ${smsTransaction.rawSMS?.substring(0, 50)}...`,
+    mode: resolvePaymentMode(parsed),
+    note: [
+      `Auto-import from SMS`,
+      parsed.bank ? `Bank: ${parsed.bank}` : null,
+      parsed.accountLast4 ? `A/c: ••••${parsed.accountLast4}` : null,
+      `Source: ${parsed.sender ?? 'Unknown'}`,
+    ].filter(Boolean).join(' | '),
   };
 };
 
-// Get new transactions from SMS and convert to app format
-export const getNewTransactionsFromSMS = async (categories: Category[]) => {
+// ─── Main: get new transactions from SMS ──────────────────────────────────────
+export const getNewTransactionsFromSMS = async (
+  categories: Category[],
+  userId: string | null,
+  isOnline: boolean,
+  force = false,
+): Promise<Transaction[]> => {
   try {
-    // Get transactions from SMS
+    const aiEnabled = await getSMSAIPreference();
+    const options: CategorizationOptions = { aiEnabled, isOnline, userId };
+
     const smsTransactions = await getTransactionsFromSMS();
-    if (smsTransactions.length === 0) {
-      return [];
-    }
+    if (smsTransactions.length === 0) return [];
 
-    // Get already processed SMS IDs
     const processedIds = await getProcessedSMSIds();
+    console.log(`[SMS::Util] Raw: ${smsTransactions.length}, Processed: ${processedIds.length}`);
 
-    // Filter out already processed SMS
-    const newTransactions = smsTransactions.filter(
-      t => t.smsId && !processedIds.includes(t.smsId)
-    );
+    const newTransactions = force
+      ? smsTransactions
+      : smsTransactions.filter(t => t.smsId && !processedIds.includes(t.smsId));
 
     if (newTransactions.length === 0) {
-      console.log('No new SMS transactions found');
+      console.log('[SMS::Util] No new SMS transactions.');
       return [];
     }
 
-    console.log(`Found ${newTransactions.length} new SMS transactions`);
+    console.log(`[SMS::Util] Converting ${newTransactions.length} new transactions...`);
 
-    // Convert to app transactions
-    const appTransactions = newTransactions.map(t =>
-      convertToAppTransaction(t, categories)
-    );
+    // Convert sequentially to avoid hammering the DB/AI with concurrent requests
+    const appTransactions: Transaction[] = [];
+    for (const t of newTransactions) {
+      const tx = await convertToAppTransaction(t, categories, options);
+      appTransactions.push(tx);
+    }
 
-    // Save processed SMS IDs
-    const newSmsIds = newTransactions.map(t => t.smsId).filter(Boolean);
-    await saveProcessedSMSIds(newSmsIds);
+    // Mark as processed
+    const newIds = newTransactions.map(t => t.smsId).filter(Boolean) as string[];
+    await saveProcessedSMSIds(newIds);
 
     return appTransactions;
-  } catch (error) {
-    console.error('Error getting new transactions from SMS:', error);
+  } catch (err) {
+    console.error('[SMS::Util] Error getting transactions:', err);
     return [];
   }
 };
 
-// Import new SMS transactions directly to the transaction store
+// ─── Import to store ───────────────────────────────────────────────────────────
 export const importSMSTransactionsToStore = async (
-  categories,
-  saveTransactionFn // This should be the saveTransaction function from your store
-) => {
+  categories: Category[],
+  saveTransactionFn: (t: Transaction) => Promise<Transaction>,
+  userId: string | null = null,
+  isOnline = true,
+  force = false,
+): Promise<number> => {
   try {
-    const transactions = await getNewTransactionsFromSMS(categories);
+    const transactions = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
 
     let savedCount = 0;
-    if (transactions.length > 0) {
-      for (const transaction of transactions) {
-        try {
-          await saveTransactionFn(transaction);
-          savedCount++;
-        } catch (saveError) {
-          console.error('Error saving transaction:', saveError);
-        }
+    for (const tx of transactions) {
+      try {
+        await saveTransactionFn(tx);
+        savedCount++;
+      } catch (err) {
+        console.error('[SMS::Util] Save error for tx:', tx.id, err);
       }
     }
 
-    console.log(`Successfully imported ${savedCount} transactions from SMS`);
+    console.log(`[SMS::Util] Saved ${savedCount}/${transactions.length} transactions`);
     return savedCount;
-  } catch (error) {
-    console.error('Error importing SMS transactions to store:', error);
+  } catch (err) {
+    console.error('[SMS::Util] Import error:', err);
     return 0;
   }
 };

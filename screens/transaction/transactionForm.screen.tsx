@@ -5,8 +5,9 @@ import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, Bottom
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import ReceiptScanner from '@/components/ReceiptScanner';
-import { Category, RecurringTransaction, Transaction } from '@/types';
 import { useTransactionStore } from '@/stores/transactionStore';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { Category, RecurringTransaction, Transaction } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBottomSheet from '@/components/bottomSheet/categoryBottomSheet';
@@ -19,14 +20,29 @@ import { darkTheme, fontSizes, lightTheme, tokens } from '@/constants/theme';
 import usePreferenceStore from '@/stores/preferenceStore';
 import { Colors } from '@/constants/Colors';
 
-type TransactionType = 'income' | 'expense' | 'transfer';
+type TransactionType = 'income' | 'expense' | 'transfer' | 'investment';
 type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
-const transactionTypes = [
-    { id: '1', name: 'Cash', type: 'Bank' },
-    { id: '2', name: 'HDFC', type: 'Bank' },
-    { id: '3', name: 'Axis', type: 'Bank' },
-];
+import { useAccountStore } from '@/stores/accountStore';
+import { Account } from '@/types';
+
+interface FormState {
+    amount: string;
+    note: string;
+    category: Category | null;
+    type: TransactionType;
+    date: Date;
+    time: string;
+    paidTo: string;
+    paidBy: string;
+    fromAccount: Account | null;
+    toAccount: Account | null;
+    selectedTags: string;
+    selectedAccount: Account | null;
+    source: { type: string, rawData?: string };
+    recurringId?: string;
+    attachments?: { type: string; url: string }[];
+}
 
 // Transaction Type Bottom Sheet Component
 const TransactionTypeBottomSheet: React.FC<{
@@ -53,6 +69,7 @@ const TransactionTypeBottomSheet: React.FC<{
         { type: 'income' as TransactionType, icon: 'arrow-down-circle', color: colors.income, label: 'Income' },
         { type: 'expense' as TransactionType, icon: 'arrow-up-circle', color: colors.expense, label: 'Expense' },
         { type: 'transfer' as TransactionType, icon: 'swap-horizontal', color: colors.primary, label: 'Transfer' },
+        { type: 'investment' as TransactionType, icon: 'trending-up', color: colors.primary, label: 'Investment' },
     ];
 
     return (
@@ -82,7 +99,7 @@ const TransactionTypeBottomSheet: React.FC<{
                                 bottomSheetRef.current?.dismiss();
                             }}
                         >
-                            <Ionicons name={option.icon} size={28} color={option.color} />
+                            <Ionicons name={option.icon as any} size={28} color={option.color} />
                             <ThemedText style={[styles.typeOptionText, { color: colors.text }]}>
                                 {option.label}
                             </ThemedText>
@@ -164,12 +181,13 @@ const TransactionFormScreen: React.FC = () => {
     const router = useRouter();
     const { colors } = useTheme();
     const { theme } = usePreferenceStore();
+    const { accounts } = useAccountStore();
     const { editMode, transactionId, isRecurring } = useLocalSearchParams();
     const amountInputRef = useRef<TextInput>(null);
     const typeBottomSheetRef = useRef<BottomSheetModal>(null);
     const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
-
     const { transactions, saveTransaction, updateTransaction } = useTransactionStore();
+    const { categories } = useCategoryStore();
     const { recurringTransactions, saveRecurringTransaction, updateRecurringTransaction, removeRecurringTransaction } = useRecurringTransactionStore();
 
     const currentTransaction = useMemo(() =>
@@ -180,21 +198,21 @@ const TransactionFormScreen: React.FC = () => {
     );
 
     // States
-    const [formState, setFormState] = useState({
+    const [formState, setFormState] = useState<FormState>({
         amount: '',
         note: '',
-        category: null as Category | null,
-        type: 'expense' as TransactionType,
+        category: null,
+        type: 'expense',
         date: new Date(),
         time: format(new Date(), 'HH:mm'),
         paidTo: '',
         paidBy: '',
-        fromAccount: '',
-        toAccount: '',
+        fromAccount: null,
+        toAccount: null,
         selectedTags: '',
-        transactionType: transactionTypes[0],
+        selectedAccount: null,
         source: { type: "manual" },
-        recurringId: undefined as string | undefined,
+        recurringId: undefined,
         attachments: undefined,
     });
 
@@ -224,10 +242,10 @@ const TransactionFormScreen: React.FC = () => {
                     time: format(new Date(), 'HH:mm'),
                     paidTo: currentRecurring.payee || '',
                     paidBy: '',
-                    fromAccount: '',
-                    toAccount: '',
+                    fromAccount: accounts.find(a => a.id === currentRecurring.fromAccount?.id) || null,
+                    toAccount: accounts.find(a => a.id === currentRecurring.toAccount?.id) || null,
                     selectedTags: '',
-                    transactionType: transactionTypes.find(t => t.name === currentRecurring.mode) || transactionTypes[0],
+                    selectedAccount: accounts.find(a => a.name === currentRecurring.mode) || (accounts.length > 0 ? accounts[0] : null),
                     source: { type: 'manual' },
                     recurringId: currentRecurring.id,
                     attachments: undefined,
@@ -250,9 +268,9 @@ const TransactionFormScreen: React.FC = () => {
                     time: format(transactionDate, 'HH:mm'),
                     paidTo: currentTransaction.paidTo || '',
                     paidBy: '',
-                    fromAccount: '',
-                    toAccount: '',
-                    transactionType: transactionTypes.find(t => t.name === currentTransaction.mode) || transactionTypes[0],
+                    fromAccount: accounts.find(a => a.id === currentTransaction.fromAccount?.id) || null,
+                    toAccount: accounts.find(a => a.id === currentTransaction.toAccount?.id) || null,
+                    selectedAccount: accounts.find(a => a.name === currentTransaction.mode) || (accounts.length > 0 ? accounts[0] : null),
                     source: currentTransaction.source,
                     recurringId: currentTransaction.recurringId || undefined,
                     selectedTags: currentTransaction.selectedTags || '',
@@ -261,7 +279,22 @@ const TransactionFormScreen: React.FC = () => {
                 setIsRecurringState(!!currentTransaction.recurringId);
             }
         }
-    }, [editMode, currentTransaction, currentRecurring, isRecurring, recurringTransactions]);
+    }, [editMode, currentTransaction, currentRecurring, isRecurring, recurringTransactions, accounts]);
+
+    // Auto-select category for Transfer or Investment
+    useEffect(() => {
+        if (formState.type === 'transfer') {
+            const transferCat = categories.find(c => c.type === 'transfer');
+            if (transferCat && formState.category?.id !== transferCat.id) {
+                setFormState(prev => ({ ...prev, category: transferCat }));
+            }
+        } else if (formState.type === 'investment') {
+            const investCat = categories.find(c => c.type === 'investment');
+            if (investCat && formState.category?.id !== investCat.id) {
+                setFormState(prev => ({ ...prev, category: investCat }));
+            }
+        }
+    }, [formState.type, categories]);
 
     // Memoized form handlers
     const handleFormChange = useCallback((field: keyof typeof formState, value: any) => {
@@ -276,7 +309,12 @@ const TransactionFormScreen: React.FC = () => {
     }, [handleFormChange]);
 
     const handleSubmit = useCallback(async () => {
-        if (!formState.category || !formState.amount) return;
+        const floatAmount = parseFloat(formState.amount);
+        if (!formState.category || isNaN(floatAmount) || floatAmount <= 0) {
+            if (!formState.category) setBottomSheetState(true);
+            else if (isNaN(floatAmount) || floatAmount <= 0) amountInputRef.current?.focus();
+            return;
+        }
 
         const id = editMode === 'true' ? (transactionId as string) : Date.now().toString();
 
@@ -298,9 +336,9 @@ const TransactionFormScreen: React.FC = () => {
                 description: formState.note,
                 payee: formState.type === 'expense' ? formState.paidTo :
                     formState.type === 'income' ? formState.paidBy :
-                        `${formState.fromAccount} to ${formState.toAccount}`,
+                        `${formState.fromAccount?.name} to ${formState.toAccount?.name}`,
                 time: format(new Date(), 'HH:mm'), // Use current time for recurring
-                mode: formState.transactionType.name,
+                mode: formState.type === 'transfer' || formState.type === 'investment' ? 'Transfer' : formState.selectedAccount?.name || '',
                 isActive: 1,
                 lastGeneratedDate: undefined,
                 createdAt: currentRecurring?.createdAt || Date.now().toString(),
@@ -317,11 +355,11 @@ const TransactionFormScreen: React.FC = () => {
                 category: formState.category,
                 type: formState.type,
                 date: transactionDateTime.toISOString(),
-                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' :
-                    formState.type === 'transfer' ? formState.toAccount : null,
-                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' :
-                    formState.type === 'transfer' ? formState.fromAccount : null,
-                mode: formState.transactionType.name,
+                paidTo: formState.type === 'expense' ? formState.paidTo || 'Unknown Recipient' : null,
+                paidBy: formState.type === 'income' ? formState.paidBy || 'Unknown Payer' : null,
+                fromAccount: formState.fromAccount ? { id: formState.fromAccount.id, name: formState.fromAccount.name } : undefined,
+                toAccount: formState.toAccount ? { id: formState.toAccount.id, name: formState.toAccount.name } : undefined,
+                mode: formState.type === 'transfer' || formState.type === 'investment' ? 'Transfer' : formState.selectedAccount?.name || '',
                 createdAt: currentTransaction?.createdAt || Date.now().toString(),
                 lastModified: Date.now().toString(),
                 source: formState.source,
@@ -329,7 +367,28 @@ const TransactionFormScreen: React.FC = () => {
             };
 
             if (editMode === 'true') {
-                await updateTransaction(transactionData);
+                const result = await updateTransaction(transactionData);
+
+                // Smart Category Update detection
+                if (result && 'similarTransactions' in result && result.similarTransactions.length > 0) {
+                    const similarCount = result.similarTransactions.length;
+                    Alert.alert(
+                        "Smart Update Found",
+                        `We found ${similarCount} similar transactions with the same ${transactionData.type === 'income' ? 'payer' : 'payee'}. Would you like to update their categories to "${transactionData.category.name}" as well?`,
+                        [
+                            { text: "No", onPress: () => router.back() },
+                            {
+                                text: "Yes, Update All",
+                                onPress: async () => {
+                                    const { updateCategoryForSimilarPayeeTransactions } = useTransactionStore.getState();
+                                    await updateCategoryForSimilarPayeeTransactions(result.similarTransactions, transactionData.category);
+                                    router.back();
+                                }
+                            }
+                        ]
+                    );
+                    return; // Don't back yet, wait for Alert choice
+                }
             } else {
                 await saveTransaction(transactionData);
             }
@@ -466,49 +525,64 @@ const TransactionFormScreen: React.FC = () => {
                     </TouchableOpacity>
 
                     {/* Conditional Fields based on transaction type */}
-                    {formState.type === 'transfer' ? (
+                    {formState.type === 'transfer' || formState.type === 'investment' ? (
+                        <>
+                            <View style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border }]}>
+                                <Text style={{ color: colors.subtitle, paddingRight: 8 }}>From</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {accounts.map(acc => (
+                                        <TouchableOpacity
+                                            key={acc.id}
+                                            onPress={() => handleFormChange('fromAccount', acc)}
+                                            style={[styles.accountButton, formState.fromAccount?.id === acc.id && { borderColor: colors.primary, borderWidth: 2 }]}
+                                        >
+                                            <ThemedText style={styles.accountText}>{acc.name}</ThemedText>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                            <View style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border }]}>
+                                <Text style={{ color: colors.subtitle, paddingRight: 8 }}>To</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {accounts.map(acc => (
+                                        <TouchableOpacity
+                                            key={acc.id}
+                                            onPress={() => handleFormChange('toAccount', acc)}
+                                            style={[styles.accountButton, formState.toAccount?.id === acc.id && { borderColor: colors.primary, borderWidth: 2 }]}
+                                        >
+                                            <ThemedText style={styles.accountText}>{acc.name}</ThemedText>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </>
+                    ) : (
                         <>
                             <TextInput
                                 style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
-                                placeholder="From Account"
+                                placeholder={formState.type === 'income' ? 'Received From' : 'Paid To'}
                                 placeholderTextColor={colors.subtitle}
-                                value={formState.fromAccount}
-                                onChangeText={text => handleFormChange('fromAccount', text)}
+                                value={formState.type === 'income' ? formState.paidBy : formState.paidTo}
+                                onChangeText={text => handleFormChange(formState.type === 'income' ? 'paidBy' : 'paidTo', text)}
                             />
-                            <TextInput
-                                style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
-                                placeholder="To Account"
-                                placeholderTextColor={colors.subtitle}
-                                value={formState.toAccount}
-                                onChangeText={text => handleFormChange('toAccount', text)}
-                            />
+                            {/* Account Selection for Income/Expense */}
+                            <ScrollView horizontal style={styles.accountContainer} showsHorizontalScrollIndicator={false}>
+                                {accounts.map(item => (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        onPress={() => handleFormChange('selectedAccount', item)}
+                                        style={[
+                                            styles.accountButton,
+                                            { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border },
+                                            formState.selectedAccount?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
+                                        ]}
+                                    >
+                                        <ThemedText style={styles.accountText}>{item.name}</ThemedText>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
                         </>
-                    ) : (
-                        <TextInput
-                            style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border, color: colors.text }]}
-                            placeholder={formState.type === 'income' ? 'Received From' : 'Paid To'}
-                            placeholderTextColor={colors.subtitle}
-                            value={formState.type === 'income' ? formState.paidBy : formState.paidTo}
-                            onChangeText={text => handleFormChange(formState.type === 'income' ? 'paidBy' : 'paidTo', text)}
-                        />
                     )}
-
-                    {/* Account Selection */}
-                    <ScrollView horizontal style={styles.accountContainer} showsHorizontalScrollIndicator={false}>
-                        {transactionTypes.map(item => (
-                            <TouchableOpacity
-                                key={item.id}
-                                onPress={() => handleFormChange('transactionType', item)}
-                                style={[
-                                    styles.accountButton,
-                                    { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border },
-                                    formState.transactionType.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
-                                ]}
-                            >
-                                <ThemedText style={styles.accountText}>{item.name}</ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
 
                     {/* Note Input */}
                     <TextInput

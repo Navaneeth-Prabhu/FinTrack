@@ -13,8 +13,8 @@ interface CategoryBottomSheetProps {
     isVisible: boolean;
     onClose: () => void;
     onSelectCategory: (category: Category) => void;
-    type: 'income' | 'expense' | 'transfer';
-    setType: (type: 'income' | 'expense' | 'transfer') => void;
+    type: 'income' | 'expense' | 'transfer' | 'investment';
+    setType: (type: 'income' | 'expense' | 'transfer' | 'investment') => void;
 }
 
 const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
@@ -27,7 +27,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);
     const [newCategory, setNewCategory] = useState('');
     const [iconBackgroundColor, setIconBackgroundColor] = useState<string | null>(null); // Track icon color
-    const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('income');
+    const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer' | 'investment'>('income');
     const { colors } = useTheme();
 
     const { categories, fetchCategories } = useCategoryStore();
@@ -60,7 +60,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     }, [onSelectCategory, onClose]);
 
 
-    const applyFilter = useCallback((selectedFilter: 'income' | 'expense') => {
+    const applyFilter = useCallback((selectedFilter: 'income' | 'expense' | 'transfer' | 'investment') => {
         setFilter(selectedFilter);
         setType(selectedFilter);
     }, []);

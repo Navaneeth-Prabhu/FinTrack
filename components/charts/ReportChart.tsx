@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, RefObject } from 'reac
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
 import { useTheme } from '@/hooks/useTheme';
+import { useTransactionStore } from '@/stores/transactionStore';
 import { ThemedText } from '../common/ThemedText';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { ChevronDown } from 'lucide-react-native';
@@ -20,6 +21,8 @@ const ReportChart = () => {
     const { colors } = useTheme();
     const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
 
+    const { transactions: storeTransactions } = useTransactionStore();
+
     // State
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [period, setPeriod] = useState<'week' | 'month' | 'year'>('week');
@@ -34,10 +37,10 @@ const ReportChart = () => {
     const [displayValue, setDisplayValue] = useState<number>(0);
     const [selectedLabel, setSelectedLabel] = useState<string>('Total');
 
-    // Load transactions when period or type changes
+    // Filter transactions when store data or filters change
     useEffect(() => {
-        loadTransactions();
-    }, [period, type]);
+        filterTransactions();
+    }, [storeTransactions, period, type]);
 
     // Generate chart data and set total amount when transactions change
     useEffect(() => {
@@ -54,7 +57,7 @@ const ReportChart = () => {
         // Reset selection when data changes
         setSelectedBarIndex(-1);
         setSelectedLabel('Total');
-        
+
         // Generate chart data
         const data = generateChartData();
         setChartData(data);
@@ -99,11 +102,11 @@ const ReportChart = () => {
         };
     }, [selectedBarIndex, selectedBarValue, totalAmount]);
 
-    // Load transactions based on period
-    const loadTransactions = async (): Promise<void> => {
+    // Filter transactions based on period
+    const filterTransactions = useCallback(() => {
         try {
             setIsLoading(true);
-            const allTransactions = await fetchTransactionsFromDB();
+
             // Calculate date range based on period
             const now = new Date();
             let startDate: Date, endDate: Date;
@@ -129,8 +132,9 @@ const ReportChart = () => {
                 startDate = startOfYear;
                 endDate = endOfYear;
             }
-            // Filter transactions by date range
-            const dateFiltered = allTransactions.filter((t: Transaction) => {
+
+            // Filter transactions by date range from STORE data
+            const dateFiltered = storeTransactions.filter((t: Transaction) => {
                 const txDate = new Date(t.date);
                 return txDate >= startDate && txDate <= endDate;
             });
@@ -151,11 +155,11 @@ const ReportChart = () => {
             const typeFiltered = dateFiltered.filter(t => t.type === type);
             setTransactions(typeFiltered);
         } catch (error) {
-            console.error('Failed to load transactions:', error);
+            console.error('Failed to filter transactions:', error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [storeTransactions, period, type]);
 
     // Generate chart data
     const generateChartData = useCallback((): ChartBarData[] => {
@@ -164,7 +168,7 @@ const ReportChart = () => {
 
         // Define color based on transaction type
         const defaultColor = type === 'income' ? '#4CAF50' : colors.primary;
-        
+
         if (period === 'week') {
             // Weekly data
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -246,7 +250,7 @@ const ReportChart = () => {
     // Handle bar press from BarChart
     const handleBarPress = useCallback((item: ChartBarData, index: number) => {
         console.log(`Bar pressed: ${item.label} (${index}) - Current selected: ${selectedBarIndex}`);
-        
+
         // Toggle selection on/off
         if (selectedBarIndex === index) {
             // If the same bar is pressed, unselect it
@@ -309,9 +313,9 @@ const ReportChart = () => {
                 <View style={styles.displayContainer}>
                     <ThemedText>Expense</ThemedText>
                     <ThemedText variant='h2' style={{
-                        fontSize: fontSizes.FONT32, 
+                        fontSize: fontSizes.FONT32,
                         color: colors.text,
-                        fontWeight: tokens.fontWeight.semibold, 
+                        fontWeight: tokens.fontWeight.semibold,
                         marginTop: 8
                     }}>
                         {formatCurrency(Math.round(displayValue))}
@@ -320,7 +324,7 @@ const ReportChart = () => {
                         {selectedLabel}
                     </Text>
                 </View>
-                
+
                 {/* Period selector button */}
                 <TouchableOpacity
                     onPress={handleBottomSheetOpen}
@@ -332,7 +336,7 @@ const ReportChart = () => {
                     <ChevronDown size={20} color={colors.text} />
                 </TouchableOpacity>
             </View>
-            
+
             {/* Chart or loading indicator */}
             {isLoading ? (
                 <View style={styles.loadingContainer}>
@@ -379,11 +383,11 @@ const ReportChart = () => {
                 backdropComponent={renderBackdrop}
             >
                 <BottomSheetView style={{ flex: 1, padding: 16, gap: 16 }}>
-                    <Text style={{ 
-                        fontWeight: '600', 
-                        fontSize: fontSizes.FONT16, 
-                        color: colors.text, 
-                        marginBottom: 8 
+                    <Text style={{
+                        fontWeight: '600',
+                        fontSize: fontSizes.FONT16,
+                        color: colors.text,
+                        marginBottom: 8
                     }}>
                         Select Period
                     </Text>

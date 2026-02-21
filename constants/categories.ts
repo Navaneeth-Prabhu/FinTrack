@@ -2,50 +2,50 @@ import { Category } from "@/types";
 import { Book, Briefcase, Car, Coffee, Gift, GraduationCap, Heart, Home, Pizza, ShoppingBag, ShoppingCart } from "lucide-react-native";
 
 export const emojiConstants = [
-    '📄', '⛽', '⚡', '💡', '🍟', '🍔', '🚚', '🚗', '🚌', '🚕', '🚈', '🏍️', '🚢', '🛥️', '🪥', '🚿', '🚽', '🏨',
-    '🏥', '🪒', '♻️', '💲', '🍞', '🥪', '🍗', '🥩', '🍖', '🍜', '🍰', '🍼', '📚', '📰', '👓',
-    '👔', '👗', '🎁', '🎊', '🎃', '🎨', '🛝', '🎠', '🎪', '🎢', '🎡', '🐶', '🐕', '🐱', '🐈',
-    '🥋', '🎓', '💼', '💸'
+  '📄', '⛽', '⚡', '💡', '🍟', '🍔', '🚚', '🚗', '🚌', '🚕', '🚈', '🏍️', '🚢', '🛥️', '🪥', '🚿', '🚽', '🏨',
+  '🏥', '🪒', '♻️', '💲', '🍞', '🥪', '🍗', '🥩', '🍖', '🍜', '🍰', '🍼', '📚', '📰', '👓',
+  '👔', '👗', '🎁', '🎊', '🎃', '🎨', '🛝', '🎠', '🎪', '🎢', '🎡', '🐶', '🐕', '🐱', '🐈',
+  '🥋', '🎓', '💼', '💸'
 ]
 
 export const categoryIcons = {
-    emoji: [
-      '📄', '⛽', '⚡', '💡', '🍟', '🍔', '🚚', '🚗', '🚌', '🚕', '🚈', '🏍️', '🚢', '🛥️', 
-      '🪥', '🚿', '🚽', '🏨', '🏥', '🪒', '♻️', '💲', '🍞', '🥪', '🍗', '🥩', '🍖', '🍜', 
-      '🍰', '🍼', '📚', '📰', '👓', '👔', '👗', '🎁', '🎊', '🎃', '🎨', '🛝', '🎠', '🎪', 
-      '🎢', '🎡', '🐶', '🐕', '🐱', '🐈', '🥋', '🎓', '💼', '💸'
-    ],
-    lucide: [
-      { name: 'heart', component: Heart },
-      { name: 'coffee', component: Coffee },
-      { name: 'car', component: Car },
-      { name: 'home', component: Home },
-      { name: 'book', component: Book },
-      { name: 'briefcase', component: Briefcase },
-      { name: 'pizza', component: Pizza },
-      { name: 'gift', component: Gift },
-      { name: 'shopping', component: ShoppingCart },
-      { name: 'graduation-cap', component: GraduationCap },
-      // Add more icons as needed
-    ]
-  };
+  emoji: [
+    '📄', '⛽', '⚡', '💡', '🍟', '🍔', '🚚', '🚗', '🚌', '🚕', '🚈', '🏍️', '🚢', '🛥️',
+    '🪥', '🚿', '🚽', '🏨', '🏥', '🪒', '♻️', '💲', '🍞', '🥪', '🍗', '🥩', '🍖', '🍜',
+    '🍰', '🍼', '📚', '📰', '👓', '👔', '👗', '🎁', '🎊', '🎃', '🎨', '🛝', '🎠', '🎪',
+    '🎢', '🎡', '🐶', '🐕', '🐱', '🐈', '🥋', '🎓', '💼', '💸'
+  ],
+  lucide: [
+    { name: 'heart', component: Heart },
+    { name: 'coffee', component: Coffee },
+    { name: 'car', component: Car },
+    { name: 'home', component: Home },
+    { name: 'book', component: Book },
+    { name: 'briefcase', component: Briefcase },
+    { name: 'pizza', component: Pizza },
+    { name: 'gift', component: Gift },
+    { name: 'shopping', component: ShoppingCart },
+    { name: 'graduation-cap', component: GraduationCap },
+    // Add more icons as needed
+  ]
+};
 
 export const ColorsConstants = [
-    '#0B7189',
-    '#FFD275',
-    '#DB5A42',
-    '#ABDF75',
-    '#DCABDF',
-    '#74D3AE',
-    '#D5A021',
-    '#136F63',
-    '#FC9E4F',
-    '#677DB7',
-    '#CF4D6F',
-    '#B1EDE8',
-    '#87D68D',
-    '#C98BB9',
-    '#81ADC8',
+  '#0B7189',
+  '#FFD275',
+  '#DB5A42',
+  '#ABDF75',
+  '#DCABDF',
+  '#74D3AE',
+  '#D5A021',
+  '#136F63',
+  '#FC9E4F',
+  '#677DB7',
+  '#CF4D6F',
+  '#B1EDE8',
+  '#87D68D',
+  '#C98BB9',
+  '#81ADC8',
 
 ]
 
@@ -60,7 +60,8 @@ export const categoryConstants: Category[] = [
   { id: '8', name: 'Education', icon: '🎓', type: 'expense', color: ColorsConstants[7], order: 7 },
   { id: '9', name: 'Gift', icon: '🎁', type: 'expense', color: ColorsConstants[8], order: 8 },
   { id: '10', name: 'Shopping', icon: '🛒', type: 'expense', color: ColorsConstants[8], order: 9 },
-  { id: '101', name: 'Other', icon: '❗', type: 'expense', color: 'white', order: 9 },
+  { id: '101', name: 'Other', icon: '❗', type: 'expense', color: '#888888', order: 9 },
   { id: '102', name: 'Coupons', icon: '🏷️', type: 'income', color: ColorsConstants[9], order: 2 },
-  { id: '102', name: 'Transfer', icon: '🔁', type: 'transfer', color: ColorsConstants[9], order: 2 },
+  { id: '103', name: 'Transfer', icon: '🔁', type: 'transfer', color: ColorsConstants[10], order: 1 },
+  { id: '104', name: 'Investment', icon: '📈', type: 'investment', color: ColorsConstants[11], order: 1 },
 ];

@@ -14,17 +14,22 @@ interface Section {
 // ─── Fast date key + display label ───────────────────────────────────────────
 // Avoids expensive parseISO + format per transaction by using string slicing.
 // ISO date strings are always "YYYY-MM-DDTHH:mm:ss..." so slicing is safe.
+// Avoids expensive parseISO by using native Date which handles ISO strings correctly in local time
 function getDateKeyAndLabel(isoDate: string): { key: string; label: string } {
-    const key = isoDate.slice(0, 10); // "YYYY-MM-DD"
-    const currentYear = new Date().getFullYear().toString();
-    const year = key.slice(0, 4);
-    const month = key.slice(5, 7);
-    const day = key.slice(8, 10);
+    const date = new Date(isoDate);
 
+    // Get local date parts padded to 2 digits
+    const year = date.getFullYear().toString();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const key = `${year}-${month}-${day}`;
+
+    // Label logic using local date
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthName = monthNames[parseInt(month, 10) - 1];
-    const dayNum = parseInt(day, 10);
+    const monthName = monthNames[date.getMonth()];
+    const dayNum = date.getDate();
+    const currentYear = new Date().getFullYear().toString();
 
     const label = year === currentYear
         ? `${monthName} ${dayNum}`          // "Feb 19"
