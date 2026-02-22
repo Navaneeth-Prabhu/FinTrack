@@ -52,7 +52,7 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ data }) => {
 
 const styles = StyleSheet.create({
     container: {
-
+        
     },
     progressBarContainer: {
         flexDirection: 'row',

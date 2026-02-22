@@ -43,21 +43,46 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
             .reduce((sum, t) => sum + t.amount, 0);
     }, [transactions]);
 
-    // Calculate total budget and spent in one pass
+    // Calculate total budget and current-period spent from transactions.
     const { totalBudget, totalSpent } = useMemo(() => {
+        const now = new Date();
+        const currentMonthStart = startOfMonth(now);
+        const currentMonthEnd = endOfMonth(now);
+
+        const spentByCategoryId = transactions.reduce<Record<string, number>>((acc, transaction) => {
+            if (transaction.type !== 'expense') return acc;
+
+            const transactionDate = new Date(transaction.date);
+            const inCurrentMonth = isWithinInterval(transactionDate, {
+                start: currentMonthStart,
+                end: currentMonthEnd,
+            });
+
+            if (!inCurrentMonth) return acc;
+
+            const categoryId = transaction.category?.id;
+            if (!categoryId) return acc;
+
+            acc[categoryId] = (acc[categoryId] || 0) + transaction.amount;
+            return acc;
+        }, {});
+
         return budgets.reduce((acc, budget) => {
+            const spentForBudgetCategory = spentByCategoryId[budget.category.id] || 0;
             return {
                 totalBudget: acc.totalBudget + budget.limit,
-                totalSpent: acc.totalSpent + budget.spent
+                totalSpent: acc.totalSpent + spentForBudgetCategory,
             };
         }, { totalBudget: 0, totalSpent: 0 });
-    }, [budgets]);
+    }, [budgets, transactions]);
 
     // Calculate remaining budget
     const remainingBudget = totalBudget - totalSpent;
 
     // Calculate budget progress percentage
-    const budgetProgressPercentage = Math.min((totalSpent / totalBudget) * 100, 100);
+    const budgetProgressPercentage = totalBudget > 0
+        ? Math.min((totalSpent / totalBudget) * 100, 100)
+        : 0;
 
     // Determine spending trend
     const spendingTrend = currentMonthSpending - previousMonthSpending;
@@ -72,7 +97,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.card  }]}>
+        <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
             <ThemedText variant='h2'>Financial Summary</ThemedText>
 
             {/* Monthly Spending Section */}
@@ -126,11 +151,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        // shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 2 },
+        // shadowOpacity: 0.1,
+        // shadowRadius: 4,
+        // elevation: 2,
         marginHorizontal: tokens.spacing.md,
         // marginVertical: 8,
     },

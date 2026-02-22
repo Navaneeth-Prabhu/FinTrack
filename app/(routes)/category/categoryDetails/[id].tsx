@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { parseISO, format, isSameMonth, addMonths, subMonths, startOfMonth, endOfMonth, differenceInMonths } from 'date-fns';
-// import { formatLargeNumber } from '@/src/utils';
+import { parseISO, format, isSameMonth, addMonths, subMonths, startOfMonth, endOfMonth, differenceInMonths, isSameYear, min } from 'date-fns';
+import { formatLargeNumber } from '@/utils/numberUtl';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
 import { Transaction } from '@/types';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
+import { FlashList } from '@shopify/flash-list';
 
 const CategoryDetails = () => {
     const { id, month, category } = useLocalSearchParams();
@@ -23,90 +24,76 @@ const CategoryDetails = () => {
     const categoryDetail = categories.find((category) => category.id === id);
     const parsedMonth = month && typeof month === 'string' ? parseISO(month) : new Date();
     const [selectedMonth, setSelectedMonth] = useState<Date>(parsedMonth);
-    const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
-    const [chartData, setChartData] = useState<any[]>([]);
-    const [availableMonths, setAvailableMonths] = useState<Date[]>([]);
+    const filteredTransactions = React.useMemo(() => {
+        return transactions.filter(
+            (item) =>
+                item.category.id === id &&
+                isSameMonth(parseISO(item.date), selectedMonth) &&
+                isSameYear(parseISO(item.date), selectedMonth)
+        );
+    }, [transactions, id, selectedMonth]);
 
     useLayoutEffect(() => {
         navigation.setOptions({
             title: `${category}`,
             headerShown: true,
         });
-    }, [category]);
+    }, [category, navigation]);
 
-    useEffect(() => {
-        const filtered = transactions.filter(
-            (item) =>
-                item.category.id === id &&
-                isSameMonth(parseISO(item.date), selectedMonth)
-        );
-        setFilteredTransactions(filtered);
-    }, [transactions, category, selectedMonth]);
-
-    useEffect(() => {
-        if (!transactions.length) return;
+    const { chartData, availableMonths } = React.useMemo(() => {
+        if (!transactions.length) return { chartData: [], availableMonths: [] };
 
         const filteredCategoryTransactions = transactions.filter(
             (item) => item.category.name === category
         );
 
-        const groupedData = filteredCategoryTransactions.reduce((acc: Record<string, { amount: number, date: Date }>, item) => {
+        const groupedData = filteredCategoryTransactions.reduce((acc: Record<string, number>, item) => {
             const date = parseISO(item.date);
             const monthKey = format(date, 'yyyy-MM');
-            if (!acc[monthKey]) {
-                acc[monthKey] = { amount: 0, date };
-            }
-            acc[monthKey].amount += item.amount;
+            acc[monthKey] = (acc[monthKey] || 0) + item.amount;
             return acc;
         }, {});
 
-        const dates = Object.values(groupedData).map((item) => item.date);
-        const earliestDate = dates.length > 0 ? startOfMonth(new Date(Math.min(...dates.map((d) => d.getTime())))) : startOfMonth(new Date());
-        const latestDate = endOfMonth(new Date());
-        let totalMonths = differenceInMonths(latestDate, earliestDate) + 1;
+        const today = startOfMonth(new Date());
+        const transactionDates = filteredCategoryTransactions.map(t => parseISO(t.date));
+        const earliestDate = transactionDates.length > 0
+            ? startOfMonth(min(transactionDates))
+            : today;
 
-        if (totalMonths < 6) totalMonths = 6;
+        const monthsDiff = Math.abs(differenceInMonths(today, earliestDate));
+        const totalMonths = Math.max(6, monthsDiff + 1); // 6 matching the previous logic's min
+        const startDate = subMonths(today, totalMonths - 1);
 
-        const monthsRange = Array.from({ length: totalMonths }, (_, i) =>
-            addMonths(earliestDate, i - Math.max(0, totalMonths - Object.keys(groupedData).length))
-        );
-
-        setAvailableMonths(monthsRange);
+        const monthsRange = Array.from({ length: totalMonths }, (_, i) => addMonths(startDate, i));
 
         const data = monthsRange.map((date) => {
             const monthKey = format(date, 'yyyy-MM');
-            const displayLabel =
-                date.getFullYear() === new Date().getFullYear()
-                    ? format(date, 'MMM')
-                    : format(date, "MMM''yy");
+            const displayLabel = isSameYear(date, new Date())
+                ? format(date, 'MMM')
+                : format(date, "MMM''yy");
+
+            const amount = groupedData[monthKey] || 0;
             return {
-                value: groupedData[monthKey]?.amount || 0,
+                value: amount,
                 label: displayLabel,
                 onPress: () => setSelectedMonth(date),
                 topLabelComponent: () => (
                     <View style={styles.topLabelContainer}>
-                        <Text style={[styles.topLabel, { color: colors.text }]}>{`$${(groupedData[monthKey]?.amount || 0)}`}</Text>
+                        <Text style={[styles.topLabel, { color: colors.text }]}>
+                            {amount > 0 ? formatLargeNumber(amount) : '0'}
+                        </Text>
                     </View>
                 ),
             };
         });
 
-        while (data.length < 5) {
-            const lastDate = data.length > 0 ? addMonths(data[0].label, -1) : subMonths(new Date(), 1);
-            data.unshift({
-                value: 0,
-                label: format(lastDate, 'MMM'),
-                onPress: () => setSelectedMonth(lastDate),
-                topLabelComponent: () => (
-                    <View style={styles.topLabelContainer}>
-                        <Text style={[styles.topLabel, { color: colors.text }]}>$0</Text>
-                    </View>
-                ),
-            });
-        }
+        return { chartData: data, availableMonths: monthsRange };
+    }, [transactions, category, colors.text]);
 
-        setChartData(data);
-    }, [transactions, category]);
+    const isCurrentYear = isSameYear(selectedMonth, new Date());
+    const headerDateText = isCurrentYear
+        ? format(selectedMonth, 'MMMM')
+        : format(selectedMonth, 'MMMM yyyy');
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -130,11 +117,8 @@ const CategoryDetails = () => {
                     scrollToEnd
                 />
             </View>
-            <View style={{ padding: 16 }}>
-                <ThemedText style={[styles.sectionTitle, { marginTop: 20 }]}>
-                    Transactions for {format(selectedMonth, 'MMMM yyyy')}
-                </ThemedText>
-                <FlatList
+            <View style={{ flex: 1 }}>
+                <FlashList
                     data={filteredTransactions}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
@@ -143,10 +127,19 @@ const CategoryDetails = () => {
                             transaction={item}
                         />
                     )}
+                    estimatedItemSize={60}
+                    ListHeaderComponent={
+                        <View style={{ paddingVertical: 16 }}>
+                            <ThemedText style={styles.sectionTitle}>
+                                Transactions for {headerDateText}
+                            </ThemedText>
+                        </View>
+                    }
                     ListEmptyComponent={
                         <Text style={styles.emptyText}>No transactions for this month.</Text>
                     }
                     ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
                 />
             </View>
         </View>

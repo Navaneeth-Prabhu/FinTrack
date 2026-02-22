@@ -13,7 +13,7 @@ export default function CategoryLayout() {
             }}
         >
             <Stack.Screen
-                name="[id]"
+                name="categoryDetails/[id]"
                 options={{
                     headerShown: true,
                     title: '',

@@ -73,13 +73,20 @@ const HomeScreen = () => {
             .reduce((sum, t) => sum + t.amount, 0);
     }, [transactions]);
 
-    // Calculate savings balance - assuming all income transactions of category 'Savings'
-    // or we could track specific account transactions if your data model supports it
+    // Calculate savings balance from savings/investment related inflows.
     const savingsBalance = useMemo(() => {
+        const hasSavingsKeyword = (value?: string | null) =>
+            value?.toLowerCase().includes('saving') ?? false;
+
         return transactions
             .filter(t =>
-                (t.type === 'income' && t.category.name === 'Savings') ||
-                (t.type === 'transfer' && t.toAccount?.name === 'Savings')
+                (t.type === 'income' && (
+                    hasSavingsKeyword(t.category?.name) ||
+                    hasSavingsKeyword(t.toAccount?.name) ||
+                    hasSavingsKeyword(t.mode)
+                )) ||
+                (t.type === 'transfer' && hasSavingsKeyword(t.toAccount?.name)) ||
+                t.type === 'investment'
             )
             .reduce((sum, t) => sum + t.amount, 0);
     }, [transactions]);

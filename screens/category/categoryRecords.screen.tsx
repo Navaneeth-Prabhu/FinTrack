@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Dimensions, Text } from 'react-native';
-import { addMonths, endOfMonth, format, isSameMonth, isSameYear, isWithinInterval, startOfMonth } from 'date-fns';
+import { View, FlatList, StyleSheet, Pressable, Dimensions, Text } from 'react-native';
+import { addMonths, endOfMonth, format, isSameMonth, isSameYear, startOfMonth } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -41,9 +41,9 @@ const CategoryRecordScreen = () => {
 
         // Filter active budgets
         const active = budgets.filter((budget) => {
-            const startDate = new Date(budget.startDate);
-            const endDate = new Date(budget.endDate);
-            return selectedDate >= startDate && selectedDate <= endDate;
+            const startDate = new Date(budget.startDate || "");
+            const endDate = new Date(budget.endDate || "");
+            return selectedDate >= startDate && (budget.endDate ? selectedDate <= endDate : true);
         });
 
         // Build budget map and transaction map
@@ -63,8 +63,8 @@ const CategoryRecordScreen = () => {
         });
 
         // Categorize transactions
-        const budgetCats = [];
-        const noBudgetCats = [];
+        const budgetCats: any[] = [];
+        const noBudgetCats: any[] = [];
 
         transactionMap.forEach((data, id) => {
             const budget = budgetMap.get(id);
@@ -81,8 +81,8 @@ const CategoryRecordScreen = () => {
         budgetMap.forEach((budget, id) => {
             if (!transactionMap.has(id)) {
                 budgetCats.push({
-                    id,
                     ...budget.category,
+                    id,
                     totalSpent: 0,
                     count: 0,
                     allocatedBudget: budget.limit,
@@ -93,12 +93,14 @@ const CategoryRecordScreen = () => {
 
         // Calculate progress data
         const expenseTransactions = filtered.filter(t => t.type === "expense");
-        const categoryTotals = expenseTransactions.reduce((acc, t) => {
+        const categoryTotals: Record<string, { value: number; color: string }> = {};
+        expenseTransactions.forEach(t => {
             const catName = t.category.name;
-            acc[catName] = acc[catName] || { value: 0, color: t.category.color };
-            acc[catName].value += t.amount;
-            return acc;
-        }, {});
+            if (!categoryTotals[catName]) {
+                categoryTotals[catName] = { value: 0, color: t.category.color };
+            }
+            categoryTotals[catName].value += t.amount;
+        });
 
         const progress = Object.entries(categoryTotals).map(([label, data]) => ({
             label,
@@ -118,7 +120,7 @@ const CategoryRecordScreen = () => {
         setSelectedDate(prev => addMonths(prev, months));
     };
 
-    const renderCategoryCard = ({ item }) => {
+    const renderCategoryCard = ({ item }: { item: any }) => {
         const spendingPercentage = item.isBudget
             ? Math.min((item.totalSpent / item.allocatedBudget) * 100, 100)
             : 0;
@@ -129,8 +131,11 @@ const CategoryRecordScreen = () => {
         const IconComponent = categoryIcons.lucide.find(i => i.name === item.icon)?.component;
 
         return (
-            <TouchableOpacity
-                style={styles.itemContainer}
+            <Pressable
+                style={({ pressed }) => [
+                    styles.itemContainer,
+                    { opacity: pressed ? 0.7 : 1 }
+                ]}
                 onPress={() => router.push({
                     pathname: '/(routes)/category/categoryDetails/[id]',
                     params: {
@@ -141,38 +146,49 @@ const CategoryRecordScreen = () => {
                 })}
             >
                 <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={[
-                        styles.iconContainer,
-                        { borderColor: item.color, backgroundColor: colors.card }
-                    ]}>
-                        {item.isBudget && (
-                            <View style={[styles.progressFill, {
-                                width: `${spendingPercentage}%`,
-                                backgroundColor: progressColor,
-                                opacity: 0.6
-                            }]} />
-                        )}
-                        {IconComponent !== undefined ? (
-                            <IconComponent size={24} strokeWidth={2} color={item.color} style={styles.icon} />
-                        ) : (
-                            <ThemedText style={[styles.icon, { color: item.color }]}>{item.icon}</ThemedText>
-                        )}
+                    <View style={styles.iconWrapper}>
+                        <View style={[
+                            styles.iconContainer,
+                            { borderColor: item.color, backgroundColor: colors.card }
+                        ]}>
+                            {item.isBudget && (
+                                <View style={[styles.progressFill, {
+                                    width: `${spendingPercentage}%`,
+                                    backgroundColor: progressColor,
+                                    opacity: 0.6
+                                }]} />
+                            )}
+                            {IconComponent !== undefined ? (
+                                <IconComponent strokeWidth={2} color={item.color} size={24} />
+                            ) : (
+                                <ThemedText style={{ color: item.color, fontSize: 20 }}>{item.icon}</ThemedText>
+                            )}
+                        </View>
                     </View>
-                    <ThemedText style={styles.name}>{item.name}</ThemedText>
-                    <ThemedText style={styles.amount}>
-                        {item.isBudget
-                            ? `₹${item.totalSpent.toFixed(2)}/₹${item.allocatedBudget.toFixed(2)}`
-                            : `Spent: ₹${item.totalSpent.toFixed(2)}`}
-                    </ThemedText>
-                    <ThemedText style={styles.count}>{item.count} transaction(s)</ThemedText>
+
+                    <View style={styles.textGroup}>
+                        <ThemedText
+                            style={styles.name}
+                            numberOfLines={1}
+                            
+                        >
+                            {item.name}
+                        </ThemedText>
+                        <ThemedText style={[styles.amount, { color: item.color }]}>
+                            {item.isBudget
+                                ? `₹${item.totalSpent.toFixed(2)}/₹${item.allocatedBudget.toFixed(2)}`
+                                : `₹${item.totalSpent.toFixed(2)}`}
+                        </ThemedText>
+                        <ThemedText style={styles.count}>{item.count} transaction(s)</ThemedText>
+                    </View>
                 </View>
-            </TouchableOpacity>
+            </Pressable>
         );
     };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Animated.View style={[styles.chartContainer, { borderColor: colors.border }]}>
+            <Animated.View style={[styles.chartContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
                 <CategoryBar data={progressData} />
             </Animated.View>
             <FlatList
@@ -184,15 +200,15 @@ const CategoryRecordScreen = () => {
                 columnWrapperStyle={styles.columnWrapper}
             />
             <View style={styles.monthNavigation}>
-                <TouchableOpacity onPress={() => handleMonthChange(-1)}>
+                <Pressable onPress={() => handleMonthChange(-1)}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
-                </TouchableOpacity>
+                </Pressable>
                 <ThemedText style={styles.monthText}>
                     {format(selectedDate, 'MMMM yyyy')}
                 </ThemedText>
-                <TouchableOpacity onPress={() => handleMonthChange(1)}>
+                <Pressable onPress={() => handleMonthChange(1)}>
                     <Ionicons name="chevron-forward" size={24} color={colors.text} />
-                </TouchableOpacity>
+                </Pressable>
             </View>
         </View>
     );
@@ -218,15 +234,20 @@ const styles = StyleSheet.create({
     },
     item: {
         flex: 1,
-        height: 170,
-        padding: 15,
-        borderRadius: 10,
+        minHeight: 150,
+        padding: 16,
+        borderRadius: 16,
         borderWidth: 1,
-        justifyContent: 'space-between',
+    },
+    iconWrapper: {
+        alignItems: 'flex-start',
+        marginBottom: 12,
     },
     iconContainer: {
-        padding: 10,
-        borderRadius: 10,
+        width: '100%',
+        height: 44,
+        padding: 4,
+        borderRadius: 12,
         borderWidth: 2,
         alignItems: 'center',
         justifyContent: 'center',
@@ -239,23 +260,22 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
     },
-    icon: {
-        fontSize: 24,
-        zIndex: 1,
+    textGroup: {
+        justifyContent: 'flex-start',
     },
     name: {
         fontSize: 16,
-        fontWeight: 'bold',
-        marginTop: 8,
+        fontWeight: '700',
+        marginBottom: 4,
     },
     amount: {
         fontSize: 14,
-        marginTop: 4,
+        fontWeight: '600',
+        marginBottom: 0,
     },
     count: {
         fontSize: 12,
-        marginTop: 4,
-        opacity: 0.7,
+        opacity: 0.6,
     },
     monthNavigation: {
         flexDirection: 'row',
