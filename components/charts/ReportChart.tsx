@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, RefObject } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo, useReducer } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
 import { useTheme } from '@/hooks/useTheme';
@@ -17,97 +17,95 @@ interface ChartBarData {
     frontColor?: string;
 }
 
+interface ChartState {
+    transactions: Transaction[];
+    period: 'week' | 'month' | 'year';
+    chartData: ChartBarData[];
+    type: 'income' | 'expense';
+    isLoading: boolean;
+    totalAmount: number;
+    incomeTotalAmount: number;
+    expenseTotalAmount: number;
+    selectedBarIndex: number;
+    selectedBarValue: number;
+    displayValue: number;
+    selectedLabel: string;
+}
+
+type ChartAction =
+    | { type: 'SET_PERIOD'; period: 'week' | 'month' | 'year' }
+    | { type: 'SET_TYPE'; transactionType: 'income' | 'expense' }
+    | { type: 'SET_TRANSACTIONS'; transactions: Transaction[]; incomeTotal: number; expenseTotal: number }
+    | { type: 'SET_CHART_DATA'; data: ChartBarData[]; totalAmount: number }
+    | { type: 'SET_LOADING'; isLoading: boolean }
+    | { type: 'SELECT_BAR'; index: number; value: number; label: string }
+    | { type: 'SET_DISPLAY_VALUE'; value: number }
+    | { type: 'RESET_SELECTION' };
+
+const chartReducer = (state: ChartState, action: ChartAction): ChartState => {
+    switch (action.type) {
+        case 'SET_PERIOD':
+            return { ...state, period: action.period, selectedBarIndex: -1, selectedLabel: 'Total' };
+        case 'SET_TYPE':
+            return { ...state, type: action.transactionType, selectedBarIndex: -1, selectedLabel: 'Total' };
+        case 'SET_TRANSACTIONS':
+            return {
+                ...state,
+                transactions: action.transactions,
+                incomeTotalAmount: action.incomeTotal,
+                expenseTotalAmount: action.expenseTotal
+            };
+        case 'SET_CHART_DATA':
+            return {
+                ...state,
+                chartData: action.data,
+                totalAmount: action.totalAmount,
+                displayValue: state.selectedBarIndex === -1 ? action.totalAmount : state.displayValue
+            };
+        case 'SET_LOADING':
+            return { ...state, isLoading: action.isLoading };
+        case 'SELECT_BAR':
+            return { ...state, selectedBarIndex: action.index, selectedBarValue: action.value, selectedLabel: action.label };
+        case 'SET_DISPLAY_VALUE':
+            return { ...state, displayValue: action.value };
+        case 'RESET_SELECTION':
+            return { ...state, selectedBarIndex: -1, selectedBarValue: 0, selectedLabel: 'Total' };
+        default:
+            return state;
+    }
+};
+
+const initialState: ChartState = {
+    transactions: [],
+    period: 'week',
+    chartData: [],
+    type: 'expense',
+    isLoading: true,
+    totalAmount: 0,
+    incomeTotalAmount: 0,
+    expenseTotalAmount: 0,
+    selectedBarIndex: -1,
+    selectedBarValue: 0,
+    displayValue: 0,
+    selectedLabel: 'Total',
+};
+
 const ReportChart = () => {
     const { colors } = useTheme();
     const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
-
     const { transactions: storeTransactions } = useTransactionStore();
 
-    // State
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [period, setPeriod] = useState<'week' | 'month' | 'year'>('week');
-    const [chartData, setChartData] = useState<ChartBarData[]>([]);
-    const [type, setType] = useState<'income' | 'expense'>('expense');
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [totalAmount, setTotalAmount] = useState<number>(0);
-    const [incomeTotalAmount, setIncomeTotalAmount] = useState<number>(0);
-    const [expenseTotalAmount, setExpenseTotalAmount] = useState<number>(0);
-    const [selectedBarIndex, setSelectedBarIndex] = useState<number>(-1); // Use -1 for no selection
-    const [selectedBarValue, setSelectedBarValue] = useState<number>(0);
-    const [displayValue, setDisplayValue] = useState<number>(0);
-    const [selectedLabel, setSelectedLabel] = useState<string>('Total');
-
-    // Filter transactions when store data or filters change
-    useEffect(() => {
-        filterTransactions();
-    }, [storeTransactions, period, type]);
-
-    // Generate chart data and set total amount when transactions change
-    useEffect(() => {
-        if (transactions.length > 0) {
-            // Calculate total for the current transactions
-            const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-            setTotalAmount(total);
-            setDisplayValue(total);
-        } else {
-            setTotalAmount(0);
-            setDisplayValue(0);
-        }
-
-        // Reset selection when data changes
-        setSelectedBarIndex(-1);
-        setSelectedLabel('Total');
-
-        // Generate chart data
-        const data = generateChartData();
-        setChartData(data);
-    }, [transactions]);
-
-    // Animation effect for display value
-    useEffect(() => {
-        let frameId: number | undefined;
-        const animateValue = (start: number, end: number, duration: number) => {
-            const startTime = Date.now();
-            const change = end - start;
-
-            const animateFrame = () => {
-                const currentTime = Date.now();
-                const elapsed = currentTime - startTime;
-
-                if (elapsed > duration) {
-                    setDisplayValue(end);
-                    return;
-                }
-
-                // Easing function for smooth animation
-                const progress = elapsed / duration;
-                const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-                const currentValue = start + change * easeOutCubic;
-
-                setDisplayValue(currentValue);
-                frameId = requestAnimationFrame(animateFrame);
-            };
-
-            frameId = requestAnimationFrame(animateFrame);
-        };
-
-        // Determine target value based on selection
-        const targetValue = selectedBarIndex !== -1 ? selectedBarValue : totalAmount;
-        animateValue(displayValue, targetValue, 300);
-
-        return () => {
-            if (frameId !== undefined) {
-                cancelAnimationFrame(frameId);
-            }
-        };
-    }, [selectedBarIndex, selectedBarValue, totalAmount]);
+    const [state, dispatch] = useReducer(chartReducer, initialState);
+    const {
+        transactions, period, chartData, type, isLoading, totalAmount,
+        displayValue, selectedBarIndex, selectedBarValue, selectedLabel
+    } = state;
 
     // Filter transactions based on period
     const filterTransactions = useCallback(() => {
         try {
-            setIsLoading(true);
+            dispatch({ type: 'SET_LOADING', isLoading: true });
 
-            // Calculate date range based on period
             const now = new Date();
             let startDate: Date, endDate: Date;
             if (period === 'week') {
@@ -133,44 +131,89 @@ const ReportChart = () => {
                 endDate = endOfYear;
             }
 
-            // Filter transactions by date range from STORE data
             const dateFiltered = storeTransactions.filter((t: Transaction) => {
                 const txDate = new Date(t.date);
                 return txDate >= startDate && txDate <= endDate;
             });
 
-            // Calculate totals for both income and expense
             const incomeTotal = dateFiltered
-                .filter(t => t.type === 'income')
-                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                .filter((t: Transaction) => t.type === 'income')
+                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
             const expenseTotal = dateFiltered
-                .filter(t => t.type === 'expense')
-                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                .filter((t: Transaction) => t.type === 'expense')
+                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
-            setIncomeTotalAmount(incomeTotal);
-            setExpenseTotalAmount(expenseTotal);
-
-            // Filter by transaction type for the chart
-            const typeFiltered = dateFiltered.filter(t => t.type === type);
-            setTransactions(typeFiltered);
+            const typeFiltered = dateFiltered.filter((t: Transaction) => t.type === type);
+            dispatch({
+                type: 'SET_TRANSACTIONS',
+                transactions: typeFiltered,
+                incomeTotal: incomeTotal,
+                expenseTotal: expenseTotal
+            });
         } catch (error) {
             console.error('Failed to filter transactions:', error);
         } finally {
-            setIsLoading(false);
+            dispatch({ type: 'SET_LOADING', isLoading: false });
         }
     }, [storeTransactions, period, type]);
+
+    // Filter transactions when store data or filters change
+    useEffect(() => {
+        filterTransactions();
+    }, [filterTransactions]);
+
+    // Generate chart data and set total amount when transactions change
+    useEffect(() => {
+        const data = generateChartData();
+        const total = transactions.reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+        dispatch({ type: 'SET_CHART_DATA', data, totalAmount: total });
+    }, [transactions]);
+
+    // Animation effect for display value
+    useEffect(() => {
+        let frameId: number | undefined;
+        const animateValue = (start: number, end: number, duration: number) => {
+            const startTime = Date.now();
+            const change = end - start;
+
+            const animateFrame = () => {
+                const currentTime = Date.now();
+                const elapsed = currentTime - startTime;
+
+                if (elapsed > duration) {
+                    dispatch({ type: 'SET_DISPLAY_VALUE', value: end });
+                    return;
+                }
+
+                const progress = elapsed / duration;
+                const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                const currentValue = start + change * easeOutCubic;
+
+                dispatch({ type: 'SET_DISPLAY_VALUE', value: currentValue });
+                frameId = requestAnimationFrame(animateFrame);
+            };
+
+            frameId = requestAnimationFrame(animateFrame);
+        };
+
+        const targetValue = selectedBarIndex !== -1 ? selectedBarValue : totalAmount;
+        animateValue(displayValue, targetValue, 300);
+
+        return () => {
+            if (frameId !== undefined) {
+                cancelAnimationFrame(frameId);
+            }
+        };
+    }, [selectedBarIndex, selectedBarValue, totalAmount]);
 
     // Generate chart data
     const generateChartData = useCallback((): ChartBarData[] => {
         const now = new Date();
         let data: ChartBarData[] = [];
-
-        // Define color based on transaction type
         const defaultColor = type === 'income' ? '#4CAF50' : colors.primary;
 
         if (period === 'week') {
-            // Weekly data
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const startOfWeek = new Date(now);
             startOfWeek.setDate(now.getDate() - now.getDay());
@@ -179,102 +222,68 @@ const ReportChart = () => {
             data = Array.from({ length: 7 }, (_, i) => {
                 const currentDate = new Date(startOfWeek);
                 currentDate.setDate(startOfWeek.getDate() + i);
-
-                // Sum transactions for this day
                 const dayTotal = transactions
-                    .filter(t => {
+                    .filter((t: Transaction) => {
                         const txDate = new Date(t.date);
                         return txDate.getDate() === currentDate.getDate() &&
                             txDate.getMonth() === currentDate.getMonth() &&
                             txDate.getFullYear() === currentDate.getFullYear();
                     })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
-                return {
-                    label: days[i],
-                    value: dayTotal,
-                    frontColor: defaultColor,
-                };
+                return { label: days[i], value: dayTotal, frontColor: defaultColor };
             });
         } else if (period === 'month') {
-            // Monthly data
             const year = now.getFullYear();
             const month = now.getMonth();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
 
             data = Array.from({ length: daysInMonth }, (_, i) => {
                 const day = i + 1;
-
-                // Sum transactions for this day
                 const dayTotal = transactions
-                    .filter(t => {
+                    .filter((t: Transaction) => {
                         const txDate = new Date(t.date);
                         return txDate.getDate() === day &&
                             txDate.getMonth() === month &&
                             txDate.getFullYear() === year;
                     })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
-                return {
-                    label: day.toString(),
-                    value: dayTotal,
-                    frontColor: defaultColor,
-                };
+                return { label: day.toString(), value: dayTotal, frontColor: defaultColor };
             });
         } else if (period === 'year') {
-            // Yearly data
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const year = now.getFullYear();
 
             data = months.map((month, index) => {
-                // Sum transactions for this month
                 const monthTotal = transactions
-                    .filter(t => {
+                    .filter((t: Transaction) => {
                         const txDate = new Date(t.date);
                         return txDate.getMonth() === index &&
                             txDate.getFullYear() === year;
                     })
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
 
-                return {
-                    label: month,
-                    value: monthTotal,
-                    frontColor: defaultColor,
-                };
+                return { label: month, value: monthTotal, frontColor: defaultColor };
             });
         }
-
         return data;
     }, [period, transactions, type, colors]);
 
-    // Handle bar press from BarChart
     const handleBarPress = useCallback((item: ChartBarData, index: number) => {
-        console.log(`Bar pressed: ${item.label} (${index}) - Current selected: ${selectedBarIndex}`);
-
-        // Toggle selection on/off
         if (selectedBarIndex === index) {
-            // If the same bar is pressed, unselect it
-            setSelectedBarIndex(-1);
-            setSelectedBarValue(0);
-            setSelectedLabel('Total');
+            dispatch({ type: 'RESET_SELECTION' });
         } else {
-            // Otherwise, select the new bar
-            setSelectedBarIndex(index);
-            setSelectedBarValue(item.value);
-            setSelectedLabel(item.label);
+            dispatch({ type: 'SELECT_BAR', index, value: item.value, label: item.label });
         }
     }, [selectedBarIndex]);
 
-    // Handle background press to reset selection
     const handleBackgroundPress = useCallback(() => {
         if (selectedBarIndex !== -1) {
-            setSelectedBarIndex(-1);
-            setSelectedBarValue(0);
-            setSelectedLabel('Total');
+            dispatch({ type: 'RESET_SELECTION' });
         }
     }, [selectedBarIndex]);
 
-    // Format currency for display
     const formatCurrency = useCallback((amount: number = 0): string => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -284,24 +293,17 @@ const ReportChart = () => {
         }).format(amount);
     }, []);
 
-    // Handle bottom sheet
     const handleBottomSheetOpen = useCallback(() => {
         (frequencyBottomSheetRef.current as BottomSheetModal | null)?.present();
     }, []);
 
     const renderBackdrop = useCallback((props: any) => (
-        <BottomSheetBackdrop
-            {...props}
-            disappearsOnIndex={-1}
-            appearsOnIndex={0}
-            opacity={0.5}
-        />
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
     ), []);
 
-    // Period selector handler
     const handlePeriodChange = useCallback((newPeriod: 'week' | 'month' | 'year') => {
         if (period !== newPeriod) {
-            setPeriod(newPeriod);
+            dispatch({ type: 'SET_PERIOD', period: newPeriod });
             (frequencyBottomSheetRef.current as BottomSheetModal | null)?.close();
         }
     }, [period]);
@@ -309,7 +311,6 @@ const ReportChart = () => {
     return (
         <View style={[styles.container, { backgroundColor: colors.card }]}>
             <View style={styles.header}>
-                {/* Display value and label */}
                 <View style={styles.displayContainer}>
                     <ThemedText>Expense</ThemedText>
                     <ThemedText variant='h2' style={{
@@ -320,29 +321,20 @@ const ReportChart = () => {
                     }}>
                         {formatCurrency(Math.round(displayValue))}
                     </ThemedText>
-                    <Text style={[styles.displayLabel, { color: colors.subtitle }]}>
-                        {selectedLabel}
-                    </Text>
+                    <ThemedText style={[styles.displayLabel, { color: colors.subtitle }]}>{selectedLabel}</ThemedText>
                 </View>
 
-                {/* Period selector button */}
                 <TouchableOpacity
                     onPress={handleBottomSheetOpen}
                     style={[styles.filterButton, { backgroundColor: colors.muted }]}
                 >
-                    <ThemedText style={{ color: colors.subtitle }}>
-                        {period.charAt(0).toUpperCase() + period.slice(1)}
-                    </ThemedText>
+                    <ThemedText style={{ color: colors.subtitle }}>{period.charAt(0).toUpperCase() + period.slice(1)}</ThemedText>
                     <ChevronDown size={20} color={colors.text} />
                 </TouchableOpacity>
             </View>
 
-            {/* Chart or loading indicator */}
             {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    {/* <ActivityIndicator size="large" color="#0066cc" /> */}
-                    {/* <Text style={styles.loadingText}>Loading data...</Text> */}
-                </View>
+                <View style={styles.loadingContainer} />
             ) : (
                 <TouchableOpacity
                     activeOpacity={1}
@@ -364,16 +356,15 @@ const ReportChart = () => {
                         yLabelCount={5}
                         yGridLines={true}
                         yGridLineColor={colors.accent}
-                        barBorderRadius={period === 'month' ? 10 : 10}
+                        barBorderRadius={10}
                         showTouchedValue={false}
                         fontSize={10}
                         labelFormatter={(val) => formatCurrency(val)}
-                        externalSelectedBarIndex={selectedBarIndex} // Pass selection to BarChart
+                        externalSelectedBarIndex={selectedBarIndex}
                     />
                 </TouchableOpacity>
             )}
 
-            {/* Bottom sheet for period selection */}
             <BottomSheetModal
                 snapPoints={['30%']}
                 backgroundStyle={{ backgroundColor: colors.card }}
@@ -383,14 +374,12 @@ const ReportChart = () => {
                 backdropComponent={renderBackdrop}
             >
                 <BottomSheetView style={{ flex: 1, padding: 16, gap: 16 }}>
-                    <Text style={{
+                    <ThemedText style={{
                         fontWeight: '600',
                         fontSize: fontSizes.FONT16,
                         color: colors.text,
                         marginBottom: 8
-                    }}>
-                        Select Period
-                    </Text>
+                    }}>Select Period</ThemedText>
                     {(['week', 'month', 'year'] as Array<'week' | 'month' | 'year'>).map((p) => (
                         <TouchableOpacity
                             key={p}
@@ -400,16 +389,13 @@ const ReportChart = () => {
                                     backgroundColor: period === p ? colors.primary : colors.accent,
                                     borderWidth: period === p ? 2 : 1,
                                     borderColor: period === p ? colors.primary : colors.border,
-                                    shadowColor: period === p ? colors.primary : 'transparent',
-                                    shadowOpacity: period === p ? 0.15 : 0,
-                                    shadowRadius: period === p ? 4 : 0,
-                                    elevation: period === p ? 2 : 0,
+                                    boxShadow: period === p ? `0 2 4 ${colors.primary}26` : 'none',
                                 }
                             ]}
                             onPress={() => handlePeriodChange(p)}
                             activeOpacity={0.85}
                         >
-                            <Text
+                            <ThemedText
                                 style={[
                                     styles.typeText,
                                     {
@@ -421,7 +407,7 @@ const ReportChart = () => {
                                 ]}
                             >
                                 {p.charAt(0).toUpperCase() + p.slice(1)}
-                            </Text>
+                            </ThemedText>
                         </TouchableOpacity>
                     ))}
                 </BottomSheetView>

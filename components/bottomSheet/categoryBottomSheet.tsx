@@ -27,7 +27,8 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);
     const [newCategory, setNewCategory] = useState('');
     const [iconBackgroundColor, setIconBackgroundColor] = useState<string | null>(null); // Track icon color
-    const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer' | 'investment'>('income');
+    // Use type prop to initialize filter, but allow local override
+    const [filter, setFilter] = useState<'income' | 'expense' | 'transfer' | 'investment'>(type);
     const { colors } = useTheme();
 
     const { categories, fetchCategories } = useCategoryStore();
@@ -175,9 +176,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                                 ]}
                                 onPress={() => handleCategorySelect(item)}
                             >
-                                <ThemedText>
-                                    {item.icon} {item.name}
-                                </ThemedText>
+                                <ThemedText>{item.icon} {item.name}</ThemedText>
                             </TouchableOpacity>
                         ))}
                     </View>

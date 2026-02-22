@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useLayoutEffect, useEffect } from 'react';
 import { BudgetCard } from '@/components/BudgetCard';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -114,18 +114,8 @@ const BudgetDetailsScreen = () => {
     });
   }, [navigation, budget, colors.text]);
 
-  if (!budget || !currentPeriod || !displayedPeriod) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ThemedText>Budget not found</ThemedText>
-      </View>
-    );
-  }
-
-  const remaining = currentSpent !== null ? budget.limit - currentSpent : null;
-  const progress = currentSpent !== null ? (currentSpent / budget.limit) * 100 : 0;
-
   const periodTransactions = useMemo(() => {
+    if (!budget || !displayedPeriod) return [];
     return transactions.filter(t =>
       t.type === 'expense' &&
       t.category.id === budget.category.id &&
@@ -134,22 +124,11 @@ const BudgetDetailsScreen = () => {
     );
   }, [transactions, budget, displayedPeriod]);
 
-  // Format period display based on frequency
-  const formatPeriodDisplay = () => {
-    if (budget.frequency === 'daily') {
-      return format(displayedPeriod.start, 'd MMM');
-    } else if (budget.frequency === 'yearly') {
-      return format(displayedPeriod.start, 'yyyy');
-    } else {
-      return `${format(displayedPeriod.start, 'd MMM')} - ${format(displayedPeriod.end, 'd MMM')}`;
-    }
-  };
-
   const chartData = useMemo(() => {
     if (!periodTransactions.length || !currentPeriod || !budget) return [];
 
     // Group transactions by date and sum them
-    const groupedByDate = {};
+    const groupedByDate: Record<string, number> = {};
 
     periodTransactions.forEach(transaction => {
       const dateStr = format(new Date(transaction.date), 'd');
@@ -163,10 +142,10 @@ const BudgetDetailsScreen = () => {
 
     // Determine the spending cutoff date (for value1)
     const today = new Date();
-    const lastTransactionDate = new Date(Math.max(...periodTransactions.map(t => new Date(t.date))));
+    const lastTransactionDate = new Date(Math.max(...periodTransactions.map(t => new Date(t.date).getTime())));
     const spendingCutoffDate = new Date(Math.min(
-      Math.max(today, lastTransactionDate),
-      currentPeriod.end
+      Math.max(today.getTime(), lastTransactionDate.getTime()),
+      currentPeriod.end.getTime()
     ));
 
     // Create array for the full period (for budget line)
@@ -176,7 +155,7 @@ const BudgetDetailsScreen = () => {
     let currentDate = startDate;
 
     // Calculate budget values
-    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const budgetLimit = budget.limit;
     const dailyIncrement = budgetLimit / totalDays;
     let dayCount = 0;
@@ -207,6 +186,28 @@ const BudgetDetailsScreen = () => {
 
     return allDays;
   }, [periodTransactions, currentPeriod, budget]);
+
+  if (!budget || !currentPeriod || !displayedPeriod) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ThemedText>Budget not found</ThemedText>
+      </View>
+    );
+  }
+
+  const remaining = currentSpent !== null ? budget.limit - currentSpent : null;
+  const progress = currentSpent !== null ? (currentSpent / budget.limit) * 100 : 0;
+
+  // Format period display based on frequency
+  const formatPeriodDisplay = () => {
+    if (budget.frequency === 'daily') {
+      return format(displayedPeriod.start, 'd MMM');
+    } else if (budget.frequency === 'yearly') {
+      return format(displayedPeriod.start, 'yyyy');
+    } else {
+      return `${format(displayedPeriod.start, 'd MMM')} - ${format(displayedPeriod.end, 'd MMM')}`;
+    }
+  };
 
   const handlePrevPeriod = () => setPeriodOffset(prev => prev - 1);
   const handleNextPeriod = () => {

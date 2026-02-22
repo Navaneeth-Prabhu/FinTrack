@@ -11,13 +11,9 @@ const TotalBalance = () => {
     return (
         <View style={[styles.container, { borderWidth: 0, borderColor: colors.card, backgroundColor: colors.primary }]}>
             <View style={{ padding: tokens.spacing.md }}>
-                <ThemedText variant='body1' style={{ color: 'white', fontWeight: tokens.fontWeight.semibold,  }}>Available Balance</ThemedText>
+                <ThemedText variant='body1' style={{ color: 'white', fontWeight: tokens.fontWeight.semibold, }}>Available Balance</ThemedText>
 
-                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>$234.
-                    <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>
-                        00
-                    </ThemedText>
-                </ThemedText>
+                <ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>$234.<ThemedText variant='h1' style={{ fontWeight: tokens.fontWeight.semibold, color: 'white' }}>00</ThemedText></ThemedText>
 
             </View>
             <View style={[styles.cardFooter, { backgroundColor: colors.card }]}>
@@ -54,8 +50,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    footerDiv:{
-        flex:1, 
+    footerDiv: {
+        flex: 1,
         alignItems: 'flex-start',
         justifyContent: 'flex-start'
     }

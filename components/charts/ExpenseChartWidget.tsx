@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Dimensions, GestureResponderEvent } from "react-native";
+import { View, useWindowDimensions, GestureResponderEvent } from "react-native";
 import {
   Canvas,
   RoundedRect,
@@ -15,7 +15,8 @@ import {
 } from "react-native-reanimated";
 import { formatLargeNumber } from "@/utils/numberUtl";
 
-const { width } = Dimensions.get("window");
+// Remove static Dimensions call
+// const { width } = Dimensions.get("window");
 
 type BarData = {
   label: string;
@@ -45,7 +46,7 @@ type BarChartProps = {
   highlightSelectedBar?: boolean;
   selectedBarOpacity?: number;
   fontSize?: number;
-  labelFormatter?: (val: string) => string;
+  labelFormatter?: (val: number) => string;
   externalSelectedBarIndex?: number;
   animationDuration?: number;
 };
@@ -76,6 +77,7 @@ const BarChart: React.FC<BarChartProps> = ({
   externalSelectedBarIndex = -1,
   animationDuration = 300,
 }) => {
+  const { width } = useWindowDimensions();
   const [internalSelectedBarIndex, setInternalSelectedBarIndex] = useState<number>(-1);
 
   // Single opacity animation for fade in/out
@@ -213,7 +215,7 @@ const BarChart: React.FC<BarChartProps> = ({
                 {/* <Text
                   x={getYLabelXPosition()}
                   y={yPos + 4}
-                  text={labelFormatter(Math.round(val).toString())}
+                  text={labelFormatter(Math.round(val))}
                   font={font}
                   color={textColor}
                 />

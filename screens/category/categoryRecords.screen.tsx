@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, Pressable, Dimensions, Text } from 'react-native';
+import { View, FlatList, StyleSheet, Pressable, Text, useWindowDimensions } from 'react-native';
 import { addMonths, endOfMonth, format, isSameMonth, isSameYear, startOfMonth } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,11 +11,10 @@ import { ThemedText } from '@/components/common/ThemedText';
 import CategoryBar from '@/components/category/CategoryBar';
 import { categoryIcons } from '@/constants/categories';
 
-const { width } = Dimensions.get('window');
-const ITEM_WIDTH = width / 2 - 24;
-
 const CategoryRecordScreen = () => {
     const { colors } = useTheme();
+    const { width } = useWindowDimensions();
+    const ITEM_WIDTH = width / 2 - 24;
     const router = useRouter();
     const { transactions } = useTransactionStore();
     const { budgets } = useBudgetStore();
@@ -134,7 +133,7 @@ const CategoryRecordScreen = () => {
             <Pressable
                 style={({ pressed }) => [
                     styles.itemContainer,
-                    { opacity: pressed ? 0.7 : 1 }
+                    { width: ITEM_WIDTH, opacity: pressed ? 0.7 : 1 }
                 ]}
                 onPress={() => router.push({
                     pathname: '/(routes)/category/categoryDetails/[id]',
@@ -170,7 +169,7 @@ const CategoryRecordScreen = () => {
                         <ThemedText
                             style={styles.name}
                             numberOfLines={1}
-                            
+
                         >
                             {item.name}
                         </ThemedText>
@@ -229,7 +228,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     itemContainer: {
-        width: ITEM_WIDTH,
         margin: 5,
     },
     item: {

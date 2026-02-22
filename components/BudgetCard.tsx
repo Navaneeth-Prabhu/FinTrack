@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
 import { Budget } from '@/types';
@@ -54,7 +54,7 @@ const ProgressBarWithPointer: React.FC<{
                         { width: `${progressWidth}%`, backgroundColor: isOnTrack ? colors.primary : '#FF6347' },
                     ]}
                 >
-                    <Text style={styles.progressText}>{progress.toFixed(1)}</Text>
+                    <ThemedText style={styles.progressText}>{progress.toFixed(1)}</ThemedText>
                 </View>
             </View>
             <View style={[styles.idealPointerContainer, { left: `${idealPosition}%` }]}>
@@ -65,12 +65,14 @@ const ProgressBarWithPointer: React.FC<{
     );
 };
 
-export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
+export const BudgetCard: React.FC<{ budget: Budget & { spent?: number; progress?: number } }> = ({ budget }) => {
     const { category, limit, spent, progress, startDate, frequency } = budget;
+    const spentValue = spent ?? 0;
+    const progressValue = progress ?? 0;
     const endDate = getEndDateForFrequency(startDate, frequency).toISOString();
     const idealSpending = calculateIdealSpending(limit, startDate, frequency);
-    const isOnTrack = spent <= idealSpending;
-    const dailySpending = calculateDailySpendingAllowance(limit, spent, startDate, frequency);
+    const isOnTrack = spentValue <= idealSpending;
+    const dailySpending = calculateDailySpendingAllowance(limit, spentValue, startDate, frequency);
 
     const { colors } = useTheme();
 
@@ -84,19 +86,19 @@ export const BudgetCard: React.FC<{ budget: Budget }> = ({ budget }) => {
                             <CategoryIcon category={category} />
                             <View>
                                 <ThemedText variant='h3'
-                                style={{ fontSize: fontSizes.FONT22}}>{category?.name}</ThemedText>
+                                    style={{ fontSize: fontSizes.FONT22 }}>{category?.name}</ThemedText>
                                 <ThemedText variant='body1'>
-                                    <Text style={{ fontWeight: tokens.fontWeight.semibold }}>
-                                        ${spent.toFixed(2)}
-                                    </Text> of ${limit.toFixed(2)}</ThemedText>
+                                    <ThemedText style={{ fontWeight: tokens.fontWeight.semibold }}>
+                                        ${(spent ?? 0).toFixed(2)}
+                                    </ThemedText> of ${limit.toFixed(2)}</ThemedText>
                             </View>
                         </View>
                     </View>
-                    <ProgressBarWithPointer spent={spent} limit={limit} idealSpending={idealSpending} progress={progress} />
-                    {/* <Text style={styles.progressText}>{progress.toFixed(1)}% Completed</Text> */}
+                    <ProgressBarWithPointer spent={spentValue} limit={limit} idealSpending={idealSpending} progress={progressValue} />
+                    {/* <ThemedText style={styles.progressText}>{progressValue.toFixed(1)}% Completed</ThemedText> */}
                     <View style={styles.dateContainer}>
-                        <Text style={styles.dateText}>{format(new Date(startDate), "d MMM")}</Text>
-                        <Text style={styles.dateText}>{format(new Date(endDate), "d MMM")}</Text>
+                        <ThemedText style={styles.dateText}>{format(new Date(startDate), "d MMM")}</ThemedText>
+                        <ThemedText style={styles.dateText}>{format(new Date(endDate), "d MMM")}</ThemedText>
                     </View>
                 </View>
                 <View style={{ backgroundColor: colors.accent, padding: 8 }}>
@@ -174,10 +176,8 @@ const styles = StyleSheet.create({
     },
     progressText: {
         fontSize: 12,
-        color: '#11111',
+        color: '#111',
         textAlign: 'center',
-        textAlignVertical: 'center',
-        // marginVertical: 5,
     },
     dateContainer: {
         flexDirection: 'row',

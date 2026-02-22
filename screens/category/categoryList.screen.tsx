@@ -4,7 +4,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Animated
 } from 'react-native';
 import { router } from 'expo-router';
 import DraggableFlatList, {

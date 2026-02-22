@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, View, SafeAreaView } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ReceiptScanner from './ReceiptScanner';
 
-const ReceiptScannerModal = ({ isVisible, onClose, onScan, type, category }) => {
+interface ReceiptScannerModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onScan: (imageUri: string) => void;
+  type?: string;
+  category?: string;
+}
+
+const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({ isVisible, onClose, onScan, type, category }) => {
   return (
     <Modal
       animationType="slide"
@@ -12,10 +21,7 @@ const ReceiptScannerModal = ({ isVisible, onClose, onScan, type, category }) => 
     >
       <SafeAreaView style={styles.container}>
         <ReceiptScanner
-          onClose={onClose}
-          onScan={onScan}
-          type={type}
-          category={category}
+          onImageCaptured={onScan}
         />
       </SafeAreaView>
     </Modal>

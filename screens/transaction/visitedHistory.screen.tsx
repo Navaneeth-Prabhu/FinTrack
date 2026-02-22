@@ -53,7 +53,7 @@ const VisitedHistoryScreen = () => {
           label: format(date, 'MMM'),
           frontColor: colors.accent,
           topLabelComponent: () => (
-            <Text style={{ color: colors.text, fontSize: 10 }}>0</Text>
+            <ThemedText style={{ color: colors.text, fontSize: 10 }}>0</ThemedText>
           ),
         };
       });
@@ -91,9 +91,9 @@ const VisitedHistoryScreen = () => {
           colors.accent,
         topLabelComponent: () => (
           <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.text, fontSize: 10 }}>
+            <ThemedText style={{ color: colors.text, fontSize: 10 }}>
               {amount > 0 ? formatLargeNumber(amount) : '0'}
-            </Text>
+            </ThemedText>
           </View>
         ),
         onPress: () => setSelectedMonth(date),
@@ -144,9 +144,7 @@ const VisitedHistoryScreen = () => {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={{ paddingVertical: 16 }}>
-              <ThemedText style={styles.sectionTitle}>
-                All Transactions
-              </ThemedText>
+              <ThemedText style={styles.sectionTitle}>All Transactions</ThemedText>
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}

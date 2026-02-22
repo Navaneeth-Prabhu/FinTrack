@@ -42,8 +42,10 @@ export default function RootLayout() {
   // Check biometric support on mount
   useEffect(() => {
     (async () => {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      const [hasHardware, isEnrolled] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync()
+      ]);
       setIsBiometricSupported(hasHardware && isEnrolled);
     })();
   }, []);
@@ -64,58 +66,47 @@ export default function RootLayout() {
     if (loaded) {
       const initializeApp = async () => {
         try {
-          // Step 1: Fetch recurring transactions
-          // console.log('Fetching recurring transactions');
-          await useRecurringTransactionStore.getState().fetchRecurringTransactions();
+          // Parallelize independent startup tasks
+          const [recurringTransactions] = await Promise.all([
+            useRecurringTransactionStore.getState().fetchRecurringTransactions(),
+            registerRecurringTask(),
+            categories.length === 0 ? loadCategories() : Promise.resolve()
+          ]);
 
-          // Step 2: Register the background task
-          // console.log('Registering background task');
-          await registerRecurringTask();
-
-          // Step 3: Generate due transactions
-          // console.log('Generating due transactions');
+          // Step 3: Generate due transactions (potentially depends on fetch)
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
 
-          // Step 4: Load categories if not already loaded
-          if (!categories || categories.length === 0) {
-            await loadCategories();
-          }
-
           // Step 5: Initialize SMS features after categories are loaded
-          if (Platform.OS === 'android' && categories && categories.length > 0) {
+          const currentCategories = useCategoryStore.getState().categories;
+          if (Platform.OS === 'android' && currentCategories.length > 0) {
             // Run SMS initialization in background without blocking startup
             initializeSMSFeatures({
-              categories,
+              categories: currentCategories,
               saveTransactionFn: saveTransaction,
             }).catch(err => console.error('[SMS::Init] Background init failed:', err));
           }
 
           // Step 6: Prompt for biometric authentication if supported AND enabled in preferences
           if (isBiometricSupported && biometrics) {
-            // console.log('Prompting for biometric authentication');
             const result = await LocalAuthentication.authenticateAsync({
               promptMessage: 'Authenticate to access FinTrack',
               cancelLabel: 'Cancel',
-              disableDeviceFallback: false, // Allow passcode fallback
+              disableDeviceFallback: false,
             });
 
             if (result.success) {
-              // console.log('Biometric authentication successful');
               setIsAuthenticated(true);
             } else {
-              // console.log('Biometric authentication failed');
-              // Keep app locked until success; adjust this logic as needed
               return; // Prevents proceeding if authentication fails
             }
           } else {
-            // console.log('Biometric authentication skipped (not supported or disabled)');
             setIsAuthenticated(true); // Proceed without biometric
           }
 
           console.log('App initialization complete');
         } catch (error) {
           console.error('Failed to initialize app:', error);
-          setIsAuthenticated(true); // Proceed even on error (adjust as needed)
+          setIsAuthenticated(true); // Proceed even on error
         } finally {
           await SplashScreen.hideAsync();
         }
@@ -123,7 +114,7 @@ export default function RootLayout() {
 
       initializeApp();
     }
-  }, [loaded, isBiometricSupported, biometrics, categories, saveTransaction]);
+  }, [loaded, isBiometricSupported, biometrics, saveTransaction]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2000);

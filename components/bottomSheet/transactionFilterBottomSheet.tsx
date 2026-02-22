@@ -75,9 +75,7 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
             <BottomSheetView style={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
-                        <ThemedText variant='h3'>
-                            Filters
-                        </ThemedText>
+                        <ThemedText variant='h3'>Filters</ThemedText>
                         <View style={styles.iconContainer}>
                             <TouchableOpacity onPress={handleClose}>
                                 <Ionicons
