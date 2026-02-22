@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 
-const { width, height } = Dimensions.get('window');
-
 const SplashScreen: React.FC = () => {
+  const { width } = useWindowDimensions();
+
   return (
     <LinearGradient
       colors={["#8364e8", "#d397fa"]}
@@ -14,7 +14,11 @@ const SplashScreen: React.FC = () => {
       end={{ x: 1, y: 1 }}
     >
       <StatusBar translucent backgroundColor="transparent" style="light" />
-      <View style={styles.logoContainer}>
+      <View style={[styles.logoContainer, {
+        width: width * 0.5,
+        height: width * 0.5,
+        borderRadius: width * 0.25
+      }]}>
         <Image
           source={require('../assets/images/splash-icon.png')}
           style={styles.logo}
@@ -36,15 +40,8 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: width * 0.5,
-    height: width * 0.5,
-    borderRadius: width * 0.25,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
   },
   logo: {
     width: '100%',

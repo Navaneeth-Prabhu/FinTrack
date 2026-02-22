@@ -8,6 +8,7 @@ import { router, useNavigation } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore'
+import { formatDateString } from '@/utils/date'
 interface TransactionDetailScreenProps {
     transactionId?: string,
     isRecurring: boolean;
@@ -111,7 +112,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                 }}>
                     <ThemedText variant="h2">{data?.category.icon}</ThemedText>
                 </View>
-                <View style={{ flex: 1, gap: 8 }}>
+                <View style={{ flex: 1, gap: 4 }}>
                     <ThemedText variant="h2">
                         {isRecurring
                             ? (data as RecurringTransaction)?.payee || 'Recurring Template'
@@ -127,7 +128,9 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
             <View>
                 <ThemedText variant="h1">${data?.amount.toFixed(2)}</ThemedText>
                 <ThemedText variant="body1" style={{ color: colors.subtitle }}>
-                    {isRecurring ? `Starting: ${recurring?.startDate}` : transaction?.date}
+                    {isRecurring
+                        ? `Starting: ${formatDateString(recurring?.startDate || '', { dateFormat: 'eeee, MMM dd, yyyy', relative: false })}`
+                        : formatDateString(transaction?.date || '', { dateFormat: 'eeee, MMM dd, yyyy', relative: false })}
                 </ThemedText>
             </View>
 
@@ -147,11 +150,17 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">Start Date</ThemedText>
-                        <ThemedText variant="body1">{(isRecurring ? recurring : linkedRecurring)?.startDate}</ThemedText>
+                        <ThemedText variant="body1">
+                            {formatDateString((isRecurring ? recurring : linkedRecurring)?.startDate || '', { dateFormat: 'eeee, MMM dd, yyyy', relative: false })}
+                        </ThemedText>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">End Date</ThemedText>
-                        <ThemedText variant="body1">{(isRecurring ? recurring : linkedRecurring)?.endDate || 'Never'}</ThemedText>
+                        <ThemedText variant="body1">
+                            {(isRecurring ? recurring : linkedRecurring)?.endDate
+                                ? formatDateString((isRecurring ? recurring : linkedRecurring)?.endDate || '', { dateFormat: 'eeee, MMM dd, yyyy', relative: false })
+                                : 'Never'}
+                        </ThemedText>
                     </View>
                 </Card>
             )}
@@ -159,10 +168,10 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
             {/* Transaction Details */}
             {!isRecurring && (
                 <Card variant="outlined" style={{ gap: 10, borderWidth: 1, borderColor: colors.border }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">Transaction Type</ThemedText>
                         <ThemedText variant="body1">{transaction?.mode || 'N/A'}</ThemedText>
-                    </View>
+                    </View> */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">Account</ThemedText>
                         <ThemedText variant="body1">{transaction?.toAccount?.name || 'N/A'}</ThemedText>
@@ -179,7 +188,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
             )}
             <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction?.id}`)}>
                 <Card variant="outlined" style={{ gap: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <ThemedText variant="body1">Note</ThemedText>
+                    <ThemedText variant="body1">Visited</ThemedText>
                     <ThemedText variant="body1">{merchantLoyaltyScore}</ThemedText>
                 </Card>
             </TouchableOpacity>

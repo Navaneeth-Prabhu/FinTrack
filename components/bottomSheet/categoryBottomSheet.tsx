@@ -1,7 +1,7 @@
-import React, { useCallback, useRef, useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter, BottomSheetView } from '@gorhom/bottom-sheet';
-import { Href, router } from 'expo-router';
+import React, { useCallback, useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView, BottomSheetFooter, BottomSheetView } from '@gorhom/bottom-sheet';
+import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Category } from '@/types';
 import { useCategoryStore } from '@/stores/categoryStore';
@@ -10,65 +10,51 @@ import { ThemedText } from '../common/ThemedText';
 import { tokens } from '@/constants/theme';
 
 interface CategoryBottomSheetProps {
-    isVisible: boolean;
-    onClose: () => void;
     onSelectCategory: (category: Category) => void;
     type: 'income' | 'expense' | 'transfer' | 'investment';
     setType: (type: 'income' | 'expense' | 'transfer' | 'investment') => void;
 }
 
-const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
-    isVisible,
-    onClose,
+export interface CategoryBottomSheetRef {
+    present: () => void;
+    dismiss: () => void;
+}
+
+const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(({
     onSelectCategory,
     type,
     setType
-}) => {
+}, ref) => {
     const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-    const [newCategory, setNewCategory] = useState('');
-    const [iconBackgroundColor, setIconBackgroundColor] = useState<string | null>(null); // Track icon color
-    // Use type prop to initialize filter, but allow local override
-    const [filter, setFilter] = useState<'income' | 'expense' | 'transfer' | 'investment'>(type);
     const { colors } = useTheme();
-
     const { categories, fetchCategories } = useCategoryStore();
 
     useEffect(() => {
         fetchCategories();
-    }, [])
+    }, []);
 
-    useEffect(() => {
-        setFilter(type);
-    }, [type]);
-
-    useEffect(() => {
-        if (isVisible) {
-            bottomSheetModalRef.current?.present();
-        } else {
-            bottomSheetModalRef.current?.dismiss();
-        }
-    }, [isVisible]);
+    useImperativeHandle(ref, () => ({
+        present: () => bottomSheetModalRef.current?.present(),
+        dismiss: () => bottomSheetModalRef.current?.dismiss(),
+    }));
 
     const handleSheetChanges = useCallback((index: number) => {
-        if (index === -1) {
-            onClose();
-        }
-    }, [onClose]);
+        // No-op for now as we don't have an onClose prop anymore
+    }, []);
 
     const handleCategorySelect = useCallback((category: Category) => {
         onSelectCategory(category);
-        onClose();
-    }, [onSelectCategory, onClose]);
+        bottomSheetModalRef.current?.dismiss();
+    }, [onSelectCategory]);
 
 
     const applyFilter = useCallback((selectedFilter: 'income' | 'expense' | 'transfer' | 'investment') => {
-        setFilter(selectedFilter);
         setType(selectedFilter);
-    }, []);
+    }, [setType]);
 
     const filteredCategories = useMemo(() =>
-        categories.filter(cat => cat.type === filter),
-        [categories, filter]
+        categories.filter(cat => cat.type === type),
+        [categories, type]
     );
 
     const renderBackdrop = useCallback(
@@ -84,8 +70,9 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
 
     const handleEditCategory = () => {
         router.push('/category/categoryList');
-        onClose();
+        bottomSheetModalRef.current?.dismiss();
     }
+
     const renderFooter = useCallback(
         (props: any) => (
             <BottomSheetFooter {...props} bottomInset={0}>
@@ -95,7 +82,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                             onPress={() => applyFilter('income')}
                             style={[
                                 styles.filterButton,
-                                filter === 'income' && { backgroundColor: colors.accent },
+                                type === 'income' && { backgroundColor: colors.accent },
                             ]}
                         >
                             <ThemedText style={{ color: colors.text }}>Income</ThemedText>
@@ -104,7 +91,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                             onPress={() => applyFilter('expense')}
                             style={[
                                 styles.filterButton,
-                                filter === 'expense' && { backgroundColor: colors.accent },
+                                type === 'expense' && { backgroundColor: colors.accent },
                             ]}
                         >
                             <ThemedText style={{ color: colors.text }}>Expense</ThemedText>
@@ -122,7 +109,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                 </View>
             </BottomSheetFooter>
         )
-        , [applyFilter, filter]);
+        , [applyFilter, type, colors]);
 
     return (
         <BottomSheetModal
@@ -149,7 +136,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                                 color={colors.text}
                             />
                             <Ionicons
-                                onPress={() => onClose()}
+                                onPress={() => bottomSheetModalRef.current?.dismiss()}
                                 name="close" size={26}
                                 color={colors.text}
                             />
@@ -163,7 +150,7 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                     }}
                 >
                     <View style={styles.categoryContainer}>
-                        {filteredCategories.map((item, index) => (
+                        {filteredCategories.map((item) => (
                             <TouchableOpacity
                                 key={item.id}
                                 style={[
@@ -171,7 +158,6 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
                                     {
                                         backgroundColor: colors.card,
                                         borderColor: item.color,
-                                        // borderColor: lightenColor(item.color, 40)
                                     },
                                 ]}
                                 onPress={() => handleCategorySelect(item)}
@@ -184,17 +170,13 @@ const CategoryBottomSheet: React.FC<CategoryBottomSheetProps> = ({
             </BottomSheetView>
         </BottomSheetModal>
     );
-};
-
+});
 
 const styles = StyleSheet.create({
     contentContainer: {
-        // flex: 1,
-        // padding: 16,
         paddingHorizontal: 16,
     },
     header: {
-        // backgroundColor: 'white',
         marginBottom: 16,
         gap: 6,
     },
@@ -231,59 +213,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderRadius: 50,
     },
-    activeFilter: {
-        backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    },
-    list: {
-        flex: 1,
-    },
-    categoryItem: {
-        width: '33%',
-        aspectRatio: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 8,
-    },
-    iconCircle: {
-        height: 40,
-        width: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    categoryIcon: {
-        fontSize: 18,
-        color: 'white',
-    },
-    categoryName: {
-        textAlign: 'center',
-    },
-    addCategoryContainer: {
-        flexDirection: 'row',
-        marginTop: 16,
-        alignItems: 'center',
-        gap: 10,
-    },
-    input: {
-        flex: 1,
-        height: 40,
-        borderWidth: 1,
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        marginRight: 8,
-    },
-    addButton: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 8,
-        borderRadius: 20,
-        paddingHorizontal: 16,
-    },
     categoryContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'center',
-        // paddingBottom: 24,
         alignItems: 'center',
     },
     categoryButton: {
@@ -292,7 +225,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1.5,
         margin: 6,
-        // width:100,
     },
 });
 

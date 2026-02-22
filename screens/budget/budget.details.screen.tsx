@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useLayoutEffect, useEffect } from 'react';
 import { BudgetCard } from '@/components/BudgetCard';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -14,9 +14,8 @@ import { CategoryIcon } from '@/components/transactions/CategoryIcon';
 import { fontSizes, tokens } from '@/constants/theme';
 import CustomLineChart from '@/components/charts/CustomLineChart';
 
-const screenWidth = Dimensions.get('window').width;
-
 const BudgetDetailsScreen = () => {
+  const { width: screenWidth } = useWindowDimensions();
   const { id } = useLocalSearchParams();
   const { budgets, getCurrentPeriod, calculateSpent, lastUpdated } = useBudgetStore();
   const { transactions } = useTransactionStore();

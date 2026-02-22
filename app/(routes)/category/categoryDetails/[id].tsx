@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -95,6 +95,12 @@ const CategoryDetails = () => {
         ? format(selectedMonth, 'MMMM')
         : format(selectedMonth, 'MMMM yyyy');
 
+    const renderTransactionItem = useCallback(({ item }: { item: Transaction }) => (
+        <TransactionItem
+            transaction={item}
+        />
+    ), []);
+
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={{ backgroundColor: colors.card, paddingVertical: 16 }}>
@@ -121,12 +127,7 @@ const CategoryDetails = () => {
                 <FlashList
                     data={filteredTransactions}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <TransactionItem
-                            key={item.id}
-                            transaction={item}
-                        />
-                    )}
+                    renderItem={renderTransactionItem}
                     estimatedItemSize={60}
                     ListHeaderComponent={
                         <View style={{ paddingVertical: 16 }}>

@@ -1,5 +1,5 @@
 // src/components/SmartAlerts.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Transaction, RecurringTransaction } from '../types';
 import { format, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
@@ -21,6 +21,24 @@ type Alert = {
   priority: 'high' | 'medium' | 'low';
 };
 
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case 'high': return '#F44336';
+    case 'medium': return '#FFC107';
+    case 'low': return '#4CAF50';
+    default: return '#757575';
+  }
+};
+
+const getIconByType = (type: string) => {
+  switch (type) {
+    case 'bill': return '📅';
+    case 'spending': return '📊';
+    case 'savings': return '💰';
+    default: return '📌';
+  }
+};
+
 const SmartAlerts: React.FC<SmartAlertsProps> = ({
   transactions,
   recurringTransactions,
@@ -36,10 +54,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
     recurringTransactions
       .filter(rt => rt.type === 'expense' && rt.isActive)
       .forEach(bill => {
-        // Simple implementation: assuming the bill is due soon if it's within 7 days
         const dueDate = new Date(bill.startDate);
-
-        // Only show future bills that are due within the next 7 days
         if (isFuture(dueDate) && isWithinInterval(dueDate, {
           start: startOfDay(now),
           end: endOfDay(addDays(now, 7))
@@ -69,7 +84,6 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         });
       });
 
-    // Group by category
     const expensesByCategory = recentTransactions.reduce((acc, t) => {
       const category = t.category.name;
       if (!acc[category]) {
@@ -79,11 +93,8 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
       return acc;
     }, {} as Record<string, Transaction[]>);
 
-    // Check for categories with unusual activity
     Object.entries(expensesByCategory).forEach(([category, transactions]) => {
       const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-
-      // Simple threshold for now - if total spending in a category is over $500
       if (totalAmount > 500) {
         result.push({
           id: `spending-${category}`,
@@ -95,8 +106,6 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
       }
     });
 
-    // Add savings opportunities
-    // Simple example: if food expenses are more than 30% of total expenses
     const totalExpenses = recentTransactions.reduce((sum, t) => sum + t.amount, 0);
     const foodExpenses = expensesByCategory['Food']?.reduce((sum, t) => sum + t.amount, 0) || 0;
 
@@ -113,44 +122,24 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
     return result;
   }, [transactions, recurringTransactions]);
 
-  const renderAlert = ({ item }: { item: Alert }) => {
-    const getPriorityColor = (priority: string) => {
-      switch (priority) {
-        case 'high': return '#F44336';
-        case 'medium': return '#FFC107';
-        case 'low': return '#4CAF50';
-        default: return '#757575';
-      }
-    };
-
-    const getIconByType = (type: string) => {
-      switch (type) {
-        case 'bill': return '📅';
-        case 'spending': return '📊';
-        case 'savings': return '💰';
-        default: return '📌';
-      }
-    };
-
-    return (
-      <TouchableOpacity
-        style={styles.alertItem}
-        onPress={() => onAlertPress(item.id)}
-      >
-        <View style={[styles.alertDot, { backgroundColor: getPriorityColor(item.priority) }]} />
-        <Text style={styles.alertIcon}>{getIconByType(item.type)}</Text>
-        <View style={styles.alertContent}>
-          <Text style={styles.alertTitle}>{item.title}</Text>
-          <Text style={styles.alertDescription}>{item.description}</Text>
-          {item.dueDate && (
-            <Text style={styles.alertDate}>
-              Due: {format(new Date(item.dueDate), 'MMM dd, yyyy')}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderAlert = useCallback(({ item }: { item: Alert }) => (
+    <TouchableOpacity
+      style={styles.alertItem}
+      onPress={() => onAlertPress?.(item.id)}
+    >
+      <View style={[styles.alertDot, { backgroundColor: getPriorityColor(item.priority) }]} />
+      <Text style={styles.alertIcon}>{getIconByType(item.type)}</Text>
+      <View style={styles.alertContent}>
+        <Text style={styles.alertTitle}>{item.title}</Text>
+        <Text style={styles.alertDescription}>{item.description}</Text>
+        {item.dueDate && (
+          <Text style={styles.alertDate}>
+            Due: {format(new Date(item.dueDate), 'MMM dd, yyyy')}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  ), [onAlertPress]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card }]}>
@@ -179,18 +168,15 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   );
 };
 
+export default SmartAlerts;
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
     marginHorizontal: tokens.spacing.md
-
   },
   header: {
     flexDirection: 'row',
@@ -261,5 +247,3 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
-
-export default SmartAlerts;

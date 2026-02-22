@@ -9,7 +9,7 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { Category, RecurringTransaction, Transaction, Account } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from '@/components/common/ThemedText';
-import CategoryBottomSheet from '@/components/bottomSheet/categoryBottomSheet';
+import CategoryBottomSheet, { CategoryBottomSheetRef } from '@/components/bottomSheet/categoryBottomSheet';
 import { Header } from '@/components/layout/Header';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
@@ -52,7 +52,6 @@ interface FullState {
         interval: number;
     };
     ui: {
-        categorySheetVisible: boolean;
         showStartDatePicker: boolean;
         showEndDatePicker: boolean;
         showDatePicker: boolean;
@@ -91,7 +90,6 @@ const initialFullState: FullState = {
         interval: 1,
     },
     ui: {
-        categorySheetVisible: false,
         showStartDatePicker: false,
         showEndDatePicker: false,
         showDatePicker: false,
@@ -143,6 +141,7 @@ const TransactionFormScreen: React.FC = () => {
     const amountInputRef = useRef<TextInput>(null);
     const typeBottomSheetRef = useRef<BottomSheetModal>(null);
     const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
+    const categoryBottomSheetRef = useRef<CategoryBottomSheetRef>(null);
     const { transactions, saveTransaction, updateTransaction } = useTransactionStore();
     const { categories } = useCategoryStore();
     const { recurringTransactions, saveRecurringTransaction, updateRecurringTransaction } = useRecurringTransactionStore();
@@ -249,7 +248,7 @@ const TransactionFormScreen: React.FC = () => {
     const handleSubmit = useCallback(async () => {
         const floatAmount = parseFloat(formState.amount);
         if (!formState.category || isNaN(floatAmount) || floatAmount <= 0) {
-            if (!formState.category) dispatch({ type: 'SET_UI_FIELD', field: 'categorySheetVisible', value: true });
+            if (!formState.category) categoryBottomSheetRef.current?.present();
             else if (isNaN(floatAmount) || floatAmount <= 0) amountInputRef.current?.focus();
             return;
         }
@@ -417,7 +416,7 @@ const TransactionFormScreen: React.FC = () => {
 
                     <TouchableOpacity
                         style={[styles.inputField, { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.background, borderWidth: 1, borderColor: colors.border }]}
-                        onPress={() => dispatch({ type: 'SET_UI_FIELD', field: 'categorySheetVisible', value: true })}
+                        onPress={() => categoryBottomSheetRef.current?.present()}
                     >
                         <View style={styles.inputFieldContent}>
                             {formState.category ? (
@@ -554,7 +553,7 @@ const TransactionFormScreen: React.FC = () => {
                     style={[styles.saveButton, { backgroundColor: colors.primary }]}
                     onPress={() => {
                         if (!formState.category) {
-                            dispatch({ type: 'SET_UI_FIELD', field: 'categorySheetVisible', value: true });
+                            categoryBottomSheetRef.current?.present();
                         } else if (!formState.amount) {
                             amountInputRef.current?.focus();
                         } else {
@@ -583,9 +582,8 @@ const TransactionFormScreen: React.FC = () => {
             />
 
             <CategoryBottomSheet
+                ref={categoryBottomSheetRef}
                 onSelectCategory={cat => handleFormChange('category', cat)}
-                isVisible={ui.categorySheetVisible}
-                onClose={() => dispatch({ type: 'SET_UI_FIELD', field: 'categorySheetVisible', value: false })}
                 type={formState.type}
                 setType={type => handleFormChange('type', type)}
             />
@@ -630,7 +628,7 @@ const TransactionFormScreen: React.FC = () => {
                 }}
                 onCancel={() => dispatch({ type: 'SET_UI_FIELD', field: 'showEndDatePicker', value: false })}
             />
-        </SafeAreaView>
+        </SafeAreaView >
     );
 };
 

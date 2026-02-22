@@ -13,13 +13,13 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ data }) => {
     const totalValue = data.reduce((sum: number, category: any) => sum + category.value, 0);
 
     return (
-        <View style={[styles.container]}>
+        <View style={styles.container}>
             <View style={styles.progressBarContainer}>
                 {data.map((category: any, index: number) => {
                     const width = (category.value / totalValue) * 100; // Percentage of the total
                     return (
                         <View
-                            key={index}
+                            key={category.label}
                             style={[styles.segment, { width: `${width}%`, backgroundColor: category.color, opacity: 0.9 }]}
                         />
                     );
@@ -28,19 +28,19 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ data }) => {
 
             {/* Legends and percentages */}
             <View style={styles.legendContainer}>
-                {data.map((category: any, index: number) => {
-                    let percentage = (category.value / totalValue) * 100;
-                    percentage = percentage % 1 === 0 ? percentage.toFixed(0) : percentage.toFixed(1);
+                {data.map((category: any) => {
+                    const percentage = (category.value / totalValue) * 100;
+                    const displayPercentage = percentage % 1 === 0 ? percentage.toFixed(0) : percentage.toFixed(1);
 
                     return (
-                        <View key={index} style={styles.legendItem}>
+                        <View key={category.label} style={styles.legendItem}>
                             <View style={[styles.legendDot, { backgroundColor: category.color }]} />
                             <Text
                                 style={[styles.legendText, { color: colors.text }]}
                                 numberOfLines={1}
                                 ellipsizeMode="tail"
                             >
-                                {category.label}: {percentage}%
+                                {category.label}: {displayPercentage}%
                             </Text>
                         </View>
                     );
@@ -52,7 +52,7 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ data }) => {
 
 const styles = StyleSheet.create({
     container: {
-        
+
     },
     progressBarContainer: {
         flexDirection: 'row',

@@ -1,38 +1,65 @@
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View, TextInput, ScrollView } from 'react-native';
-import React, { useLayoutEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, TextInput, ScrollView, useWindowDimensions } from 'react-native';
+import React, { useLayoutEffect, useReducer } from 'react';
 import { ThemedText } from '@/components/common/ThemedText';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTheme } from '@/hooks/useTheme';
 import { categoryIcons, ColorsConstants, emojiConstants } from '@/constants/categories';
-import { Colors } from '@/constants/Colors';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+type State = {
+    name: string;
+    icon: string;
+    type: 'income' | 'expense' | 'transfer' | 'investment';
+    color: string;
+    activeTab: string;
+};
+
+type Action =
+    | { type: 'SET_NAME'; payload: string }
+    | { type: 'SET_ICON'; payload: string }
+    | { type: 'SET_TYPE'; payload: State['type'] }
+    | { type: 'SET_COLOR'; payload: string }
+    | { type: 'SET_ACTIVE_TAB'; payload: string };
+
+const reducer = (state: State, action: Action): State => {
+    switch (action.type) {
+        case 'SET_NAME': return { ...state, name: action.payload };
+        case 'SET_ICON': return { ...state, icon: action.payload };
+        case 'SET_TYPE': return { ...state, type: action.payload };
+        case 'SET_COLOR': return { ...state, color: action.payload };
+        case 'SET_ACTIVE_TAB': return { ...state, activeTab: action.payload };
+        default: return state;
+    }
+};
+
 const ITEMS_PER_ROW = 7;
-const SPACING = 8; // Adjust spacing between items
+const SPACING = 8;
 
-// Calculate item size dynamically (Subtract spacing to prevent overflow)
-const ITEM_SIZE = (SCREEN_WIDTH - (SPACING * (ITEMS_PER_ROW + 10))) / ITEMS_PER_ROW;
-
-const CategoryFromScreen = () => {
+const CategoryFormScreen = () => {
     const { id, edit = "false" } = useLocalSearchParams<{ id: string, edit?: string }>();
     const { categories, updateCategory, saveCategory } = useCategoryStore();
     const category = categories.find(c => c.id === id);
     const { colors } = useTheme();
-    const [name, setName] = useState(category?.name || '');
-    const [icon, setIcon] = useState(category?.icon || '❗');
-    const [type, setType] = useState(category?.type || 'expense');
-    const [color, setColor] = useState(category?.color || '#888888');
-    const [activeTab, setActiveTab] = useState('icons'); // Default tab
-    const [selectedIcon, setSelectedIcon] = useState({ type: 'emoji', value: emojiConstants[0] });
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
+
+    const [state, dispatch] = useReducer(reducer, {
+        name: category?.name || '',
+        icon: category?.icon || '❗',
+        type: (category?.type as State['type']) || 'expense',
+        color: category?.color || '#888888',
+        activeTab: 'icons',
+    });
+
+    const ITEM_SIZE = (SCREEN_WIDTH - (SPACING * (ITEMS_PER_ROW + 10))) / ITEMS_PER_ROW;
 
     useLayoutEffect(() => {
         if (edit === "true" && category) {
-
+            // Initialization is handled by initialState
         }
-    })
+    }, [edit, category]);
 
     const handleSubmit = () => {
+        const { name, icon, type, color } = state;
         if (name && icon && type) {
             if (edit === "true" && category) {
                 updateCategory({ ...category, name, icon, type, color });
@@ -44,34 +71,31 @@ const CategoryFromScreen = () => {
             console.log("Missing required fields: name, icon, or type");
         }
     };
-    const IconComponent = categoryIcons.lucide.find(i => i.name === icon)?.component;
 
-    console.log("IconComponent", IconComponent);
+    const IconComponent = categoryIcons.lucide.find(i => i.name === state.icon)?.component;
+
     return (
-        <>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
                 <ThemedText style={styles.title}>{edit === "true" ? "Edit Category" : "New Category"}</ThemedText>
 
-                {/* Icon Preview */}
                 <View style={[styles.iconContainer, { backgroundColor: colors.card }]}>
-                    <View style={[styles.iconCircle, { backgroundColor: color || colors.primary }]}>
+                    <View style={[styles.iconCircle, { backgroundColor: state.color || colors.primary }]}>
                         {
                             IconComponent !== undefined
                                 ? <IconComponent size={24} strokeWidth={2} color={colors.text} />
-                                : <Text style={styles.categoryIcon}>{icon}</Text>
+                                : <Text style={styles.categoryIcon}>{state.icon}</Text>
                         }
-
                     </View>
                     <TextInput
                         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
                         placeholder="Category Name"
                         placeholderTextColor={colors.subtitle}
-                        value={name}
-                        onChangeText={setName}
+                        value={state.name}
+                        onChangeText={(text) => dispatch({ type: 'SET_NAME', payload: text })}
                     />
                 </View>
 
-                {/* Type Selection */}
                 <ThemedText style={styles.sectionTitle}>Transaction Type</ThemedText>
                 <View style={[styles.typeSelectionContainer, { backgroundColor: colors.card }]}>
                     {(['income', 'expense', 'transfer', 'investment'] as const).map((t) => (
@@ -79,13 +103,13 @@ const CategoryFromScreen = () => {
                             key={t}
                             style={[
                                 styles.typeButton,
-                                type === t && { backgroundColor: t === 'income' ? colors.income : t === 'expense' ? colors.expense : colors.primary }
+                                state.type === t && { backgroundColor: t === 'income' ? colors.income : t === 'expense' ? colors.expense : colors.primary }
                             ]}
-                            onPress={() => setType(t)}
+                            onPress={() => dispatch({ type: 'SET_TYPE', payload: t })}
                         >
                             <ThemedText style={[
                                 styles.typeButtonText,
-                                type === t ? { color: 'white' } : {}
+                                state.type === t ? { color: 'white' } : {}
                             ]}>
                                 {t.charAt(0).toUpperCase() + t.slice(1)}
                             </ThemedText>
@@ -93,60 +117,54 @@ const CategoryFromScreen = () => {
                     ))}
                 </View>
 
-                {/* Colors Selection */}
                 <ThemedText style={styles.sectionTitle}>Pick a Color</ThemedText>
                 <View style={styles.selectionContainer}>
-                    {ColorsConstants.map((c, index) => (
+                    {ColorsConstants.map((c) => (
                         <TouchableOpacity
-                            key={index}
+                            key={c}
                             style={[
                                 styles.selectionItem,
-                                { backgroundColor: c, borderColor: c === color ? colors.subtitle : 'transparent' }
+                                {
+                                    width: ITEM_SIZE, height: ITEM_SIZE,
+                                    backgroundColor: c, borderColor: c === state.color ? colors.subtitle : 'transparent'
+                                }
                             ]}
-                            onPress={() => setColor(c)}
+                            onPress={() => dispatch({ type: 'SET_COLOR', payload: c })}
                         />
                     ))}
                 </View>
 
-                {/* Icons Selection */}
                 <ThemedText style={styles.sectionTitle}>Pick an Icon</ThemedText>
                 <View style={styles.selectionContainer}>
-                    {emojiConstants.map((emoji, index) => (
+                    {emojiConstants.map((emoji) => (
                         <TouchableOpacity
-                            key={index}
-                            style={[styles.iconItem, { backgroundColor: colors.card }]}
-                            onPress={() => setIcon(emoji)}
+                            key={emoji}
+                            style={[styles.iconItem, { width: ITEM_SIZE, height: ITEM_SIZE, backgroundColor: colors.card }]}
+                            onPress={() => dispatch({ type: 'SET_ICON', payload: emoji })}
                         >
                             <Text style={styles.iconText}>{emoji}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                {activeTab === 'icons' && (
+                {state.activeTab === 'icons' && (
                     <View style={styles.iconsGrid}>
-                        {categoryIcons.lucide.map((icon, index) => {
-                            const IconComponent = icon.component;
+                        {categoryIcons.lucide.map((icon) => {
+                            const Comp = icon.component;
                             return (
                                 <TouchableOpacity
-                                    key={`icon-${index}`}
-                                    style={[styles.iconItem, { backgroundColor: colors.card }]}
-                                    onPress={() => setIcon(icon.name)}
+                                    key={icon.name}
+                                    style={[styles.iconItem, { width: ITEM_SIZE, height: ITEM_SIZE, backgroundColor: colors.card, marginBottom: SPACING }]}
+                                    onPress={() => dispatch({ type: 'SET_ICON', payload: icon.name })}
                                 >
-                                    <IconComponent size={24} strokeWidth={2} color={colors.text} />
+                                    <Comp size={24} strokeWidth={2} color={colors.text} />
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
                 )}
-
             </ScrollView>
 
-            {/* Save Button */}
-            {/* <View style={styles.buttonContainer}>
-                <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
-                    <Text style={styles.saveButtonText}>{edit === "true" ? "Update Category" : "Save Category"}</Text>
-                </TouchableOpacity>
-            </View> */}
             <View style={styles.saveButtonContainer}>
                 <TouchableOpacity
                     style={[styles.saveButton, { backgroundColor: colors.primary }]}
@@ -155,11 +173,11 @@ const CategoryFromScreen = () => {
                     <Text style={styles.saveButtonText}>{edit === "true" ? "Update Category" : "Save Category"}</Text>
                 </TouchableOpacity>
             </View>
-        </>
+        </View>
     );
 };
 
-export default CategoryFromScreen;
+export default CategoryFormScreen;
 
 const styles = StyleSheet.create({
     container: {
@@ -186,10 +204,7 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
     },
     categoryIcon: {
         fontSize: 24,
@@ -212,18 +227,13 @@ const styles = StyleSheet.create({
     selectionContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'flex-start',
-        gap: SPACING, // Ensures consistent spacing
+        gap: SPACING,
     },
     selectionItem: {
-        width: ITEM_SIZE,
-        height: ITEM_SIZE,
         borderRadius: 10,
         borderWidth: 3,
     },
     iconItem: {
-        width: ITEM_SIZE,
-        height: ITEM_SIZE,
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
@@ -237,58 +247,25 @@ const styles = StyleSheet.create({
         color: 'white',
     },
     saveButtonContainer: {
-        position: 'absolute',
-        width: '100%',
         padding: 20,
         paddingBottom: 32,
-        alignItems: 'center',
-        bottom: 0,
+        backgroundColor: 'transparent',
     },
     saveButton: {
         width: '100%',
         alignItems: 'center',
         height: 50,
         borderRadius: 10,
-        marginBottom: 16,
         justifyContent: 'center'
-    },
-    // selectionContainer: {
-    //     width: '100%',
-    //     marginVertical: 10,
-    //   },
-    tabSelector: {
-        flexDirection: 'row',
-        marginBottom: 15,
-        borderRadius: 8,
-        overflow: 'hidden',
-        borderWidth: 1,
-        // borderColor: colors.border,
-        alignSelf: 'center',
-    },
-    tab: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        backgroundColor: Colors.dark.background,
-    },
-    activeTab: {
-        // backgroundColor: colors.primary,
     },
     iconsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
+        gap: SPACING,
+        marginTop: 10,
+        paddingBottom: 20
     },
-    //   iconItem: {
-    //     width: '16%', // For 6 items per row
-    //     aspectRatio: 1,
-    //     justifyContent: 'center',
-    //     alignItems: 'center',
-    //     margin: '2%',
-    //     borderRadius: 8,
-    //   },
-    //   iconText: {
-    //     fontSize: 22,
-    //   }
     typeSelectionContainer: {
         flexDirection: 'row',
         padding: 8,

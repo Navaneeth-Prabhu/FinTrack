@@ -108,7 +108,11 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
             return (
                 <View style={[
                     styles.headerWrapper,
-                    { marginTop: item.isFirst ? 0 : 12, backgroundColor: colors.background },
+                    {
+                        paddingTop: item.isFirst ? 0 : 12,
+                        paddingBottom: 8,
+                        backgroundColor: colors.background
+                    },
                 ]}>
                     <MemoizedSectionHeader section={item.section} />
                 </View>
@@ -183,7 +187,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 // Performance tuning
                 overrideItemLayout={(layout, item) => {
                     // Give FlashList more accurate size hints to reduce layout thrash
-                    layout.size = item.type === 'header' ? 40 : 72;
+                    layout.size = item.type === 'header' ? 48 : 80;
                 }}
             />
         </View>

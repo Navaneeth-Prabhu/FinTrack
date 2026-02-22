@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 
-export default function _layout() {
+export default function SettingsLayout() {
     const colorScheme = useColorScheme();
     const { colors } = useTheme();
 

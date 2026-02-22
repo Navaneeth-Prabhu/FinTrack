@@ -211,7 +211,7 @@ const BarChart: React.FC<BarChartProps> = ({
               (calculations.actualChartHeight / calculations.calculationMaxY) * val;
 
             return (
-              <Group key={`y-label-${idx}`}>
+              <Group key={`y-label-${val}`}>
                 {/* <Text
                   x={getYLabelXPosition()}
                   y={yPos + 4}
@@ -236,7 +236,7 @@ const BarChart: React.FC<BarChartProps> = ({
             const x = padding + idx * (calculations.barWidth + barGap);
             return (
               <RoundedRect
-                key={`bg-${idx}`}
+                key={`bg-${data[idx]?.label || idx}`}
                 x={x}
                 y={topPadding}
                 width={calculations.barWidth}
@@ -260,7 +260,7 @@ const BarChart: React.FC<BarChartProps> = ({
 
             return (
               <RoundedRect
-                key={`bar-${idx}`}
+                key={`bar-${d.label}`}
                 x={x}
                 y={y}
                 width={calculations.barWidth}
@@ -279,7 +279,7 @@ const BarChart: React.FC<BarChartProps> = ({
 
             return (
               <Text
-                key={`x-label-${idx}`}
+                key={`x-label-${d.label}`}
                 x={xPos - (d.label.length * (fontSize / 4))}
                 y={chartHeight + 15}
                 text={d.label}

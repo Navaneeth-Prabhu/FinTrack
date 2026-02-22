@@ -1,6 +1,6 @@
 // src/components/SmartBalanceForecast.tsx
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Transaction, RecurringTransaction } from '../types';
 import { format, addDays, parseISO, isSameDay } from 'date-fns';
 // import { LineChart } from 'react-native-chart-kit';
@@ -30,7 +30,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
     const days: ForecastDay[] = [];
     const today = new Date();
     let runningBalance = currentBalance;
-    
+
     // Initialize the 30-day forecast period
     for (let i = 0; i < 30; i++) {
       const forecastDate = addDays(today, i);
@@ -40,18 +40,18 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
         events: [],
       });
     }
-    
+
     // Add recurring transactions to the forecast
     recurringTransactions.forEach(rt => {
       if (!rt.isActive) return;
-      
+
       const startDate = parseISO(rt.startDate);
       // This is a simplified calculation that doesn't handle all recurrence patterns
       // In a real app, you'd need more sophisticated logic based on rt.frequency and rt.interval
-      
+
       for (let i = 0; i < 30; i++) {
         const forecastDate = addDays(today, i);
-        
+
         // Monthly recurrence - same day of month
         if (rt.frequency === 'monthly' && forecastDate.getDate() === startDate.getDate()) {
           const day = days[i];
@@ -60,20 +60,20 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
             amount: rt.amount,
             description: rt.category.name,
           });
-          
+
           // Update balance
           if (rt.type === 'income') {
             runningBalance += rt.amount;
           } else if (rt.type === 'expense') {
             runningBalance -= rt.amount;
           }
-          
+
           // Update all future days with new balance
           for (let j = i; j < 30; j++) {
             days[j].balance = runningBalance;
           }
         }
-        
+
         // Weekly recurrence - same day of week
         if (rt.frequency === 'weekly' && forecastDate.getDay() === startDate.getDay()) {
           const day = days[i];
@@ -82,14 +82,14 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
             amount: rt.amount,
             description: rt.category.name,
           });
-          
+
           // Update balance
           if (rt.type === 'income') {
             runningBalance += rt.amount;
           } else if (rt.type === 'expense') {
             runningBalance -= rt.amount;
           }
-          
+
           // Update all future days with new balance
           for (let j = i; j < 30; j++) {
             days[j].balance = runningBalance;
@@ -97,15 +97,15 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
         }
       }
     });
-    
+
     // Add known future transactions
     transactions.forEach(transaction => {
       const transactionDate = parseISO(transaction.date);
-      
+
       // Only include future transactions
       if (transactionDate > today) {
         const daysDiff = Math.floor((transactionDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         if (daysDiff >= 0 && daysDiff < 30) {
           const day = days[daysDiff];
           day.events.push({
@@ -113,7 +113,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
             amount: transaction.amount,
             description: transaction.category.name,
           });
-          
+
           // Update balance
           let balanceChange = 0;
           if (transaction.type === 'income') {
@@ -121,7 +121,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
           } else if (transaction.type === 'expense') {
             balanceChange = -transaction.amount;
           }
-          
+
           // Update this day and all future days
           for (let j = daysDiff; j < 30; j++) {
             days[j].balance += balanceChange;
@@ -129,7 +129,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
         }
       }
     });
-    
+
     return days;
   }, [transactions, recurringTransactions, currentBalance]);
 
@@ -178,12 +178,13 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
     },
   };
 
-  const screenWidth = Dimensions.get('window').width - 32;
+  const { width } = useWindowDimensions();
+  const screenWidth = width - 32;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Smart Balance Forecast</Text>
-      
+
       <View style={styles.chartContainer}>
         {/* <LineChart
           data={chartData}
@@ -195,7 +196,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
           yAxisSuffix="$"
         /> */}
       </View>
-      
+
       <Text style={styles.sectionTitle}>Key Dates</Text>
       <View style={styles.keyDates}>
         {keyDates.slice(0, 3).map((day, index) => {
@@ -203,9 +204,9 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
           const impact = day.events.reduce((total, event) => {
             return total + (event.type === 'income' ? event.amount : -event.amount);
           }, 0);
-          
+
           return (
-            <View key={index} style={styles.keyDateItem}>
+            <View key={day.date.getTime().toString()} style={styles.keyDateItem}>
               <View style={styles.dateContainer}>
                 <Text style={styles.dateDay}>{format(day.date, 'd')}</Text>
                 <Text style={styles.dateMonth}>{format(day.date, 'MMM')}</Text>
@@ -227,7 +228,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
             </View>
           );
         })}
-        
+
         {keyDates.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No significant financial events in the next 30 days</Text>
@@ -245,11 +246,7 @@ const styles = StyleSheet.create({
     padding: 16,
     // margin: 16,
     marginTop: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
   },
   title: {
     fontSize: 18,

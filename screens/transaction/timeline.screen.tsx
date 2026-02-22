@@ -209,7 +209,7 @@ export default function TimeLineScreen() {
                     >
                         {activeFilters.map((filter, index) => (
                             <TouchableOpacity
-                                key={`${filter.type}-${filter.value}-${index}`}
+                                key={`${filter.type}-${filter.value}`}
                                 style={[
                                     styles.filterChip,
                                     { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.card }

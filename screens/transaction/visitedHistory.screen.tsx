@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, Platform, StatusBar } from 'react-native'
-import React, { useMemo, useState, useLayoutEffect } from 'react'
+import React, { useMemo, useState, useLayoutEffect, useCallback } from 'react'
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Transaction } from '@/types';
@@ -105,6 +105,12 @@ const VisitedHistoryScreen = () => {
     setSelectedMonth(date);
   };
 
+  const renderTransactionItem = useCallback(({ item }: { item: Transaction }) => (
+    <TransactionItem
+      transaction={item}
+      dateFormate="MMM dd, yyyy"
+    />
+  ), []);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -133,12 +139,7 @@ const VisitedHistoryScreen = () => {
       <View style={{ flex: 1 }}>
         <FlashList
           data={merchantLoyaltyTransactions}
-          renderItem={({ item }) => (
-            <TransactionItem
-              transaction={item}
-              dateFormate="MMM dd, yyyy"
-            />
-          )}
+          renderItem={renderTransactionItem}
           keyExtractor={(item) => item.id}
           estimatedItemSize={60}
           showsVerticalScrollIndicator={false}

@@ -1,11 +1,11 @@
-import { useTheme } from "@/hooks/useTheme";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
+import React, { useCallback } from "react";
+import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { ThemedText } from "./common/ThemedText";
 import { fontSizes, tokens } from "@/constants/theme";
 import { ChartLine } from "lucide-react-native";
 import { Card } from "./common/Card";
-import { Touchable } from "react-native";
 import { router } from "expo-router";
+import { useTheme } from "@/hooks/useTheme";
 
 export function ExtraInfo() {
     const { colors } = useTheme();
@@ -15,32 +15,34 @@ export function ExtraInfo() {
         { id: '3', title: 'Expenses', description: 'Your expenses increased by 10%.', variant: 'outlined' },
     ];
 
+    const renderCard = useCallback(({ item }: { item: typeof data[0] }) => (
+        <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, justifyContent: 'space-between' }}>
+            <TouchableOpacity onPress={() => router.push('/(routes)/ai/chat')} style={styles.header}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground, }]}>
+                    <ChartLine color={colors.primary} size={18} />
+                </View>
+                <ThemedText style={{ fontWeight: tokens.fontWeight.medium, fontSize: fontSizes.FONT16, flex: 1 }}>{item.title}</ThemedText>
+            </TouchableOpacity >
+            {
+                item.amount && (
+                    <ThemedText style={{
+                        fontSize: fontSizes.FONT28,
+                        fontWeight: tokens.fontWeight.semibold, marginVertical: 4
+                    }}>
+                        {item.amount}
+                    </ThemedText>
+                )
+            }
+            <ThemedText style={{ fontSize: fontSizes.FONT14, color: colors.subtitle }}>{item.description}</ThemedText>
+        </Card>
+    ), [colors]);
+
     return (
         <FlatList
             data={data}
             horizontal
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-                <Card variant="default" style={{ marginHorizontal: 10, width: 240, padding: tokens.spacing.md, justifyContent: 'space-between' }}>
-                    <TouchableOpacity onPress={() => router.push('/(routes)/ai/chat') } style={styles.header}>
-                        <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground, }]}>
-                            <ChartLine color={colors.primary} size={18} />
-                        </View>
-                        <Text style={{ fontWeight: tokens.fontWeight.medium, fontSize: fontSizes.FONT16, color: colors.text, flex: 1 }}>{item.title}</Text>
-                    </TouchableOpacity >
-                    {
-                        item.amount && (
-                            <Text style={{
-                                fontSize: fontSizes.FONT28, color: colors.text,
-                                fontWeight: tokens.fontWeight.semibold, marginVertical: 4
-                            }}>
-                                {item.amount}
-                            </Text>
-                        )
-                    }
-                    <ThemedText style={{ fontSize: fontSizes.FONT14, color: colors.subtitle }}>{item.description}</ThemedText>
-                </Card>
-            )}
+            renderItem={renderCard}
             contentContainerStyle={{ paddingHorizontal: 6 }}
             showsHorizontalScrollIndicator={false}
         />
