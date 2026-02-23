@@ -2,79 +2,40 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
-import { Transaction, Budget } from '../types';
+import { useMetricsStore } from '@/stores/metricsStore';
+import { Budget } from '../types';
 import { ThemedText } from './common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 import { tokens } from '@/constants/theme';
 
 interface FinancialSummaryCardProps {
-    transactions: Transaction[];
     budgets: Budget[];
     savingsBalance: number;
-    previousMonthSpending: number;
 }
 
 const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
-    transactions,
     budgets,
     savingsBalance,
-    previousMonthSpending,
 }) => {
+    const { colors } = useTheme();
+    const { dashboardMetrics } = useMetricsStore();
 
-    const {colors} = useTheme();
-    // Calculate current month's transactions more efficiently
-    const currentMonthSpending = useMemo(() => {
-        const now = new Date();
-        const currentMonthStart = startOfMonth(now);
-        const currentMonthEnd = endOfMonth(now);
+    // Use fast pre-calculated metrics from SQLite
+    const currentMonthSpending = dashboardMetrics?.currentMonthSpending || 0;
+    const previousMonthSpending = dashboardMetrics?.previousMonthSpending || 0;
 
-        return transactions
-            .filter(t => {
-                const transactionDate = new Date(t.date);
-                return (
-                    t.type === 'expense' &&
-                    isWithinInterval(transactionDate, {
-                        start: currentMonthStart,
-                        end: currentMonthEnd
-                    })
-                );
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
-    }, [transactions]);
-
-    // Calculate total budget and current-period spent from transactions.
+    // Calculate total budget and current-period spent from pre-aggregated SQL map
     const { totalBudget, totalSpent } = useMemo(() => {
-        const now = new Date();
-        const currentMonthStart = startOfMonth(now);
-        const currentMonthEnd = endOfMonth(now);
-
-        const spentByCategoryId = transactions.reduce<Record<string, number>>((acc, transaction) => {
-            if (transaction.type !== 'expense') return acc;
-
-            const transactionDate = new Date(transaction.date);
-            const inCurrentMonth = isWithinInterval(transactionDate, {
-                start: currentMonthStart,
-                end: currentMonthEnd,
-            });
-
-            if (!inCurrentMonth) return acc;
-
-            const categoryId = transaction.category?.id;
-            if (!categoryId) return acc;
-
-            acc[categoryId] = (acc[categoryId] || 0) + transaction.amount;
-            return acc;
-        }, {});
+        if (!dashboardMetrics) return { totalBudget: 0, totalSpent: 0 };
 
         return budgets.reduce((acc, budget) => {
-            const spentForBudgetCategory = spentByCategoryId[budget.category.id] || 0;
+            const spentForBudgetCategory = dashboardMetrics.expensesByBudgetCategory[budget.category.id] || 0;
             return {
                 totalBudget: acc.totalBudget + budget.limit,
                 totalSpent: acc.totalSpent + spentForBudgetCategory,
             };
         }, { totalBudget: 0, totalSpent: 0 });
-    }, [budgets, transactions]);
+    }, [budgets, dashboardMetrics]);
 
     // Calculate remaining budget
     const remainingBudget = totalBudget - totalSpent;

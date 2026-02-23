@@ -236,7 +236,19 @@ const TransactionFormScreen: React.FC = () => {
 
     const handleFormChange = useCallback((field: keyof FormState, value: any) => {
         dispatch({ type: 'SET_FORM_FIELD', field, value });
-    }, []);
+    }, [dispatch]);
+
+    const handleTypeChange = useCallback((type: TransactionType) => {
+        handleFormChange('type', type);
+    }, [handleFormChange]);
+
+    const handleCategorySelect = useCallback((cat: Category) => {
+        handleFormChange('category', cat);
+    }, [handleFormChange]);
+
+    const setTypeCallback = useCallback((type: TransactionType) => {
+        handleFormChange('type', type);
+    }, [handleFormChange]);
 
     const validateAmount = useCallback((input: string) => {
         const regex = /^[0-9]*\.?[0-9]*$/;
@@ -328,6 +340,10 @@ const TransactionFormScreen: React.FC = () => {
             router.back();
         }
     }, [formState, isRecurringState, recurringSchedule, editMode, transactionId, currentTransaction, currentRecurring, router, saveTransaction, updateTransaction, saveRecurringTransaction, updateRecurringTransaction]);
+
+    const handleFrequencySelect = useCallback((frequency: string) => {
+        dispatch({ type: 'SET_RECURRING_FIELD', field: 'frequency', value: frequency });
+    }, [dispatch]);
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }}>
@@ -570,22 +586,22 @@ const TransactionFormScreen: React.FC = () => {
             <TransactionTypeBottomSheet
                 bottomSheetRef={typeBottomSheetRef}
                 selectedType={formState.type}
-                onSelectType={(type) => handleFormChange('type', type)}
+                onSelectType={handleTypeChange}
                 colors={colors}
             />
 
             <RecurringFrequencyBottomSheet
                 bottomSheetRef={frequencyBottomSheetRef}
                 selectedFrequency={recurringSchedule.frequency}
-                onSelectFrequency={(frequency) => dispatch({ type: 'SET_RECURRING_FIELD', field: 'frequency', value: frequency })}
+                onSelectFrequency={handleFrequencySelect}
                 colors={colors}
             />
 
             <CategoryBottomSheet
                 ref={categoryBottomSheetRef}
-                onSelectCategory={cat => handleFormChange('category', cat)}
+                onSelectCategory={handleCategorySelect}
                 type={formState.type}
-                setType={type => handleFormChange('type', type)}
+                setType={setTypeCallback}
             />
 
             <DateTimePickerModal

@@ -39,14 +39,7 @@ export default function TimeLineScreen() {
 
     const [selectedView, setSelectedView] = useState<TimeView>('Month');
 
-    useEffect(() => {
-        // Only fetch if we haven't loaded before OR if the store is empty
-        // This prevents a full DB re-fetch every time the user switches tabs
-        if (hasFetchedRef.current && transactions.length > 0) return;
-        hasFetchedRef.current = true;
-        // Fetch only 50 initially for fast render
-        fetchTransactions(50).catch(err => console.error('Error loading transactions:', err));
-    }, []);
+    // Transactions are now pre-fetched in _layout.tsx during the splash screen
 
     // Memoize active filters for display
     const activeFilters = useMemo(() => {

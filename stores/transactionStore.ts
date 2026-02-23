@@ -111,9 +111,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   saveTransaction: async (transaction: Transaction) => {
     try {
-      await saveTransactionToDB(transaction);
+      // Optimistic Update: Immediately show in UI
       const newTransactions = [transaction, ...get().transactions];
       set({ transactions: newTransactions });
+
+      // Persist to DB in background
+      await saveTransactionToDB(transaction);
 
       useBudgetStore.getState().updateBudgetForTransaction(transaction, 'add');
       await applyTransactionToAccounts(transaction, true);
@@ -197,14 +200,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   saveBulkTransactions: async (transactions: Transaction[]) => {
     try {
+      // Optimistic Update: Immediately show in UI
+      const newTransactions = [...transactions, ...get().transactions];
+      set({ transactions: newTransactions });
+
       const savedTransactions = await saveBulkTransactionsToDB(transactions);
 
       for (const t of savedTransactions) {
         await applyTransactionToAccounts(t, true);
       }
 
-      const newTransactions = [...savedTransactions, ...get().transactions];
-      set({ transactions: newTransactions });
       useBudgetStore.getState().updateBudgetsForBulkTransactions(savedTransactions, 'add');
       return savedTransactions;
     } catch (error) {

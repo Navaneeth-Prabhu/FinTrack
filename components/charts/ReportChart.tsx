@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useEffect, useMemo, useReducer } from 'reac
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
 import { useTheme } from '@/hooks/useTheme';
-import { useTransactionStore } from '@/stores/transactionStore';
+import { useMetricsStore } from '@/stores/metricsStore';
 import { ThemedText } from '../common/ThemedText';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { ChevronDown } from 'lucide-react-native';
@@ -18,14 +18,8 @@ interface ChartBarData {
 }
 
 interface ChartState {
-    transactions: Transaction[];
     period: 'week' | 'month' | 'year';
-    chartData: ChartBarData[];
     type: 'income' | 'expense';
-    isLoading: boolean;
-    totalAmount: number;
-    incomeTotalAmount: number;
-    expenseTotalAmount: number;
     selectedBarIndex: number;
     selectedBarValue: number;
     displayValue: number;
@@ -35,9 +29,6 @@ interface ChartState {
 type ChartAction =
     | { type: 'SET_PERIOD'; period: 'week' | 'month' | 'year' }
     | { type: 'SET_TYPE'; transactionType: 'income' | 'expense' }
-    | { type: 'SET_TRANSACTIONS'; transactions: Transaction[]; incomeTotal: number; expenseTotal: number }
-    | { type: 'SET_CHART_DATA'; data: ChartBarData[]; totalAmount: number }
-    | { type: 'SET_LOADING'; isLoading: boolean }
     | { type: 'SELECT_BAR'; index: number; value: number; label: string }
     | { type: 'SET_DISPLAY_VALUE'; value: number }
     | { type: 'RESET_SELECTION' };
@@ -48,22 +39,6 @@ const chartReducer = (state: ChartState, action: ChartAction): ChartState => {
             return { ...state, period: action.period, selectedBarIndex: -1, selectedLabel: 'Total' };
         case 'SET_TYPE':
             return { ...state, type: action.transactionType, selectedBarIndex: -1, selectedLabel: 'Total' };
-        case 'SET_TRANSACTIONS':
-            return {
-                ...state,
-                transactions: action.transactions,
-                incomeTotalAmount: action.incomeTotal,
-                expenseTotalAmount: action.expenseTotal
-            };
-        case 'SET_CHART_DATA':
-            return {
-                ...state,
-                chartData: action.data,
-                totalAmount: action.totalAmount,
-                displayValue: state.selectedBarIndex === -1 ? action.totalAmount : state.displayValue
-            };
-        case 'SET_LOADING':
-            return { ...state, isLoading: action.isLoading };
         case 'SELECT_BAR':
             return { ...state, selectedBarIndex: action.index, selectedBarValue: action.value, selectedLabel: action.label };
         case 'SET_DISPLAY_VALUE':
@@ -76,14 +51,8 @@ const chartReducer = (state: ChartState, action: ChartAction): ChartState => {
 };
 
 const initialState: ChartState = {
-    transactions: [],
     period: 'week',
-    chartData: [],
     type: 'expense',
-    isLoading: true,
-    totalAmount: 0,
-    incomeTotalAmount: 0,
-    expenseTotalAmount: 0,
     selectedBarIndex: -1,
     selectedBarValue: 0,
     displayValue: 0,
@@ -93,82 +62,28 @@ const initialState: ChartState = {
 const ReportChart = () => {
     const { colors } = useTheme();
     const frequencyBottomSheetRef = useRef<BottomSheetModal>(null);
-    const { transactions: storeTransactions } = useTransactionStore();
+    const { chartData: rawChartData, isChartLoading, fetchChartMetrics } = useMetricsStore();
 
     const [state, dispatch] = useReducer(chartReducer, initialState);
     const {
-        transactions, period, chartData, type, isLoading, totalAmount,
+        period, type,
         displayValue, selectedBarIndex, selectedBarValue, selectedLabel
     } = state;
 
-    // Filter transactions based on period
-    const filterTransactions = useCallback(() => {
-        try {
-            dispatch({ type: 'SET_LOADING', isLoading: true });
-
-            const now = new Date();
-            let startDate: Date, endDate: Date;
-            if (period === 'week') {
-                const startOfWeek = new Date(now);
-                startOfWeek.setDate(now.getDate() - now.getDay());
-                startOfWeek.setHours(0, 0, 0, 0);
-                const endOfWeek = new Date(now);
-                endOfWeek.setDate(now.getDate() + (6 - now.getDay()));
-                endOfWeek.setHours(23, 59, 59, 999);
-                startDate = startOfWeek;
-                endDate = endOfWeek;
-            } else if (period === 'month') {
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                endOfMonth.setHours(23, 59, 59, 999);
-                startDate = startOfMonth;
-                endDate = endOfMonth;
-            } else {
-                const startOfYear = new Date(now.getFullYear(), 0, 1);
-                const endOfYear = new Date(now.getFullYear(), 11, 31);
-                endOfYear.setHours(23, 59, 59, 999);
-                startDate = startOfYear;
-                endDate = endOfYear;
-            }
-
-            const dateFiltered = storeTransactions.filter((t: Transaction) => {
-                const txDate = new Date(t.date);
-                return txDate >= startDate && txDate <= endDate;
-            });
-
-            const incomeTotal = dateFiltered
-                .filter((t: Transaction) => t.type === 'income')
-                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-
-            const expenseTotal = dateFiltered
-                .filter((t: Transaction) => t.type === 'expense')
-                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-
-            const typeFiltered = dateFiltered.filter((t: Transaction) => t.type === type);
-            dispatch({
-                type: 'SET_TRANSACTIONS',
-                transactions: typeFiltered,
-                incomeTotal: incomeTotal,
-                expenseTotal: expenseTotal
-            });
-        } catch (error) {
-            console.error('Failed to filter transactions:', error);
-        } finally {
-            dispatch({ type: 'SET_LOADING', isLoading: false });
-        }
-    }, [storeTransactions, period, type]);
-
-    // Filter transactions when store data or filters change
+    // Fetch new chart metrics from SQLite when period or type changes
     useEffect(() => {
-        filterTransactions();
-    }, [filterTransactions]);
+        fetchChartMetrics(period, type);
+    }, [period, type, fetchChartMetrics]);
 
-    // Generate chart data and set total amount when transactions change
-    useEffect(() => {
-        const data = generateChartData();
-        const total = transactions.reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-        dispatch({ type: 'SET_CHART_DATA', data, totalAmount: total });
-    }, [transactions]);
+    // Compute UI specific data
+    const defaultColor = type === 'income' ? '#4CAF50' : colors.primary;
+    const chartData = useMemo(() => {
+        return rawChartData.map(d => ({ ...d, frontColor: defaultColor }));
+    }, [rawChartData, defaultColor]);
+
+    const totalAmount = useMemo(() => {
+        return rawChartData.reduce((sum, item) => sum + item.value, 0);
+    }, [rawChartData]);
 
     // Animation effect for display value
     useEffect(() => {
@@ -207,68 +122,7 @@ const ReportChart = () => {
         };
     }, [selectedBarIndex, selectedBarValue, totalAmount]);
 
-    // Generate chart data
-    const generateChartData = useCallback((): ChartBarData[] => {
-        const now = new Date();
-        let data: ChartBarData[] = [];
-        const defaultColor = type === 'income' ? '#4CAF50' : colors.primary;
 
-        if (period === 'week') {
-            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay());
-            startOfWeek.setHours(0, 0, 0, 0);
-
-            data = Array.from({ length: 7 }, (_, i) => {
-                const currentDate = new Date(startOfWeek);
-                currentDate.setDate(startOfWeek.getDate() + i);
-                const dayTotal = transactions
-                    .filter((t: Transaction) => {
-                        const txDate = new Date(t.date);
-                        return txDate.getDate() === currentDate.getDate() &&
-                            txDate.getMonth() === currentDate.getMonth() &&
-                            txDate.getFullYear() === currentDate.getFullYear();
-                    })
-                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-
-                return { label: days[i], value: dayTotal, frontColor: defaultColor };
-            });
-        } else if (period === 'month') {
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            data = Array.from({ length: daysInMonth }, (_, i) => {
-                const day = i + 1;
-                const dayTotal = transactions
-                    .filter((t: Transaction) => {
-                        const txDate = new Date(t.date);
-                        return txDate.getDate() === day &&
-                            txDate.getMonth() === month &&
-                            txDate.getFullYear() === year;
-                    })
-                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-
-                return { label: day.toString(), value: dayTotal, frontColor: defaultColor };
-            });
-        } else if (period === 'year') {
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const year = now.getFullYear();
-
-            data = months.map((month, index) => {
-                const monthTotal = transactions
-                    .filter((t: Transaction) => {
-                        const txDate = new Date(t.date);
-                        return txDate.getMonth() === index &&
-                            txDate.getFullYear() === year;
-                    })
-                    .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-
-                return { label: month, value: monthTotal, frontColor: defaultColor };
-            });
-        }
-        return data;
-    }, [period, transactions, type, colors]);
 
     const handleBarPress = useCallback((item: ChartBarData, index: number) => {
         if (selectedBarIndex === index) {
@@ -333,7 +187,7 @@ const ReportChart = () => {
                 </TouchableOpacity>
             </View>
 
-            {isLoading ? (
+            {isChartLoading ? (
                 <View style={styles.loadingContainer} />
             ) : (
                 <TouchableOpacity

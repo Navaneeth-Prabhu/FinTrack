@@ -4,9 +4,8 @@ import { endOfMonth, isWithinInterval, startOfMonth, subDays } from 'date-fns';
 import { ThemedText } from '../common/ThemedText';
 import { router } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { Transaction } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
-import { useTransactionStore } from '@/stores/transactionStore';
+import { useMetricsStore } from '@/stores/metricsStore';
 import CategoryBar from './CategoryBar';
 import { tokens } from '@/constants/theme';
 
@@ -22,82 +21,19 @@ interface CategoryCardProps {
     type: 'Week' | '30Days' | 'Month';
 }
 
-// Separate utility functions from the component
-const getCategoryTotals = (transactions: Transaction[], filterFn: (transaction: Transaction) => boolean): Record<string, { value: number; color: string }> => {
-    const filteredTransactions = transactions.filter(filterFn);
-    const categoryTotals: Record<string, { value: number; color: string }> = {};
-
-    filteredTransactions.forEach(transaction => {
-        const categoryName = transaction.category.name;
-        const amount = transaction.amount;
-        const categoryColor = transaction.category.color;
-
-        if (categoryTotals[categoryName]) {
-            categoryTotals[categoryName].value += amount;
-        } else {
-            categoryTotals[categoryName] = {
-                value: amount,
-                color: categoryColor
-            };
-        }
-    });
-
-    return categoryTotals;
-};
-
-const transformToProgressData = (categoryTotals: Record<string, { value: number; color: string }>): CategoryProgress[] => {
-    return Object.keys(categoryTotals).map(key => ({
-        label: key,
-        value: categoryTotals[key].value,
-        color: categoryTotals[key].color
-    }));
-};
-
 const CategoryCard: React.FC<CategoryCardProps> = ({ month = new Date(), type }) => {
     const { colors } = useTheme();
-    const { transactions } = useTransactionStore();
-    // Use useMemo to prevent recalculations on every render
+    const { dashboardMetrics } = useMetricsStore();
+
+    // Directly use the SQLite aggregated thirtyDayCategorySpending mapped to progressData
     const progressData = useMemo(() => {
-        const isExpense = (transaction: Transaction) => transaction.type === "expense";
-
-        if (type === 'Week') {
-            const now = new Date();
-            const sevenDaysAgo = subDays(now, 7);
-
-            const isInLastWeek = (transaction: Transaction) => {
-                const entryDate = new Date(transaction.date);
-                return isWithinInterval(entryDate, { start: sevenDaysAgo, end: now }) && isExpense(transaction);
-            };
-
-            const categoryTotals = getCategoryTotals(transactions, isInLastWeek);
-            return transformToProgressData(categoryTotals);
-        }
-        else if (type === '30Days') {
-            const now = new Date();
-            const thirtyDaysAgo = subDays(now, 30);
-
-            const isInLast30Days = (transaction: Transaction) => {
-                const entryDate = new Date(transaction.date);
-                return isWithinInterval(entryDate, { start: thirtyDaysAgo, end: now }) && isExpense(transaction);
-            };
-
-            const categoryTotals = getCategoryTotals(transactions, isInLast30Days);
-            return transformToProgressData(categoryTotals);
-        }
-        else {
-            // Month view
-            const monthStart = startOfMonth(month);
-            const monthEnd = endOfMonth(month);
-
-            const isInSelectedMonth = (transaction: Transaction) => {
-                const entryDate = new Date(transaction.date);
-                return isWithinInterval(entryDate, { start: monthStart, end: monthEnd }) && isExpense(transaction);
-            };
-
-            const categoryTotals = getCategoryTotals(transactions, isInSelectedMonth);
-            return transformToProgressData(categoryTotals);
-        }
-    }, [transactions, type, month]); // Dependencies for useMemo
+        if (!dashboardMetrics) return [];
+        return dashboardMetrics.thirtyDayCategorySpending.map(item => ({
+            label: item.categoryName,
+            value: item.total,
+            color: item.color || '#ccc'
+        }));
+    }, [dashboardMetrics]);
 
     // Only render if we have data
     if (progressData.length === 0) {

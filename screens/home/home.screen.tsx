@@ -1,6 +1,6 @@
 import { Alert, StyleSheet, Text, View } from 'react-native'
 import React, { useEffect, useMemo } from 'react'
-import { useTransactionStore } from '@/stores/transactionStore'
+import { useMetricsStore } from '@/stores/metricsStore';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { Card } from '@/components/common/Card';
 import { useTheme } from '@/hooks/useTheme';
@@ -30,17 +30,21 @@ import { AccountsList } from '@/components/accounts/AccountsList';
 
 const HomeScreen = () => {
     const { colors, isDark } = useTheme();
-    const { transactions, fetchTransactions } = useTransactionStore();
+
+    // Fetch aggregated sqlite metrics instead of the entire transaction array
+    const { dashboardMetrics, fetchDashboardMetrics } = useMetricsStore();
     const { budgets, fetchBudgets } = useBudgetStore();
     const { recurringTransactions } = useRecurringTransactionStore();
-    const { categories, fetchCategories } = useCategoryStore();
-    let top5Transactions = transactions.slice(0, 5);
+    const { fetchCategories } = useCategoryStore();
+
+    // Get the natively fetched recent 5 transactions
+    let top5Transactions = dashboardMetrics?.recentTransactions || [];
 
     useEffect(() => {
         const loadData = async () => {
             try {
                 await Promise.all([
-                    fetchTransactions(),
+                    fetchDashboardMetrics(),
                     fetchCategories(),
                     fetchBudgets()
                 ]);
@@ -49,48 +53,9 @@ const HomeScreen = () => {
             }
         };
         loadData();
-    }, [])
+    }, []);
     // SMS listener removed - SMS functionality is centralized in smsService.ts
     // and initialized in app/_layout.tsx via initializeSMSFeatures()
-
-    // Calculate previous month's spending using date-fns
-    const previousMonthSpending = useMemo(() => {
-        const now = new Date();
-        const previousMonth = subMonths(now, 1);
-        const previousMonthStart = startOfMonth(previousMonth);
-        const previousMonthEnd = endOfMonth(previousMonth);
-
-        return transactions
-            .filter(t => {
-                const transactionDate = new Date(t.date);
-                return (
-                    t.type === 'expense' &&
-                    isWithinInterval(transactionDate, {
-                        start: previousMonthStart,
-                        end: previousMonthEnd
-                    })
-                );
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
-    }, [transactions]);
-
-    // Calculate savings balance from savings/investment related inflows.
-    const savingsBalance = useMemo(() => {
-        const hasSavingsKeyword = (value?: string | null) =>
-            value?.toLowerCase().includes('saving') ?? false;
-
-        return transactions
-            .filter(t =>
-                (t.type === 'income' && (
-                    hasSavingsKeyword(t.category?.name) ||
-                    hasSavingsKeyword(t.toAccount?.name) ||
-                    hasSavingsKeyword(t.mode)
-                )) ||
-                (t.type === 'transfer' && hasSavingsKeyword(t.toAccount?.name)) ||
-                t.type === 'investment'
-            )
-            .reduce((sum, t) => sum + t.amount, 0);
-    }, [transactions]);
 
     const handleTipPress = (category: string) => {
         // Here you would navigate to a detailed tips screen
@@ -187,20 +152,16 @@ const HomeScreen = () => {
                 <CategoryCard type='30Days' />
 
                 <FinancialSummaryCard
-                    transactions={transactions}
                     budgets={budgets}
-                    savingsBalance={savingsBalance}
-                    previousMonthSpending={previousMonthSpending}
+                    savingsBalance={dashboardMetrics?.savingsBalance || 0}
                 />
 
                 <FinancialHealthScore
-                    transactions={transactions}
                     budgets={budgets}
                     onTipPress={handleTipPress}
                 />
 
                 <SmartAlerts
-                    transactions={transactions}
                     recurringTransactions={recurringTransactions}
                 />
             </View>

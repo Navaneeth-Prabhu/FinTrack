@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../common/ThemedText';
 
@@ -13,7 +13,7 @@ interface TransactionTypeBottomSheetProps {
     colors: any;
 }
 
-const TransactionTypeBottomSheet: React.FC<TransactionTypeBottomSheetProps> = ({
+const TransactionTypeBottomSheet: React.FC<TransactionTypeBottomSheetProps> = React.memo(({
     bottomSheetRef,
     selectedType,
     onSelectType,
@@ -41,45 +41,43 @@ const TransactionTypeBottomSheet: React.FC<TransactionTypeBottomSheetProps> = ({
     ];
 
     return (
-        <BottomSheetModalProvider>
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                snapPoints={snapPoints}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: colors.card }}
-                handleIndicatorStyle={{ backgroundColor: colors.border }}
-                enablePanDownToClose={true}
-            >
-                <BottomSheetView style={styles.bottomSheetContent}>
-                    <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
-                        Select Transaction Type
-                    </ThemedText>
-                    <View style={styles.optionsContainer}>
-                        {transactionOptions.map((option) => (
-                            <TouchableOpacity
-                                key={option.type}
-                                style={[
-                                    styles.typeOption,
-                                    { backgroundColor: colors.background },
-                                    selectedType === option.type && { borderColor: option.color, borderWidth: 2 }
-                                ]}
-                                onPress={() => {
-                                    onSelectType(option.type);
-                                    bottomSheetRef.current?.dismiss();
-                                }}
-                            >
-                                <Ionicons name={option.icon as any} size={28} color={option.color} />
-                                <ThemedText style={[styles.typeOptionText, { color: colors.text }]}>
-                                    {option.label}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </BottomSheetView>
-            </BottomSheetModal>
-        </BottomSheetModalProvider>
+        <BottomSheetModal
+            ref={bottomSheetRef}
+            snapPoints={snapPoints}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: colors.card }}
+            handleIndicatorStyle={{ backgroundColor: colors.border }}
+            enablePanDownToClose={true}
+        >
+            <BottomSheetView style={styles.bottomSheetContent}>
+                <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                    Select Transaction Type
+                </ThemedText>
+                <View style={styles.optionsContainer}>
+                    {transactionOptions.map((option) => (
+                        <TouchableOpacity
+                            key={option.type}
+                            style={[
+                                styles.typeOption,
+                                { backgroundColor: colors.background },
+                                selectedType === option.type && { borderColor: option.color, borderWidth: 2 }
+                            ]}
+                            onPress={() => {
+                                onSelectType(option.type);
+                                bottomSheetRef.current?.dismiss();
+                            }}
+                        >
+                            <Ionicons name={option.icon as any} size={28} color={option.color} />
+                            <ThemedText style={[styles.typeOptionText, { color: colors.text }]}>
+                                {option.label}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </BottomSheetView>
+        </BottomSheetModal>
     );
-};
+});
 
 const styles = StyleSheet.create({
     bottomSheetContent: {

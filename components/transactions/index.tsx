@@ -1,5 +1,5 @@
 import React, { useCallback, memo, useMemo } from 'react';
-import { View, StyleSheet, Platform, Alert } from 'react-native';
+import { View, StyleSheet, Platform, Alert, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { Transaction, RecurringTransaction } from '@/types';
 import { TransactionItem } from './TransactionItem';
@@ -52,6 +52,9 @@ const EmptyList = memo(() => {
             <ThemedText style={[styles.emptyText, { color: colors.subtitle }]}>
                 No Transactions
             </ThemedText>
+            <ThemedText style={[styles.emptySubText, { color: colors.subtitle }]}>
+                Pull down to refresh or check for SMS
+            </ThemedText>
         </View>
     );
 });
@@ -67,7 +70,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     const { theme } = usePreferenceStore();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
     const categories = useCategoryStore(state => state.categories);
-    const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore } = useTransactionStore();
+    const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
     const [loading, setLoading] = React.useState(false);
 
     // Derived once, not recalculated in every renderItem call
@@ -168,12 +171,24 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         }
     }, [loading, categories, saveTransaction]);
 
-    // ── Pagination Handler ────────────────────────────────────────────────────
-    const handleRefresh = useCallback(() => {
-        if (!loading) {
-            useTransactionStore.getState().fetchTransactions(50).catch(console.error);
+    // ── Refresh Handler ───────────────────────────────────────────────────────
+    const handleRefresh = useCallback(async () => {
+        if (loading) return;
+        setLoading(true);
+        try {
+            // 1. Refresh transactions from database
+            await useTransactionStore.getState().fetchTransactions(50);
+
+            // 2. Import new SMS transactions if on Android
+            if (Platform.OS === 'android') {
+                await importSMSTransactionsToStore(categories, saveTransaction);
+            }
+        } catch (error) {
+            console.error('[TransactionList] Refresh failed:', error);
+        } finally {
+            setLoading(false);
         }
-    }, [loading]);
+    }, [loading, categories, saveTransaction]);
 
     // ── Pagination Handler ────────────────────────────────────────────────────
     const handleEndReached = useCallback(() => {
@@ -184,7 +199,6 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 
     // ── Conditional renders (after all hooks) ─────────────────────────────────
     if (Platform.OS !== 'android') return null;
-    if (flatData.length === 0) return <EmptyList />;
 
     // ── Main render ───────────────────────────────────────────────────────────
     return (
@@ -203,6 +217,16 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
+                ListEmptyComponent={
+                    isLoading && flatData.length === 0 ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <ThemedText style={[styles.loadingText, { color: colors.subtitle }]}>Loading transactions...</ThemedText>
+                        </View>
+                    ) : (
+                        <EmptyList />
+                    )
+                }
                 onRefresh={handleRefresh}
                 refreshing={loading}
                 // Pagination props
@@ -236,7 +260,23 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     emptyText: {
-        fontSize: 16,
+        fontSize: 18,
+        fontWeight: 'bold',
         textAlign: 'center',
     },
+    emptySubText: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 8,
+        opacity: 0.7,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+    }
 });

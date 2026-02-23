@@ -14,6 +14,7 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   // Initialize tables
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
 
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
@@ -92,6 +93,8 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       createdAt TEXT NOT NULL,
       FOREIGN KEY (categoryId) REFERENCES categories (id)
     );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
   `);
 
   // Safe migrations for existing databases

@@ -20,7 +20,7 @@ export interface CategoryBottomSheetRef {
     dismiss: () => void;
 }
 
-const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(({
+const CategoryBottomSheet = React.memo(forwardRef<CategoryBottomSheetRef, CategoryBottomSheetProps>(({
     onSelectCategory,
     type,
     setType
@@ -68,10 +68,10 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
         []
     );
 
-    const handleEditCategory = () => {
+    const handleEditCategory = useCallback(() => {
         router.push('/category/categoryList');
         bottomSheetModalRef.current?.dismiss();
-    }
+    }, []);
 
     const renderFooter = useCallback(
         (props: any) => (
@@ -98,23 +98,23 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
                         </TouchableOpacity>
                     </View>
                     <TouchableOpacity
-                        onPress={() => handleEditCategory()}
+                        onPress={handleEditCategory}
                         style={[
                             styles.filterButton,
                             { backgroundColor: colors.accent },
                         ]}
                     >
-                        <ThemedText style={{ color: colors.text, textAlignVertical: 'center' }}>New</ThemedText>
+                        <ThemedText style={{ color: colors.text }}>New</ThemedText>
                     </TouchableOpacity>
                 </View>
             </BottomSheetFooter>
         )
-        , [applyFilter, type, colors]);
+        , [applyFilter, type, colors, handleEditCategory]);
 
     return (
         <BottomSheetModal
             ref={bottomSheetModalRef}
-            index={1}
+            index={0}
             snapPoints={useMemo(() => ['55%'], [])}
             onChange={handleSheetChanges}
             backdropComponent={renderBackdrop}
@@ -130,16 +130,18 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
                             Select Category
                         </ThemedText>
                         <View style={styles.iconContainer} >
-                            <MaterialIcons
-                                onPress={() => handleEditCategory()}
-                                name="edit" size={20}
-                                color={colors.text}
-                            />
-                            <Ionicons
-                                onPress={() => bottomSheetModalRef.current?.dismiss()}
-                                name="close" size={26}
-                                color={colors.text}
-                            />
+                            <TouchableOpacity onPress={handleEditCategory}>
+                                <MaterialIcons
+                                    name="edit" size={20}
+                                    color={colors.text}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => bottomSheetModalRef.current?.dismiss()}>
+                                <Ionicons
+                                    name="close" size={26}
+                                    color={colors.text}
+                                />
+                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -170,7 +172,7 @@ const CategoryBottomSheet = forwardRef<CategoryBottomSheetRef, CategoryBottomShe
             </BottomSheetView>
         </BottomSheetModal>
     );
-});
+}));
 
 const styles = StyleSheet.create({
     contentContainer: {

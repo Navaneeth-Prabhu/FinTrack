@@ -1,42 +1,47 @@
 // src/components/FinancialHealthScore.tsx
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Transaction, Budget } from '../types';
-import { format } from 'date-fns';
+import { useMetricsStore } from '@/stores/metricsStore';
+import { Budget } from '../types';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemedText } from './common/ThemedText';
 import { tokens } from '@/constants/theme';
 
 interface FinancialHealthScoreProps {
-    transactions: Transaction[];
     budgets: Budget[];
     onTipPress: (category: string) => void;
 }
 
 const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
-    transactions,
     budgets,
     onTipPress,
 }) => {
-
     const { colors } = useTheme();
+    const { dashboardMetrics } = useMetricsStore();
+
     const scores = useMemo(() => {
+        if (!dashboardMetrics) {
+            return { total: 0, components: [] };
+        }
+
+        const {
+            totalIncome,
+            totalExpenses,
+            expensesByCategory,
+            expensesByBudgetCategory,
+            hasRegularIncome,
+            hasRegularExpenses
+        } = dashboardMetrics;
+
         // Calculate Budget Management score
         const budgetScore = budgets.reduce((acc, budget) => {
+            const spent = expensesByBudgetCategory[budget.category.id] || 0;
             // If spending is within budget, give full points
-            const ratio = budget.spent / budget.limit;
+            const ratio = spent / budget.limit;
             return acc + (ratio <= 1 ? 25 : Math.max(0, 25 - (ratio - 1) * 50));
         }, 0) / Math.max(1, budgets.length);
 
         // Calculate Savings Rate
-        const totalIncome = transactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        const totalExpenses = transactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-
         const savingsRate = totalIncome > 0
             ? Math.min(100, Math.max(0, (totalIncome - totalExpenses) / totalIncome * 100))
             : 0;
@@ -44,14 +49,6 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
         const savingsScore = savingsRate >= 20 ? 25 : (savingsRate / 20) * 25;
 
         // Calculate Expense Diversity
-        const expensesByCategory = transactions
-            .filter(t => t.type === 'expense')
-            .reduce((acc, t) => {
-                const category = t.category.name;
-                acc[category] = (acc[category] || 0) + t.amount;
-                return acc;
-            }, {} as Record<string, number>);
-
         const categoryCount = Object.keys(expensesByCategory).length;
         const totalExpenseAmount = Object.values(expensesByCategory).reduce((sum, amount) => sum + amount, 0);
 
@@ -63,10 +60,6 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
             hasUnbalancedCategory ? 10 : (categoryCount / 4) * 25;
 
         // Calculate Financial Consistency (regular income/expense patterns)
-        // Simple implementation: check if there are recurring transactions
-        const hasRegularIncome = transactions.some(t => t.type === 'income' && t.recurringId);
-        const hasRegularExpenses = transactions.some(t => t.type === 'expense' && t.recurringId);
-
         const consistencyScore = (hasRegularIncome && hasRegularExpenses) ? 25 :
             (hasRegularIncome || hasRegularExpenses) ? 15 : 0;
 
@@ -98,7 +91,7 @@ const FinancialHealthScore: React.FC<FinancialHealthScoreProps> = ({
                 },
             ],
         };
-    }, [transactions, budgets]);
+    }, [dashboardMetrics, budgets]);
 
     // Determine status color
     const getStatusColor = (score: number) => {

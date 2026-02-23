@@ -4,10 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native
 import { Transaction, RecurringTransaction } from '../types';
 import { format, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
 import { useTheme } from '@/hooks/useTheme';
+import { useMetricsStore } from '@/stores/metricsStore';
 import { tokens } from '@/constants/theme';
 
 interface SmartAlertsProps {
-  transactions: Transaction[];
   recurringTransactions: RecurringTransaction[];
   onAlertPress?: (alertId: string) => void;
 }
@@ -40,15 +40,17 @@ const getIconByType = (type: string) => {
 };
 
 const SmartAlerts: React.FC<SmartAlertsProps> = ({
-  transactions,
   recurringTransactions,
   onAlertPress,
 }) => {
-
   const { colors } = useTheme();
+  const { dashboardMetrics } = useMetricsStore();
+
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const now = new Date();
+
+    if (!dashboardMetrics) return result;
 
     // Generate bill payment alerts
     recurringTransactions
@@ -73,41 +75,21 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         }
       });
 
-    // Detect unusual spending patterns
-    const recentTransactions = transactions
-      .filter(t => t.type === 'expense')
-      .filter(t => {
-        const transactionDate = new Date(t.date);
-        return isWithinInterval(transactionDate, {
-          start: startOfDay(addDays(now, -30)),
-          end: endOfDay(now)
-        });
-      });
-
-    const expensesByCategory = recentTransactions.reduce((acc, t) => {
-      const category = t.category.name;
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(t);
-      return acc;
-    }, {} as Record<string, Transaction[]>);
-
-    Object.entries(expensesByCategory).forEach(([category, transactions]) => {
-      const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-      if (totalAmount > 500) {
+    // Detect unusual spending patterns using SQL-aggregated metrics
+    dashboardMetrics.thirtyDayCategorySpending.forEach(({ categoryName, total }) => {
+      if (total > 500) {
         result.push({
-          id: `spending-${category}`,
+          id: `spending-${categoryName}`,
           type: 'spending',
-          title: `High ${category} spending`,
-          description: `You've spent $${totalAmount.toFixed(2)} on ${category} in the last 30 days`,
+          title: `High ${categoryName} spending`,
+          description: `You've spent $${total.toFixed(2)} on ${categoryName} in the last 30 days`,
           priority: 'medium',
         });
       }
     });
 
-    const totalExpenses = recentTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const foodExpenses = expensesByCategory['Food']?.reduce((sum, t) => sum + t.amount, 0) || 0;
+    const foodExpenses = dashboardMetrics.thirtyDayCategorySpending.find(c => c.categoryName === 'Food')?.total || 0;
+    const totalExpenses = dashboardMetrics.totalThirtyDayExpenses;
 
     if (totalExpenses > 0 && (foodExpenses / totalExpenses) > 0.3) {
       result.push({
@@ -120,7 +102,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
     }
 
     return result;
-  }, [transactions, recurringTransactions]);
+  }, [dashboardMetrics, recurringTransactions]);
 
   const renderAlert = useCallback(({ item }: { item: Alert }) => (
     <TouchableOpacity

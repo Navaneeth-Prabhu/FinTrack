@@ -67,12 +67,14 @@ export default function RootLayout() {
     if (loaded) {
       const initializeApp = async () => {
         try {
-          // Parallelize independent startup tasks
-          const [recurringTransactions] = await Promise.all([
-            useRecurringTransactionStore.getState().fetchRecurringTransactions(),
-            registerRecurringTask(),
-            categories.length === 0 ? loadCategories() : Promise.resolve()
-          ]);
+          // Execute startup tasks sequentially to prevent SQLite race conditions 
+          // (multiple stores trying to create/open the DB at the exact same millisecond)
+          if (categories.length === 0) {
+            await loadCategories();
+          }
+          await useRecurringTransactionStore.getState().fetchRecurringTransactions();
+          await useTransactionStore.getState().fetchTransactions(50);
+          await registerRecurringTask();
 
           // Step 3: Generate due transactions (potentially depends on fetch)
           await useRecurringTransactionStore.getState().generateRecurringTransactions();

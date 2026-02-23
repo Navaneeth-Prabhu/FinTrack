@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { ThemedText } from '../common/ThemedText';
 
 type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -12,7 +12,7 @@ interface RecurringFrequencyBottomSheetProps {
     colors: any;
 }
 
-const RecurringFrequencyBottomSheet: React.FC<RecurringFrequencyBottomSheetProps> = ({
+const RecurringFrequencyBottomSheet: React.FC<RecurringFrequencyBottomSheetProps> = React.memo(({
     bottomSheetRef,
     selectedFrequency,
     onSelectFrequency,
@@ -40,44 +40,42 @@ const RecurringFrequencyBottomSheet: React.FC<RecurringFrequencyBottomSheetProps
     ];
 
     return (
-        <BottomSheetModalProvider>
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                snapPoints={snapPoints}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: colors.card }}
-                handleIndicatorStyle={{ backgroundColor: colors.border }}
-                enablePanDownToClose={true}
-            >
-                <BottomSheetView style={styles.bottomSheetContent}>
-                    <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
-                        Select Frequency
-                    </ThemedText>
-                    <View style={styles.optionsContainer}>
-                        {frequencies.map((freq) => (
-                            <TouchableOpacity
-                                key={freq.value}
-                                style={[
-                                    styles.frequencyOption,
-                                    { backgroundColor: colors.background },
-                                    selectedFrequency === freq.value && { borderColor: colors.primary, borderWidth: 2 }
-                                ]}
-                                onPress={() => {
-                                    onSelectFrequency(freq.value);
-                                    bottomSheetRef.current?.dismiss();
-                                }}
-                            >
-                                <ThemedText style={[styles.frequencyOptionText, { color: colors.text }]}>
-                                    {freq.label}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </BottomSheetView>
-            </BottomSheetModal>
-        </BottomSheetModalProvider>
+        <BottomSheetModal
+            ref={bottomSheetRef}
+            snapPoints={snapPoints}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: colors.card }}
+            handleIndicatorStyle={{ backgroundColor: colors.border }}
+            enablePanDownToClose={true}
+        >
+            <BottomSheetView style={styles.bottomSheetContent}>
+                <ThemedText style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                    Select Frequency
+                </ThemedText>
+                <View style={styles.optionsContainer}>
+                    {frequencies.map((freq) => (
+                        <TouchableOpacity
+                            key={freq.value}
+                            style={[
+                                styles.frequencyOption,
+                                { backgroundColor: colors.background },
+                                selectedFrequency === freq.value && { borderColor: colors.primary, borderWidth: 2 }
+                            ]}
+                            onPress={() => {
+                                onSelectFrequency(freq.value);
+                                bottomSheetRef.current?.dismiss();
+                            }}
+                        >
+                            <ThemedText style={[styles.frequencyOptionText, { color: colors.text }]}>
+                                {freq.label}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </BottomSheetView>
+        </BottomSheetModal>
     );
-};
+});
 
 const styles = StyleSheet.create({
     bottomSheetContent: {

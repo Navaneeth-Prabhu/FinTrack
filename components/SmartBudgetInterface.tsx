@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { format } from 'date-fns';
 import { PieChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
-import { Budget, Category, Transaction } from '../types';
-import { useTransactionStore } from '../stores/transactionStore';
+import { Budget, Category } from '../types';
+import { useMetricsStore } from '../stores/metricsStore';
 import { useBudgetStore } from '../stores/budgetStore';
 import { useCategoryStore } from '../stores/categoryStore';
 
 const SmartBudgetInterface = () => {
-  const { transactions } = useTransactionStore();
+  const { dashboardMetrics } = useMetricsStore();
   const { budgets } = useBudgetStore();
   const { categories } = useCategoryStore();
 
@@ -20,16 +20,16 @@ const SmartBudgetInterface = () => {
   // Calculate scenario budgets
   useEffect(() => {
     if (budgets.length === 0) return;
-    
+
     // Deep copy of budgets to avoid mutation
     const defaultBudgets = JSON.parse(JSON.stringify(budgets));
-    
+
     // Create save scenario (reduce spending by 15%)
     const saveBudgets = defaultBudgets.map((budget: Budget) => ({
       ...budget,
       limit: budget.limit * 0.85,
     }));
-    
+
     // Create splurge scenario (increase spending by 10%)
     const splurgeBudgets = defaultBudgets.map((budget: Budget) => ({
       ...budget,
@@ -52,35 +52,30 @@ const SmartBudgetInterface = () => {
   // Function to generate AI recommendations
   const generateRecommendations = () => {
     setIsGenerating(true);
-    
+
     // Simulate AI recommendation generation
     setTimeout(() => {
       // This would be replaced with actual AI logic
       const newRecommendations = [...budgets].map(budget => {
-        // Analyze recent transactions in this category
-        const categoryTransactions = transactions.filter(t => 
-          t.category.id === budget.category.id && 
-          new Date(t.date) >= new Date(budget.startDate)
-        );
-        
-        const totalSpent = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
-        
+        // Use pre-calculated SQL aggregates for category spending
+        const totalSpent = dashboardMetrics?.expensesByBudgetCategory[budget.category.id] || 0;
+
         // If spending is higher than 90% of budget, recommend 10% increase
         // If spending is less than 60% of budget, recommend 5% decrease
         let recommendedLimit = budget.limit;
-        
+
         if (totalSpent > budget.limit * 0.9) {
           recommendedLimit = budget.limit * 1.1;
         } else if (totalSpent < budget.limit * 0.6) {
           recommendedLimit = budget.limit * 0.95;
         }
-        
+
         return {
           ...budget,
           limit: Math.round(recommendedLimit),
         };
       });
-      
+
       setRecommendations(newRecommendations);
       setIsGenerating(false);
     }, 1500);
@@ -98,8 +93,8 @@ const SmartBudgetInterface = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Smart Budget</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton} 
+        <TouchableOpacity
+          style={styles.refreshButton}
           onPress={generateRecommendations}
           disabled={isGenerating}
         >
@@ -110,18 +105,18 @@ const SmartBudgetInterface = () => {
           )}
         </TouchableOpacity>
       </View>
-      
+
       <Text style={styles.subtitle}>
         AI-recommended budget allocations based on your spending patterns
       </Text>
-      
+
       {/* Scenario selection */}
       <View style={styles.scenarioContainer}>
         <Text style={styles.scenarioLabel}>What-if Scenarios:</Text>
         <View style={styles.scenarioButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.scenarioButton, 
+              styles.scenarioButton,
               selectedScenario === 'default' && styles.selectedScenario
             ]}
             onPress={() => setSelectedScenario('default')}
@@ -131,10 +126,10 @@ const SmartBudgetInterface = () => {
               selectedScenario === 'default' && styles.selectedScenarioText
             ]}>Default</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
-              styles.scenarioButton, 
+              styles.scenarioButton,
               selectedScenario === 'save' && styles.selectedScenario
             ]}
             onPress={() => setSelectedScenario('save')}
@@ -144,10 +139,10 @@ const SmartBudgetInterface = () => {
               selectedScenario === 'save' && styles.selectedScenarioText
             ]}>Save More</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
-              styles.scenarioButton, 
+              styles.scenarioButton,
               selectedScenario === 'splurge' && styles.selectedScenario
             ]}
             onPress={() => setSelectedScenario('splurge')}
@@ -159,7 +154,7 @@ const SmartBudgetInterface = () => {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Budget visualization */}
       <View style={styles.chartContainer}>
         <PieChart
@@ -174,34 +169,34 @@ const SmartBudgetInterface = () => {
           showValuesAsLabels
         />
       </View>
-      
+
       {/* Budget adjustments list */}
       <View style={styles.recommendationsContainer}>
         <Text style={styles.recommendationsTitle}>Recommended Adjustments</Text>
-        
+
         {recommendations.map((budget) => (
           <View key={budget.id} style={styles.budgetItem}>
             <View style={styles.categoryInfo}>
               <Text style={styles.categoryIcon}>{budget.category.icon}</Text>
               <Text style={styles.categoryName}>{budget.category.name}</Text>
             </View>
-            
+
             <View style={styles.budgetInfo}>
               <View style={styles.budgetComparison}>
                 <Text style={styles.currentBudget}>
                   Current: ${budgets.find(b => b.id === budget.id)?.limit || 0}
                 </Text>
-                <Ionicons 
-                  name="arrow-forward" 
-                  size={16} 
-                  color="#888" 
+                <Ionicons
+                  name="arrow-forward"
+                  size={16}
+                  color="#888"
                   style={styles.arrow}
                 />
                 <Text style={styles.recommendedBudget}>
                   New: ${budget.limit}
                 </Text>
               </View>
-              
+
               <TouchableOpacity style={styles.applyButton}>
                 <Text style={styles.applyButtonText}>Apply</Text>
               </TouchableOpacity>
