@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import React, { useLayoutEffect, useMemo } from 'react'
 import { Transaction, RecurringTransaction } from '@/types'
 import { ThemedText } from '@/components/common/ThemedText'
@@ -24,7 +25,7 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
         [transaction, recurringTransactions]
     );
 
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const navigation = useNavigation();
 
     const merchantLoyaltyScore = useMemo(() => {
@@ -97,8 +98,10 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
 
     const data = isRecurring ? recurring : transaction;
 
+    console.log(data)
     return (
         <View style={{ flex: 1, gap: 24, backgroundColor: colors.background }}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20, backgroundColor: colors.background }}>
                 <View style={{
@@ -172,10 +175,16 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                         <ThemedText variant="body1">Transaction Type</ThemedText>
                         <ThemedText variant="body1">{transaction?.mode || 'N/A'}</ThemedText>
                     </View> */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <ThemedText variant="body1">Account</ThemedText>
-                        <ThemedText variant="body1">{transaction?.toAccount?.name || 'N/A'}</ThemedText>
-                    </View>
+                    {(transaction?.fromAccount || transaction?.toAccount) && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <ThemedText variant="body1">Account</ThemedText>
+                            <ThemedText variant="body1">
+                                {transaction?.type === 'income'
+                                    ? transaction?.toAccount?.name
+                                    : transaction?.fromAccount?.name}
+                            </ThemedText>
+                        </View>
+                    )}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">Paid To</ThemedText>
                         <ThemedText variant="body1">{transaction?.paidTo || 'N/A'}</ThemedText>
@@ -184,6 +193,14 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                         <ThemedText variant="body1">Mode</ThemedText>
                         <ThemedText variant="body1">{transaction?.mode || 'N/A'}</ThemedText>
                     </View>
+                    {transaction?.refNumber && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <ThemedText variant="body1">Reference No.</ThemedText>
+                            <ThemedText variant="body1" style={{ color: colors.primary }}>
+                                {transaction.refNumber}
+                            </ThemedText>
+                        </View>
+                    )}
                 </Card>
             )}
             <TouchableOpacity onPress={() => router.push(`/transaction/visitedHistory/${transaction?.id}`)}>
@@ -195,8 +212,15 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
             {/* Notes */}
             <Card variant="outlined" style={{ gap: 8, borderWidth: 1, borderColor: colors.border }}>
                 <ThemedText variant="body1">Note</ThemedText>
-                {/* <ThemedText variant="body1">{data?.note || 'No note added'}</ThemedText> */}
+                <ThemedText variant="body1">{(data as any)?.note || (data as any)?.description || 'No note added'}</ThemedText>
             </Card>
+            {/* Raw SMS Data */}
+            {!isRecurring && transaction?.source?.rawData && (
+                <Card variant="outlined" style={{ gap: 8, borderWidth: 1, borderColor: colors.border }}>
+                    <ThemedText variant="body1">Raw SMS</ThemedText>
+                    <ThemedText variant="body1">{transaction.source.rawData}</ThemedText>
+                </Card>
+            )}
         </View>
     );
 };

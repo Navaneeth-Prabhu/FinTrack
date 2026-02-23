@@ -9,7 +9,6 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { CategoryIcon } from './CategoryIcon';
 import { TransactionAmount } from './TransactionAmount';
 import { formatDateString } from '@/utils/date';
-import { useTheme } from '@/hooks/useTheme';
 import { TransactionDetails } from './TransactionText';
 
 interface TransactionItemProps {
@@ -21,16 +20,41 @@ interface TransactionItemProps {
 export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
     ({ transaction, isUpcoming, dateFormate }) => {
         const router = useRouter();
-        const { colors } = useTheme();
 
-        // Use dateFormate prop if provided, otherwise use defaults
-        const formattedDate = isUpcoming
-            ? formatDateString(transaction.date, {
-                dateFormat: dateFormate || 'MMM dd, yyyy',
-                includeTime: false,
-                excludeYearIfCurrent: true
-            })
-            : formatDateString(transaction.date, dateFormate ? { dateFormat: dateFormate } : { timeOnly: true });
+        // Fast-path date formatting to avoid expensive date-fns parseISO during fast scroll
+        const formattedDate = React.useMemo(() => {
+            if (isUpcoming) {
+                return formatDateString(transaction.date, {
+                    dateFormat: dateFormate || 'MMM dd, yyyy',
+                    includeTime: false,
+                    excludeYearIfCurrent: true
+                });
+            }
+
+            if (dateFormate) {
+                return formatDateString(transaction.date, { dateFormat: dateFormate });
+            }
+
+            // High-performance path for standard timeline scrolling (time only)
+            // ISO date is formatted like "2024-02-19T14:30:00.000Z"
+            // We can extract time directly without parsing the whole date object
+            try {
+                // If it's a valid ISO string with a T
+                if (transaction.date.includes('T')) {
+                    const timePart = transaction.date.split('T')[1].substring(0, 5); // "14:30"
+                    const [hourStr, minStr] = timePart.split(':');
+                    let hours = parseInt(hourStr, 10);
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12; // the hour '0' should be '12'
+                    return `${hours}:${minStr} ${ampm}`;
+                }
+            } catch (e) {
+                // Fallback
+            }
+
+            return formatDateString(transaction.date, { timeOnly: true });
+        }, [transaction.date, isUpcoming, dateFormate]);
 
         const handlePress = React.useCallback(() => {
             if (isUpcoming && transaction.recurringId) {

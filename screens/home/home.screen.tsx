@@ -25,10 +25,11 @@ import { generateRandomChartData } from '@/components/charts/barchartData';
 import LineChart from '@/components/charts/CustomLineChart';
 import ReportChart from '@/components/charts/ReportChart';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { AccountsList } from '@/components/accounts/AccountsList';
 
 const HomeScreen = () => {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const { transactions, fetchTransactions } = useTransactionStore();
     const { budgets, fetchBudgets } = useBudgetStore();
     const { recurringTransactions } = useRecurringTransactionStore();
@@ -146,28 +147,15 @@ const HomeScreen = () => {
                     pointerEvents="none"
                 />
             )}
-            <StatusBar translucent backgroundColor="#8662e6" barStyle={isLightTheme ? 'dark-content' : 'light-content'} />
+            <StatusBar style={isDark ? 'light' : 'dark'} />
             <View style={{ flex: 1, gap: 24 }}>
                 <View style={{ height: tokens.spacing.xxl }} />
                 <TotalBalance />
                 <ExtraInfo />
-                {/* <ExpenseChartWidget /> */}
-                {/* <View style={{ paddingHorizontal: tokens.spacing.md, }}>
-                    <View style={{ backgroundColor: colors.card, borderRadius: tokens.borderRadius.md }}>
-                        <CustomLineChart
-                            data={data}
-                            lineColor={colors.primary}
-                            gradientColors={["#8662e6", "#6E88F720"]}
-                            chartHeight={250}
-                            yLabelCount={5}
-                            curved={true}
-                            showDots={true}
-                            animate={true}
-                            labelColor={colors.subtitle}
-                            titleColor={colors.text}
-                        />
-                    </View>
-                </View> */}
+
+                {/* Account Balances List Component */}
+                <AccountsList />
+
                 <ReportChart />
                 <View style={{
                     backgroundColor: colors.background, borderRadius: tokens.borderRadius.md, overflow: 'hidden',
@@ -215,14 +203,6 @@ const HomeScreen = () => {
                     transactions={transactions}
                     recurringTransactions={recurringTransactions}
                 />
-
-                {/* <SmartBalanceForecast
-                    transactions={transactions}
-                    recurringTransactions={recurringTransactions}
-                    currentBalance={savingsBalance}
-                /> */}
-
-                {/* <SmartBudgetInterface /> */}
             </View>
         </View>
     )

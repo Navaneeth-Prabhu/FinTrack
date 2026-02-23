@@ -17,9 +17,13 @@ import { useAccountStore } from './accountStore';
 interface TransactionState {
   transactions: Transaction[];
   isLoading: boolean;
+  isFetchingMore: boolean;
+  hasMore: boolean;
+  currentPage: number;
   error: string | null;
 
-  fetchTransactions: () => Promise<void>;
+  fetchTransactions: (limit?: number) => Promise<void>;
+  fetchMoreTransactions: (limit?: number) => Promise<void>;
   saveTransaction: (transaction: Transaction) => Promise<Transaction>;
   updateTransaction: (transaction: Transaction) => Promise<Transaction | { updatedTransaction: Transaction, similarTransactions: Transaction[] }>;
   removeTransaction: (id: string) => Promise<void>;
@@ -57,19 +61,51 @@ const applyTransactionToAccounts = async (t: Transaction, isAdd: boolean) => {
 export const useTransactionStore = create<TransactionState>((set, get) => ({
   transactions: [],
   isLoading: false,
+  isFetchingMore: false,
+  hasMore: true,
+  currentPage: 0,
   error: null,
 
-  fetchTransactions: async () => {
+  fetchTransactions: async (limit?: number) => {
     try {
-      set({ isLoading: true, error: null });
-      const transactions = await fetchTransactionsFromDB();
-      set({ transactions, isLoading: false });
+      set({ isLoading: true, error: null, currentPage: 0, hasMore: true });
+      const transactions = await fetchTransactionsFromDB(limit, 0);
+      set({
+        transactions,
+        isLoading: false,
+        hasMore: limit !== undefined ? transactions.length === limit : false
+      });
     } catch (error) {
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch transactions',
       });
       throw error;
+    }
+  },
+
+  fetchMoreTransactions: async (limit: number = 50) => {
+    const { isFetchingMore, hasMore, currentPage, transactions } = get();
+    if (isFetchingMore || !hasMore) return;
+
+    try {
+      set({ isFetchingMore: true, error: null });
+      const nextPage = currentPage + 1;
+      const offset = nextPage * limit;
+
+      const newTransactions = await fetchTransactionsFromDB(limit, offset);
+
+      set({
+        transactions: [...transactions, ...newTransactions],
+        isFetchingMore: false,
+        currentPage: nextPage,
+        hasMore: newTransactions.length === limit
+      });
+    } catch (error) {
+      set({
+        isFetchingMore: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch more transactions',
+      });
     }
   },
 

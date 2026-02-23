@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 export const saveAccountToDB = async (account: Account): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync(
-        `INSERT INTO accounts (id, name, type, balance, currency, isIncludeInNetWorth, color, icon)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO accounts (id, name, type, balance, currency, isIncludeInNetWorth, color, icon, provider, accountNumber)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         account.id,
         account.name,
         account.type,
@@ -14,7 +14,9 @@ export const saveAccountToDB = async (account: Account): Promise<void> => {
         account.currency ?? 'INR',
         account.isIncludeInNetWorth ? 1 : 0,
         account.color ?? null,
-        account.icon ?? null
+        account.icon ?? null,
+        account.provider ?? null,
+        account.accountNumber ?? null
     );
 };
 
@@ -31,6 +33,8 @@ export const fetchAccountsFromDB = async (): Promise<Account[]> => {
         isIncludeInNetWorth: row.isIncludeInNetWorth === 1,
         color: row.color,
         icon: row.icon,
+        provider: row.provider,
+        accountNumber: row.accountNumber,
     }));
 };
 
@@ -38,7 +42,7 @@ export const updateAccountInDB = async (account: Account): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync(
         `UPDATE accounts 
-         SET name = ?, type = ?, balance = ?, currency = ?, isIncludeInNetWorth = ?, color = ?, icon = ?
+         SET name = ?, type = ?, balance = ?, currency = ?, isIncludeInNetWorth = ?, color = ?, icon = ?, provider = ?, accountNumber = ?
          WHERE id = ?;`,
         account.name,
         account.type,
@@ -47,6 +51,8 @@ export const updateAccountInDB = async (account: Account): Promise<void> => {
         account.isIncludeInNetWorth ? 1 : 0,
         account.color ?? null,
         account.icon ?? null,
+        account.provider ?? null,
+        account.accountNumber ?? null,
         account.id
     );
 };

@@ -12,23 +12,23 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         animation: 'none',
+        lazy: true,
         tabBarActiveTintColor: colors.primary,
         headerShown: false,
-        tabBarShowLabel: false, 
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopWidth: 0,
           height: Platform.OS === 'ios' ? 88 : 70,
           paddingTop: Platform.OS === 'ios' ? 10 : 10,
         }
-        
       }}
-      >
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <LayoutPanelLeft color={color}/>,
+          tabBarIcon: ({ color }) => <LayoutPanelLeft color={color} />,
           headerTitle: '',
         }}
       />
@@ -40,7 +40,7 @@ export default function TabLayout() {
           headerStyle: {
             backgroundColor: colors.background,
           },
-          tabBarIcon: ({ color }) => <ArrowRightLeft color={color}/>,
+          tabBarIcon: ({ color }) => <ArrowRightLeft color={color} />,
         }}
       />
       <Tabs.Screen

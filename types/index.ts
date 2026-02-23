@@ -38,6 +38,7 @@ export interface Transaction {
     system: string, // e.g., 'ynab', 'mint', etc.
     id: string,
   }],
+  refNumber?: string;
 }
 
 export interface Category {
@@ -97,10 +98,12 @@ export type TimeView = 'Day' | 'Week' | 'Month' | 'Year' | 'Custom';
 export interface Account {
   id: string;
   name: string;
-  type: 'bank' | 'cash' | 'credit_card' | 'wallet' | 'investment';
+  type: 'bank' | 'cash' | 'credit_card' | 'wallet' | 'investment' | 'other';
   balance: number;
-  currency?: string;
+  currency: string;
   isIncludeInNetWorth: boolean;
   color?: string;
   icon?: string;
+  provider?: string;
+  accountNumber?: string;
 }

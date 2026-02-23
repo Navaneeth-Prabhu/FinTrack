@@ -2,7 +2,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { Stack } from 'expo-router';
 
 export default function TransactionLayout() {
-     const { colors } = useTheme();
+    const { colors } = useTheme();
     return (
         <Stack
             screenOptions={{

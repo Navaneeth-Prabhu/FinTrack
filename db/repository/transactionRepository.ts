@@ -6,8 +6,8 @@ export const saveTransactionToDB = async (transaction: Transaction): Promise<voi
     const db = await initDatabase();
     console.log('Saving transaction:', transaction);
     await db.runAsync(
-        `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, recurringId, fromAccountId, toAccountId)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, recurringId, fromAccountId, toAccountId, refNumber, sourceRawData)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         transaction.id,
         transaction.amount,
         transaction.type,
@@ -21,7 +21,9 @@ export const saveTransactionToDB = async (transaction: Transaction): Promise<voi
         transaction.source.type,
         transaction.recurringId ?? null,
         transaction.fromAccount?.id ?? null,
-        transaction.toAccount?.id ?? null
+        transaction.toAccount?.id ?? null,
+        transaction.refNumber ?? null,
+        transaction.source.rawData ?? null
     );
 };
 
@@ -41,11 +43,12 @@ const mapRowToTransaction = (row: any): Transaction => ({
         type: row.categoryType,
         color: row.categoryColor,
     },
-    source: { type: row.sourceType },
+    source: { type: row.sourceType, rawData: row.sourceRawData || undefined },
     mode: row.mode,
     recurringId: row.recurringId || undefined,
     fromAccount: row.fromAccountId ? { id: row.fromAccountId, name: row.fromAccountName } : undefined,
     toAccount: row.toAccountId ? { id: row.toAccountId, name: row.toAccountName } : undefined,
+    refNumber: row.refNumber || undefined,
 });
 
 const baseSelectQuery = `
@@ -64,6 +67,8 @@ const baseSelectQuery = `
     t.recurringId,
     t.fromAccountId,
     t.toAccountId,
+    t.refNumber,
+    t.sourceRawData,
     c.id AS categoryId, 
     c.name AS categoryName, 
     c.icon AS categoryIcon, 
@@ -77,9 +82,18 @@ const baseSelectQuery = `
   LEFT JOIN accounts a2 ON t.toAccountId = a2.id
 `;
 
-export const fetchTransactionsFromDB = async (): Promise<Transaction[]> => {
+export const fetchTransactionsFromDB = async (limit?: number, offset: number = 0): Promise<Transaction[]> => {
     const db = await initDatabase();
-    const transactions = await db.getAllAsync(baseSelectQuery);
+
+    let query = baseSelectQuery + ' ORDER BY t.date DESC';
+    const params: any[] = [];
+
+    if (limit !== undefined) {
+        query += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+    }
+
+    const transactions = await db.getAllAsync(query, params);
     return transactions.map(mapRowToTransaction);
 };
 
@@ -98,7 +112,9 @@ export const updateTransactionInDB = async (transaction: Transaction): Promise<T
              mode = ?,
              recurringId = ?,
              fromAccountId = ?,
-             toAccountId = ?
+             toAccountId = ?,
+             refNumber = ?,
+             sourceRawData = ?
          WHERE id = ?`,
         transaction.amount,
         transaction.type,
@@ -112,6 +128,8 @@ export const updateTransactionInDB = async (transaction: Transaction): Promise<T
         transaction.recurringId ?? null,
         transaction.fromAccount?.id ?? null,
         transaction.toAccount?.id ?? null,
+        transaction.refNumber ?? null,
+        transaction.source.rawData ?? null,
         transaction.id
     );
 
@@ -132,8 +150,8 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
         await db.withTransactionAsync(async () => {
             const insertPromises = transactions.map(transaction =>
                 db.runAsync(
-                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, fromAccountId, toAccountId)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, fromAccountId, toAccountId, refNumber)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
                     transaction.id,
                     transaction.amount,
                     transaction.type,
@@ -146,7 +164,8 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
                     transaction.mode,
                     transaction.source.type,
                     transaction.fromAccount?.id ?? null,
-                    transaction.toAccount?.id ?? null
+                    transaction.toAccount?.id ?? null,
+                    transaction.refNumber ?? null
                 )
             );
             await Promise.all(insertPromises);

@@ -1,6 +1,6 @@
 // src/components/transactions/TransactionList/ListFooter.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -9,19 +9,26 @@ interface ListFooterProps {
     expense: number;
   };
   count: number;
+  isFetchingMore?: boolean;
 }
 
-export const ListFooter: React.FC<ListFooterProps> = ({ totals, count }) => {
+export const ListFooter: React.FC<ListFooterProps> = ({ totals, count, isFetchingMore }) => {
   const { colors } = useTheme();
 
   return (
     <View style={styles.container}>
-      <ThemedText style={[styles.text, { color: colors.subtitle }]}>
-        total cash flow ${totals.expense.toLocaleString()}
-      </ThemedText>
-      <ThemedText style={[styles.text, { color: colors.subtitle }]}>
-        {count} transactions
-      </ThemedText>
+      {isFetchingMore ? (
+        <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
+      ) : (
+        <>
+          <ThemedText style={[styles.text, { color: colors.subtitle }]}>
+            total cash flow ${totals.expense.toLocaleString()}
+          </ThemedText>
+          <ThemedText style={[styles.text, { color: colors.subtitle }]}>
+            {count} transactions
+          </ThemedText>
+        </>
+      )}
     </View>
   );
 };
@@ -35,4 +42,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 12,
   },
+  loader: {
+    marginVertical: 8,
+  }
 });

@@ -32,7 +32,9 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       currency TEXT,
       isIncludeInNetWorth INTEGER NOT NULL,
       color TEXT,
-      icon TEXT
+      icon TEXT,
+      provider TEXT,
+      accountNumber TEXT
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
@@ -50,6 +52,8 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       recurringId TEXT,
       fromAccountId TEXT,
       toAccountId TEXT,
+      refNumber TEXT,
+      sourceRawData TEXT,
       FOREIGN KEY (categoryId) REFERENCES categories (id),
       FOREIGN KEY (recurringId) REFERENCES recurring_transactions (id),
       FOREIGN KEY (fromAccountId) REFERENCES accounts (id),
@@ -102,6 +106,38 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   try {
     await db.execAsync(`
       ALTER TABLE transactions ADD COLUMN toAccountId TEXT REFERENCES accounts(id);
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execAsync(`
+      ALTER TABLE transactions ADD COLUMN refNumber TEXT;
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execAsync(`
+      ALTER TABLE transactions ADD COLUMN sourceRawData TEXT;
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execAsync(`
+      ALTER TABLE accounts ADD COLUMN provider TEXT;
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execAsync(`
+      ALTER TABLE accounts ADD COLUMN accountNumber TEXT;
     `);
   } catch (e) {
     // Column might already exist

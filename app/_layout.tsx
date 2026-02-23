@@ -19,13 +19,14 @@ import { initializeSMSFeatures } from '@/services/smsInitService';
 import { useTheme } from '@/hooks/useTheme';
 import SplashScreenComponent from '../components/SplashScreen';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   // All hooks must be called at the top, before any return
-  const { isDark, colorScheme } = useTheme();
+  const { isDark, colorScheme, colors } = useTheme();
   const [loaded] = useFonts({
     Urbanist_400Regular,
     Urbanist_500Medium,
@@ -123,12 +124,15 @@ export default function RootLayout() {
 
   // Update navigation bar color and button style on theme change (Android only)
   useEffect(() => {
+    // Sync the root native view background to prevent white flashes during navigation/keyboard
+    SystemUI.setBackgroundColorAsync(colors.background).catch(() => { });
+
     if (Platform.OS === 'android') {
       // Set navigation bar color to match theme
-      NavigationBar.setBackgroundColorAsync(isDark ? '#1E1E1E' : '#FFFFFF');
-      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+      NavigationBar.setBackgroundColorAsync(colors.background).catch(() => { });
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => { });
     }
-  }, [isDark]);
+  }, [isDark, colors.background]);
 
   // Show splash screen for 2 seconds
   if (showSplash) {

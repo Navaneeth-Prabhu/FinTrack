@@ -196,6 +196,7 @@ export const syncTransactionsToSupabase = async (
             local_recurring_id: tx.recurringId ?? null,
             currency: 'INR',
             merchant: tx.paidTo ?? tx.paidBy ?? null,
+            ref_number: tx.refNumber ?? null,
         };
     });
 

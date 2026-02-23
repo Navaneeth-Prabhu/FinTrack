@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface TransactionAmountProps {
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense' | 'transfer' | 'investment';
   isUpcoming?: boolean;
 }
 

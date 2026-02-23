@@ -8,8 +8,10 @@ import {
   CategorizationOptions,
   getSMSAIPreference,
 } from '@/services/smsCategorizationService';
-import { Category, Transaction } from '@/types';
+import { Category, Transaction, Account } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAccountStore } from '@/stores/accountStore';
+import { supabase } from '@/services/supabaseClient';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 const PROCESSED_SMS_IDS_KEY = 'processed_sms_ids';
@@ -56,17 +58,28 @@ function resolvePaymentMode(parsed: ParsedSMS & { smsId?: string }): string {
 function resolveAccount(parsed: ParsedSMS & { smsId?: string }): string | undefined {
   if (parsed.bank && parsed.accountLast4) return `${parsed.bank} ••••${parsed.accountLast4}`;
   if (parsed.bank) return parsed.bank;
-  if (parsed.accountLast4) return `••••${parsed.accountLast4}`;
+
   const body = (parsed.rawSMS ?? '').toLowerCase();
   const sender = (parsed.sender ?? '').toLowerCase();
   const combined = `${sender} ${body}`;
-  if (combined.includes('hdfc')) return 'HDFC Bank';
-  if (combined.includes('icici')) return 'ICICI Bank';
-  if (combined.includes('sbi') || combined.includes('onlsbi')) return 'SBI';
-  if (combined.includes('axis')) return 'Axis Bank';
-  if (combined.includes('kotak')) return 'Kotak Mahindra';
-  if (combined.includes('paytm')) return 'Paytm';
-  if (combined.includes('phonepe')) return 'PhonePe';
+
+  let detectedBank: string | undefined = undefined;
+  if (combined.includes('hdfc')) detectedBank = 'HDFC Bank';
+  else if (combined.includes('icici')) detectedBank = 'ICICI Bank';
+  else if (combined.includes('sbi') || combined.includes('onlsbi')) detectedBank = 'SBI';
+  else if (combined.includes('axis')) detectedBank = 'Axis Bank';
+  else if (combined.includes('kotak')) detectedBank = 'Kotak Mahindra';
+  else if (combined.includes('paytm')) detectedBank = 'Paytm';
+  else if (combined.includes('phonepe')) detectedBank = 'PhonePe';
+  else if (combined.includes('kerala gramin') || combined.includes('kgbank')) detectedBank = 'Kerala Gramin Bank';
+
+  if (detectedBank) {
+    parsed.bank = detectedBank;
+    if (parsed.accountLast4) return `${detectedBank} ••••${parsed.accountLast4}`;
+    return detectedBank;
+  }
+
+  if (parsed.accountLast4) return `••••${parsed.accountLast4}`;
   return undefined;
 }
 
@@ -96,6 +109,68 @@ export const convertToAppTransaction = async (
     type: parsed.type === 'income' ? 'income' : 'expense',
   };
 
+  // ── Auto-create and Link Account ──
+  let linkedAccount: Account | undefined = undefined;
+  const accountName = resolveAccount(parsed);
+
+  if (accountName && !['Unknown', 'Other', 'UPI', 'Cash'].includes(accountName)) {
+    const accountStore = useAccountStore.getState();
+    // 1. Try to find the exact account in the store by name
+    linkedAccount = accountStore.accounts.find(a =>
+      a.name.toLowerCase() === accountName.toLowerCase() ||
+      (a.accountNumber && accountName.includes(a.accountNumber))
+    );
+
+    // 2. If it doesn't exist locally, auto-create it
+    if (!linkedAccount) {
+      const newAccount: Account = {
+        id: `acc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: accountName,
+        type: 'bank',
+        balance: 0,
+        currency: 'INR',
+        isIncludeInNetWorth: true,
+        color: '#ABDF75', // Default green-ish bank color
+        icon: '🏦', // Default bank icon
+        provider: parsed.bank ?? 'Unknown Bank',
+        accountNumber: parsed.accountLast4 ?? undefined,
+      };
+
+      try {
+        linkedAccount = await accountStore.addAccount(newAccount);
+        console.log(`[SMS::Account] Auto-created new account locally: ${newAccount.name}`);
+
+        // ── Push to Supabase optionally if online ──
+        if (options.isOnline && options.userId) {
+          const { error } = await supabase.from('accounts').insert({
+            id: newAccount.id, // Or omit if UUID is assigned by Supabase
+            user_id: options.userId,
+            type: 'bank',
+            provider: newAccount.provider,
+            account_number: newAccount.accountNumber,
+            account_name: newAccount.name,
+            balance: newAccount.balance,
+            currency: newAccount.currency,
+            metadata: {
+              color: newAccount.color,
+              icon: newAccount.icon,
+              isIncludeInNetWorth: newAccount.isIncludeInNetWorth
+            }
+          });
+          if (error) {
+            console.error('[SMS::Account] Error syncing auto-created account to Supabase:', error);
+          } else {
+            console.log(`[SMS::Account] Successfully synced account to Supabase: ${newAccount.name}`);
+          }
+        }
+      } catch (err) {
+        console.error('[SMS::Account] Error creating account automatically:', err);
+      }
+    } else {
+      console.log(`[SMS::Account] Found existing account: ${linkedAccount.name}`);
+    }
+  }
+
   return {
     id: `sms_${parsed.smsId ?? Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     amount: parsed.amount,
@@ -106,11 +181,14 @@ export const convertToAppTransaction = async (
     paidTo: parsed.type !== 'income' ? (parsed.merchant ?? 'Unknown') : undefined,
     paidBy: parsed.type === 'income' ? (parsed.merchant ?? parsed.sender) : resolveAccount(parsed),
     category: matchedCategory,
+    fromAccount: parsed.type !== 'income' ? linkedAccount : undefined,
+    toAccount: parsed.type === 'income' ? linkedAccount : undefined,
     source: {
       type: 'sms',
       rawData: parsed.rawSMS,
     },
     mode: resolvePaymentMode(parsed),
+    refNumber: parsed.refNumber ?? undefined,
     note: [
       `Auto-import from SMS`,
       parsed.bank ? `Bank: ${parsed.bank}` : null,

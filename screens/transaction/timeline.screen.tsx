@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, useColorScheme, ScrollView } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, ScrollView } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { useTransactionStore } from '@/stores/transactionStore';
@@ -17,12 +17,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import usePreferenceStore from '@/stores/preferenceStore';
 
 export default function TimeLineScreen() {
-    const colorScheme = useColorScheme();
     const { theme } = usePreferenceStore();
-    const { transactions, fetchTransactions } = useTransactionStore();
+    const { transactions, fetchTransactions, isLoading } = useTransactionStore();
     const { recurringTransactions } = useRecurringTransactionStore();
     const { categories } = useCategoryStore();
     const bottomSheetRef = useRef<BottomSheetModal>(null);
+    // Track if we've ever successfully fetched — prevents re-fetch on every tab switch
+    const hasFetchedRef = useRef(false);
 
     // Applied filters state (only updated when Apply button is pressed)
     const [appliedFilters, setAppliedFilters] = useState({
@@ -39,14 +40,12 @@ export default function TimeLineScreen() {
     const [selectedView, setSelectedView] = useState<TimeView>('Month');
 
     useEffect(() => {
-        const loadTransactions = async () => {
-            try {
-                await fetchTransactions();
-            } catch (error) {
-                console.error('Error loading transactions:', error);
-            }
-        };
-        loadTransactions();
+        // Only fetch if we haven't loaded before OR if the store is empty
+        // This prevents a full DB re-fetch every time the user switches tabs
+        if (hasFetchedRef.current && transactions.length > 0) return;
+        hasFetchedRef.current = true;
+        // Fetch only 50 initially for fast render
+        fetchTransactions(50).catch(err => console.error('Error loading transactions:', err));
     }, []);
 
     // Memoize active filters for display

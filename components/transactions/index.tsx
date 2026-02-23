@@ -12,6 +12,8 @@ import { ListFooter } from './ListFooter';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { importSMSTransactionsToStore } from '@/utils/SMSTransactionUtil';
+import { darkTheme, lightTheme } from '@/constants/theme';
+import usePreferenceStore from '@/stores/preferenceStore';
 
 interface TransactionListProps {
     transactions: Transaction[];
@@ -62,10 +64,14 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 }) => {
     // ── Hooks (always at top, no early returns before this) ──────────────────
     const { colors } = useTheme();
+    const { theme } = usePreferenceStore();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
     const categories = useCategoryStore(state => state.categories);
-    const saveTransaction = useTransactionStore(state => state.saveTransaction);
+    const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore } = useTransactionStore();
     const [loading, setLoading] = React.useState(false);
+
+    // Derived once, not recalculated in every renderItem call
+    const sectionBg = theme === 'dark' ? darkTheme.background : lightTheme.card;
 
     // ── Flatten sections → single array for FlashList ────────────────────────
     // FlashList requires a flat data array; we embed headers as items and track
@@ -111,7 +117,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                     {
                         paddingTop: item.isFirst ? 0 : 12,
                         paddingBottom: 8,
-                        backgroundColor: colors.background
+                        backgroundColor: sectionBg
                     },
                 ]}>
                     <MemoizedSectionHeader section={item.section} />
@@ -126,7 +132,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 />
             </View>
         );
-    }, [colors.background]);
+    }, [sectionBg]);
 
     // Tells FlashList which recycling pool to use — critical for performance
     const getItemType = useCallback((item: ListItem) => item.type, []);
@@ -136,8 +142,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     ), [overView, totals]);
 
     const ListFooterComponent = useCallback(() => (
-        <ListFooter totals={totals} count={transactions.length} />
-    ), [totals, transactions.length]);
+        <ListFooter totals={totals} count={transactions.length} isFetchingMore={isFetchingMore} />
+    ), [totals, transactions.length, isFetchingMore]);
 
     // ── SMS import handler ────────────────────────────────────────────────────
     const handleImport = useCallback(async () => {
@@ -162,9 +168,19 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         }
     }, [loading, categories, saveTransaction]);
 
+    // ── Pagination Handler ────────────────────────────────────────────────────
     const handleRefresh = useCallback(() => {
-        handleImport();
-    }, [handleImport]);
+        if (!loading) {
+            useTransactionStore.getState().fetchTransactions(50).catch(console.error);
+        }
+    }, [loading]);
+
+    // ── Pagination Handler ────────────────────────────────────────────────────
+    const handleEndReached = useCallback(() => {
+        if (!isFetchingMore && hasMore) {
+            fetchMoreTransactions().catch(console.error);
+        }
+    }, [isFetchingMore, hasMore, fetchMoreTransactions]);
 
     // ── Conditional renders (after all hooks) ─────────────────────────────────
     if (Platform.OS !== 'android') return null;
@@ -177,17 +193,25 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 data={flatData}
                 renderItem={renderItem}
                 getItemType={getItemType}
-                estimatedItemSize={72}
+                // Updated to match the actual measured item height + margin (80 + 8 = 88)
+                estimatedItemSize={88}
+                // Setting estimatedListSize helps FlashList skip a major layout calculation step
+                estimatedListSize={{ height: 800, width: 400 }}
+                // Pre-render more items off-screen so fast-scrolling doesn't reveal blank space
+                drawDistance={1000}
                 stickyHeaderIndices={stickyIndices}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
                 onRefresh={handleRefresh}
                 refreshing={loading}
-                // Performance tuning
-                overrideItemLayout={(layout, item) => {
-                    // Give FlashList more accurate size hints to reduce layout thrash
-                    layout.size = item.type === 'header' ? 48 : 80;
+                // Pagination props
+                onEndReached={handleEndReached}
+                onEndReachedThreshold={0.5} // Trigger when half a screen from bottom
+                // Performance tuning - explicit hints skip measuring phases
+                overrideItemLayout={(layout, item, index, maxDim) => {
+                    // Header height + padding calculation matches render styles exactly
+                    layout.size = item.type === 'header' ? (item.isFirst ? 40 : 52) : 88;
                 }}
             />
         </View>

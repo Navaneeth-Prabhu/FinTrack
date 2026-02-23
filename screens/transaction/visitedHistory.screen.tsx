@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Platform, StatusBar } from 'react-native'
+import { StyleSheet, Text, View, Platform } from 'react-native'
 import React, { useMemo, useState, useLayoutEffect, useCallback } from 'react'
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
@@ -10,6 +10,7 @@ import { BarChart } from 'react-native-gifted-charts';
 import { addMonths, format, isSameMonth, isSameYear, max, min, parseISO, startOfMonth, subMonths, differenceInMonths } from 'date-fns';
 import { formatLargeNumber } from '@/utils/numberUtl';
 import { ThemedText } from '@/components/common/ThemedText';
+import { StatusBar } from 'expo-status-bar';
 
 const VisitedHistoryScreen = () => {
 
@@ -114,7 +115,7 @@ const VisitedHistoryScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={{ backgroundColor: colors.card, paddingVertical: 16 }}>
         <BarChart

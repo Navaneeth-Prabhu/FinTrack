@@ -26,6 +26,7 @@ export interface ParsedSMS {
     bank: string | null;          // e.g. "HDFC Bank" | null
     accountLast4: string | null;  // e.g. "1234" | null
     paymentMethod: string | null; // "UPI" | "Card" | "NEFT" | etc.
+    refNumber: string | null;     // Extracted reference number / Transaction ID
     confidence: number;           // 0–1
 }
 
@@ -68,6 +69,7 @@ const BANK_SENDER_MAP: Record<string, string[]> = {
     paytm: ['PYTMBNK', 'PYTMIN', 'PAYTM'],
     phonepe: ['PHNPAY', 'PHONEP', 'PHPEBN'],
     gpay: ['GOOGPAY', 'GPAY', 'OKAXIS', 'OKICICI', 'OKSBI', 'OKHDFCBANK'],
+    kgbank: ['KGBANK', 'KGB'],
 };
 
 // Pretty display names
@@ -76,6 +78,7 @@ const BANK_DISPLAY_NAMES: Record<string, string> = {
     kotak: 'Kotak Mahindra Bank', yes: 'Yes Bank', indusind: 'IndusInd Bank',
     idfc: 'IDFC First Bank', federal: 'Federal Bank', rbl: 'RBL Bank',
     paytm: 'Paytm', phonepe: 'PhonePe', gpay: 'Google Pay',
+    kgbank: 'Kerala Gramin Bank',
 };
 
 function detectBank(sender: string | undefined): string | null {
@@ -337,6 +340,10 @@ const GENERIC_AMOUNT_PATTERNS: RegExp[] = [
     /amount[:\s]+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
 ];
 
+const GENERIC_REF_PATTERNS: RegExp[] = [
+    /(?:UPI Ref No|UPI Ref|Ref No|Ref\.?|UTR|txn id|transaction id)[:\-\s]+([a-zA-Z0-9]{6,20})\b/i,
+];
+
 // ─── Financial keyword filter ─────────────────────────────────────────────────
 const FINANCIAL_KEYWORDS = [
     'bank', 'credit', 'debit', 'transaction', 'account', 'spent',
@@ -465,16 +472,14 @@ function extractAccount(body: string, bankKey: string | null): string | null {
     if (bankKey && BANK_PATTERNS[bankKey]) {
         for (const p of BANK_PATTERNS[bankKey].account) {
             const m = body.match(p);
-            // Return last capture group that is all-digits (the 4-digit suffix)
             if (m) {
                 const digits = m.slice(1).reverse().find(g => g && /^\d+$/.test(g));
                 if (digits) return digits;
             }
         }
     }
-    // Generic: look for masked account "XXXX1234" or "**1234" or "x-1234"
-    const generic = body.match(/(?:[Xx*]{3,}|[Xx]-?)(\d{3,4})\b/);
-    return generic?.[1] ?? null;
+    const generic = body.match(/(?:[Xx*]{1,}|a\/c\s*(?:no\.?\s*)?[Xx*]+|a\/c\s*\*+)([0-9]{3,5})\b/i) || body.match(/(?:[Xx*]{3,}|[Xx]-?)[0-9]{3,5}\b/i);
+    return generic?.[1] ?? body.match(/(?:a\/c|account)[\s\w]*?\*?([0-9]{3,5})\b/i)?.[1] ?? null;
 }
 
 // ─── Merchant extraction ──────────────────────────────────────────────────────
@@ -637,6 +642,17 @@ function parseRawDateStr(s: string): Date | null {
     return null;
 }
 
+// ─── Extract Ref Number ───────────────────────────────────────────────────────
+function extractRefNumber(body: string): string | null {
+    for (const p of GENERIC_REF_PATTERNS) {
+        const m = body.match(p);
+        if (m && m[1]) {
+            return m[1].toUpperCase();
+        }
+    }
+    return null;
+}
+
 // ─── Confidence scoring ───────────────────────────────────────────────────────
 function calculateConfidence(fields: {
     amount: number;
@@ -699,6 +715,9 @@ export const extractTransactionFromSMS = (
     const date = extractDate(smsBody, bankKey);
     const accountLast4 = extractAccount(smsBody, bankKey);
     const paymentMethod = detectPaymentMethod(smsBody);
+    const refNumber = extractRefNumber(smsBody);
+
+    // We optionally add the refNumber to confidence calculation if we want, currently skipped.
     const confidence = calculateConfidence({ amount, merchant, date, accountLast4, bankKey });
 
     const dateStr = date
@@ -720,6 +739,7 @@ export const extractTransactionFromSMS = (
         bank: bankName,
         accountLast4,
         paymentMethod,
+        refNumber,
         confidence,
     };
 };
