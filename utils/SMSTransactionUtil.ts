@@ -9,32 +9,36 @@ import {
   getSMSAIPreference,
 } from '@/services/smsCategorizationService';
 import { Category, Transaction, Account } from '@/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAccountStore } from '@/stores/accountStore';
 import { supabase } from '@/services/supabaseClient';
+import {
+  getProcessedSmsIdsFromDb,
+  saveProcessedSmsIdsToDb,
+  getSmsWatermarkFromDb,
+  setSmsWatermarkInDb
+} from '@/db/services/sqliteService';
 
-// ─── Storage keys ─────────────────────────────────────────────────────────────
-const PROCESSED_SMS_IDS_KEY = 'processed_sms_ids';
+// ─── Deduplication / Watermark helpers ─────────────────────────────────────────
 
-// ─── Deduplication helpers ────────────────────────────────────────────────────
-export const getProcessedSMSIds = async (): Promise<string[]> => {
-  try {
-    const raw = await AsyncStorage.getItem(PROCESSED_SMS_IDS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+/** Gets the timestamp of the newest processed SMS */
+export const getSmsWatermark = async (): Promise<number> => {
+  return await getSmsWatermarkFromDb();
 };
 
-export const saveProcessedSMSIds = async (ids: string[]): Promise<void> => {
+/**
+ * Updates the watermark timestamp.
+ * Only advances forward. Never goes backwards.
+ */
+export const updateSmsWatermark = async (newDateTs: number): Promise<void> => {
+  if (!newDateTs || isNaN(newDateTs)) return;
   try {
-    const existing = await getProcessedSMSIds();
-    const merged = [...new Set([...existing, ...ids])];
-    // Keep only the newest 5000 IDs to avoid unbounded storage growth
-    const trimmed = merged.slice(-5000);
-    await AsyncStorage.setItem(PROCESSED_SMS_IDS_KEY, JSON.stringify(trimmed));
+    const current = await getSmsWatermarkFromDb();
+    if (newDateTs > current) {
+      await setSmsWatermarkInDb(newDateTs);
+      console.log(`[SMS::Watermark] Advanced to ${new Date(newDateTs).toISOString()}`);
+    }
   } catch (err) {
-    console.error('[SMS::Util] Error saving processed IDs:', err);
+    console.error('[SMS::Watermark] Error updating watermark:', err);
   }
 };
 
@@ -209,33 +213,70 @@ export const getNewTransactionsFromSMS = async (
     const aiEnabled = await getSMSAIPreference();
     const options: CategorizationOptions = { aiEnabled, isOnline, userId };
 
-    const smsTransactions = await getTransactionsFromSMS();
-    if (smsTransactions.length === 0) return [];
+    const watermark = force ? 0 : await getSmsWatermarkFromDb();
+    console.log(`[SMS::Util] Fetching from watermark: ${watermark > 0 ? new Date(watermark).toISOString() : 'beginning'}`);
 
-    const processedIds = await getProcessedSMSIds();
-    console.log(`[SMS::Util] Raw: ${smsTransactions.length}, Processed: ${processedIds.length}`);
+    // If we have a watermark, only grab messages newer than it.
+    // We add a tiny 1ms buffer to avoid re-fetching the exact last message.
+    const minDate = watermark > 0 && !force ? watermark + 1 : 0;
+
+    // The parser now accepts minDate to pass down to native ContentResolver.
+    const smsTransactions = await getTransactionsFromSMS(minDate);
+
+    if (smsTransactions.length === 0) {
+      console.log('[SMS::Util] No new SMS transactions.');
+      return [];
+    }
+
+    // Get ALL historically processed IDs from SQLite (fast O(1) loop filter)
+    const processedIds = await getProcessedSmsIdsFromDb();
 
     const newTransactions = force
       ? smsTransactions
       : smsTransactions.filter(t => t.smsId && !processedIds.includes(t.smsId));
 
     if (newTransactions.length === 0) {
-      console.log('[SMS::Util] No new SMS transactions.');
+      console.log('[SMS::Util] No un-processed SMS transactions after dedup.');
       return [];
     }
 
-    console.log(`[SMS::Util] Converting ${newTransactions.length} new transactions...`);
+    // Filter by confidence *before* running AI conversion
+    const MIN_CONFIDENCE_THRESHOLD = 0.35;
+    const highConfidenceTransactions = newTransactions.filter(t => t.confidence >= MIN_CONFIDENCE_THRESHOLD);
 
-    // Convert sequentially to avoid hammering the DB/AI with concurrent requests
-    const appTransactions: Transaction[] = [];
-    for (const t of newTransactions) {
+    console.log(`[SMS::Util] Converting ${highConfidenceTransactions.length} new transactions (filtered out ${newTransactions.length - highConfidenceTransactions.length} low confidence)`);
+
+    // Process all high-confidence transactions in parallel using Promise.all
+    const conversionPromises = highConfidenceTransactions.map(async t => {
       const tx = await convertToAppTransaction(t, categories, options);
-      appTransactions.push(tx);
+      return { tx, smsId: t.smsId, date: t.date };
+    });
+
+    const conversionResults = await Promise.all(conversionPromises);
+
+    const appTransactions: Transaction[] = [];
+    const newlyProcessedIds: string[] = [];
+    let maxDateProcessed = watermark;
+
+    for (const res of conversionResults) {
+      appTransactions.push(res.tx);
+      if (res.smsId) newlyProcessedIds.push(res.smsId);
+
+      const txDateTs = new Date(res.date).getTime();
+      if (txDateTs > maxDateProcessed) {
+        maxDateProcessed = txDateTs;
+      }
     }
 
-    // Mark as processed
-    const newIds = newTransactions.map(t => t.smsId).filter(Boolean) as string[];
-    await saveProcessedSMSIds(newIds);
+    // Update watermark to the newest SMS we just processed
+    if (maxDateProcessed > watermark) {
+      await updateSmsWatermark(maxDateProcessed);
+    }
+
+    // Permanently save the individual IDs to SQLite as an extra layer of protection
+    if (newlyProcessedIds.length > 0) {
+      await saveProcessedSmsIdsToDb(newlyProcessedIds);
+    }
 
     return appTransactions;
   } catch (err) {

@@ -671,13 +671,13 @@ function calculateConfidence(fields: {
 }
 
 // ─── Read financial SMS ───────────────────────────────────────────────────────
-export const readFinancialSMS = async (): Promise<RawSmsMessage[]> => {
+export const readFinancialSMS = async (minDate = 0, limit = 300): Promise<RawSmsMessage[]> => {
     const hasPermission = await requestSMSPermission();
     if (!hasPermission) return [];
 
-    const messages = await readSmsMessages(300, 0);
+    const messages = await readSmsMessages(limit, minDate);
     const financial = messages.filter(m => m.body && isFinancialSms(m.body));
-    console.log(`[SMS::Parser] ${messages.length} total → ${financial.length} financial`);
+    console.log(`[SMS::Parser] Scan (minDate=${minDate}): ${messages.length} total → ${financial.length} financial`);
 
     await AsyncStorage.setItem(LAST_SMS_SCAN_KEY, Date.now().toString());
     return financial;
@@ -763,9 +763,9 @@ function combineDateWithTime(iso: string, smsTimestamp: number): Date {
 }
 
 // ─── Full pipeline: read SMS → parse → return structured list ─────────────────
-export const getTransactionsFromSMS = async () => {
+export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
     try {
-        const messages = await readFinancialSMS();
+        const messages = await readFinancialSMS(minDate, limit);
         const transactions: (ParsedSMS & { smsId: string | undefined; date: string })[] = [];
 
         for (const message of messages) {
@@ -773,7 +773,7 @@ export const getTransactionsFromSMS = async () => {
             const parsed = extractTransactionFromSMS(message.body, message.address);
 
             if (!parsed) {
-                console.log(`[SMS::Parser] No transaction found in SMS ${smsId}`);
+                // We keep this log silent to avoid spam during bulk scans
                 continue;
             }
 

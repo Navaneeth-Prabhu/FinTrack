@@ -37,5 +37,15 @@
         <data android:scheme="exp+fintrack"/>
       </intent-filter>
     </activity>
+    
+    <!-- Real-time SMS Listener Service (Headless JS) -->
+    <service android:name=".SmsListenerService" android:exported="false" />
+    
+    <!-- Real-time SMS Receiver -->
+    <receiver android:name=".SmsReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

@@ -11,6 +11,8 @@ interface PreferenceState {
     setTheme: (theme: ThemeMode) => void;
     biometrics: boolean;
     setBiometrics: (biometrics: boolean) => void;
+    currency: string;
+    setCurrency: (currency: string) => void;
     // Add this to store the resolved theme for components that need direct access
     resolvedTheme: ColorScheme;
 }
@@ -22,6 +24,8 @@ const usePreferenceStore = create<PreferenceState>()(
             setTheme: (theme) => set({ theme }),
             biometrics: false,
             setBiometrics: (biometrics) => set({ biometrics }),
+            currency: 'USD',
+            setCurrency: (currency) => set({ currency }),
             // Default value, will be updated by the useTheme hook
             resolvedTheme: 'light',
         }), {

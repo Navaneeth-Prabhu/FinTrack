@@ -18,11 +18,6 @@ import SmartBudgetInterface from '@/components/SmartBudgetInterface';
 import TotalBalance from '@/components/TotalBalance';
 import { ExtraInfo } from '@/components/ExtraInfo';
 // SMS functionality is handled centrally via smsService.ts and initialized in _layout.tsx
-import ExpenseChartWidget from '@/components/charts/ExpenseChartWidget';
-import CustomLineChart from '@/components/charts/CustomLineChart';
-import BarChart from '@/components/charts/ExpenseChartWidget';
-import { generateRandomChartData } from '@/components/charts/barchartData';
-import LineChart from '@/components/charts/CustomLineChart';
 import ReportChart from '@/components/charts/ReportChart';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -90,15 +85,6 @@ const HomeScreen = () => {
         );
     };
 
-    const data = [
-        { label: 'Jan', value: 125 },
-        { label: 'Feb', value: 220 },
-        { label: 'Mar', value: 180 },
-        { label: 'Apr', value: 250 },
-        { label: 'May', value: 310 },
-        { label: 'Jun', value: 190 },
-        { label: 'Jul', value: 270 },
-    ];
 
     // Detect light theme by checking if background color is very bright (e.g., starts with #f or #e)
     const isLightTheme = /^#(f|e|c|d)/i.test(colors.background);
@@ -163,6 +149,12 @@ const HomeScreen = () => {
 
                 <SmartAlerts
                     recurringTransactions={recurringTransactions}
+                />
+
+                <SmartBalanceForecast
+                    transactions={dashboardMetrics?.recentTransactions || []}
+                    recurringTransactions={recurringTransactions}
+                    currentBalance={dashboardMetrics?.currentBalance || 0}
                 />
             </View>
         </View>

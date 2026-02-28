@@ -2,10 +2,11 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Transaction, RecurringTransaction } from '../types';
-import { format, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
+import { format as formatDate, addDays, isWithinInterval, startOfDay, endOfDay, isFuture } from 'date-fns';
 import { useTheme } from '@/hooks/useTheme';
 import { useMetricsStore } from '@/stores/metricsStore';
 import { tokens } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface SmartAlertsProps {
   recurringTransactions: RecurringTransaction[];
@@ -45,6 +46,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
 }) => {
   const { colors } = useTheme();
   const { dashboardMetrics } = useMetricsStore();
+  const { format } = useCurrency();
 
   const alerts = useMemo(() => {
     const result: Alert[] = [];
@@ -65,7 +67,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
             id: `bill-${bill.id}`,
             type: 'bill',
             title: `${bill.category.name} payment due`,
-            description: `Payment of $${bill.amount.toFixed(2)} is due on ${format(dueDate, 'MMM dd')}`,
+            description: `Payment of ${format(bill.amount)} is due on ${formatDate(dueDate, 'MMM dd')}`,
             dueDate: bill.startDate,
             priority: isWithinInterval(dueDate, {
               start: startOfDay(now),
@@ -76,13 +78,17 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
       });
 
     // Detect unusual spending patterns using SQL-aggregated metrics
+    let totalExpenseSoFar = dashboardMetrics.totalThirtyDayExpenses;
+
     dashboardMetrics.thirtyDayCategorySpending.forEach(({ categoryName, total }) => {
-      if (total > 500) {
+      // Adjusted dynamic threshold: 25% of total monthly expenses or $500 fallback
+      const threshold = totalExpenseSoFar > 0 ? totalExpenseSoFar * 0.25 : 500;
+      if (total > threshold) {
         result.push({
           id: `spending-${categoryName}`,
           type: 'spending',
           title: `High ${categoryName} spending`,
-          description: `You've spent $${total.toFixed(2)} on ${categoryName} in the last 30 days`,
+          description: `You've spent ${format(total)} on ${categoryName} in the last 30 days`,
           priority: 'medium',
         });
       }
@@ -116,7 +122,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         <Text style={styles.alertDescription}>{item.description}</Text>
         {item.dueDate && (
           <Text style={styles.alertDate}>
-            Due: {format(new Date(item.dueDate), 'MMM dd, yyyy')}
+            Due: {formatDate(new Date(item.dueDate), 'MMM dd, yyyy')}
           </Text>
         )}
       </View>
@@ -154,7 +160,6 @@ export default SmartAlerts;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',

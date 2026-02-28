@@ -1,45 +1,176 @@
 package com.fintrack.FinTrack
 
+import android.database.ContentObserver
 import android.database.Cursor
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
 import org.json.JSONObject
 
 class SmsModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
+    companion object {
+        private const val TAG = "SmsModule"
+        private const val SMS_RECEIVED_EVENT = "SmsReceived"
+        private const val SMS_URI = "content://sms/inbox"
+
+        private val FINANCIAL_KEYWORDS = listOf(
+            "bank", "credit", "debit", "transaction", "account", "spent",
+            "payment", "transfer", "balance", "card", "upi", "atm", "paid",
+            "credited", "debited", "withdrawn", "deposit", "purchase",
+            "inr", "rs", "rupee", "₹", "refund", "cashback", "emi",
+            "neft", "rtgs", "imps", "nach", "mandate"
+        )
+
+        private fun isFinancialSms(body: String): Boolean {
+            val lower = body.lowercase()
+            return FINANCIAL_KEYWORDS.any { lower.contains(it) }
+        }
+    }
+
     override fun getName(): String = "SmsModule"
 
-    /**
-     * Read SMS messages from the inbox.
-     *
-     * @param maxCount   Maximum number of messages to return (most recent first).
-     * @param minDate    Unix timestamp (ms). Only messages received after this date are returned.
-     *                   Pass 0 to disable the filter.
-     * @param promise    Resolved with a JSON string of [{address, body, date, _id}].
-     */
+    // ─── ContentObserver for real-time SMS detection ──────────────────────────
+    private var smsObserver: ContentObserver? = null
+    private var lastObservedId: Long = -1L
+
+    @ReactMethod
+    fun startSmsObserver() {
+        if (smsObserver != null) {
+            Log.d(TAG, "Observer already running")
+            return
+        }
+
+        // Snapshot the current newest SMS ID so we don't re-fire old messages
+        lastObservedId = getLatestSmsId()
+        Log.d(TAG, "Starting SMS ContentObserver. Last known SMS id=$lastObservedId")
+
+        val handler = Handler(Looper.getMainLooper())
+        smsObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                onChange(selfChange, null)
+            }
+
+            override fun onChange(selfChange: Boolean, uri: Uri?) {
+                Log.d(TAG, "ContentObserver onChange fired")
+                checkForNewSms()
+            }
+        }
+
+        reactContext.contentResolver.registerContentObserver(
+            Uri.parse(SMS_URI),
+            true,
+            smsObserver!!
+        )
+        Log.d(TAG, "SMS ContentObserver registered")
+    }
+
+    @ReactMethod
+    fun stopSmsObserver() {
+        smsObserver?.let {
+            reactContext.contentResolver.unregisterContentObserver(it)
+            smsObserver = null
+            Log.d(TAG, "SMS ContentObserver unregistered")
+        }
+    }
+
+    private fun getLatestSmsId(): Long {
+        var maxId = -1L
+        try {
+            val cursor: Cursor? = reactContext.contentResolver.query(
+                Uri.parse(SMS_URI),
+                arrayOf("_id"),
+                null,
+                null,
+                "_id DESC LIMIT 1"
+            )
+            cursor?.use { c ->
+                if (c.moveToFirst()) {
+                    maxId = c.getLong(c.getColumnIndexOrThrow("_id"))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting latest SMS id", e)
+        }
+        return maxId
+    }
+
+    private fun checkForNewSms() {
+        try {
+            val cursor: Cursor? = reactContext.contentResolver.query(
+                Uri.parse(SMS_URI),
+                arrayOf("_id", "address", "body", "date"),
+                if (lastObservedId > 0) "_id > $lastObservedId" else null,
+                null,
+                "_id DESC LIMIT 5"
+            )
+
+            val newMessages = mutableListOf<JSONObject>()
+
+            cursor?.use { c ->
+                val idIdx = c.getColumnIndexOrThrow("_id")
+                val addressIdx = c.getColumnIndexOrThrow("address")
+                val bodyIdx = c.getColumnIndexOrThrow("body")
+                val dateIdx = c.getColumnIndexOrThrow("date")
+
+                while (c.moveToNext()) {
+                    val id = c.getLong(idIdx)
+                    val body = c.getString(bodyIdx) ?: continue
+
+                    if (id > lastObservedId) lastObservedId = id
+
+                    if (isFinancialSms(body)) {
+                        val sms = JSONObject().apply {
+                            put("_id", id.toString())
+                            put("address", c.getString(addressIdx))
+                            put("body", body)
+                            put("date", c.getLong(dateIdx))
+                        }
+                        newMessages.add(sms)
+                        Log.d(TAG, "Financial SMS detected from ${c.getString(addressIdx)}")
+                    }
+                }
+            }
+
+            // Emit each new financial SMS to JS individually
+            for (sms in newMessages) {
+                emitSmsEvent(sms)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking for new SMS", e)
+        }
+    }
+
+    private fun emitSmsEvent(sms: JSONObject) {
+        try {
+            reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                ?.emit(SMS_RECEIVED_EVENT, sms.toString())
+            Log.d(TAG, "Emitted SmsReceived event for: ${sms.optString("address")}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error emitting SMS event", e)
+        }
+    }
+
+    // ─── Read SMS inbox (existing API — unchanged) ────────────────────────────
     @ReactMethod
     fun getTransactionSms(maxCount: Int, minDate: Double, promise: Promise) {
         try {
-            val uri = Uri.parse("content://sms/inbox")
+            val uri = Uri.parse(SMS_URI)
             val projection = arrayOf("_id", "address", "body", "date")
 
-            // Filter: only bank/service sender IDs (alphanumeric, not personal numbers)
-            // Also apply date filter if minDate > 0
             val selectionParts = mutableListOf<String>()
-
-            // REMOVED aggressive sender filtering (e.g. "address NOT LIKE '0%'")
-            // to support emulator numbers and legitimate shortcodes (e.g. 56767).
-            // Filtering is handled by content analysis in JS.
-
             if (minDate > 0) {
                 selectionParts.add("date >= ${minDate.toLong()}")
             }
-
             val selection = if (selectionParts.isEmpty()) null else selectionParts.joinToString(" AND ")
 
             val cursor: Cursor? = reactContext.contentResolver.query(
@@ -51,7 +182,6 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
             )
 
             val result = JSONArray()
-
             cursor?.use { c ->
                 val idIdx = c.getColumnIndexOrThrow("_id")
                 val addressIdx = c.getColumnIndexOrThrow("address")
@@ -73,4 +203,11 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
             promise.reject("SMS_READ_ERROR", e.message ?: "Unknown error reading SMS", e)
         }
     }
+
+    // Required for DeviceEventEmitter listeners to work in RN
+    @ReactMethod
+    fun addListener(eventName: String) { /* no-op required by RN */ }
+
+    @ReactMethod
+    fun removeListeners(count: Double) { /* no-op required by RN */ }
 }

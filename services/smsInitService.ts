@@ -66,28 +66,4 @@ export const initializeSMSFeatures = async (opts: SMSInitOptions): Promise<void>
   }
 };
 
-/**
- * Periodic background SMS scan. Returns cleanup function.
- */
-export const setupPeriodicSMSScan = (
-  opts: SMSInitOptions,
-  intervalMinutes = 60,
-): (() => void) => {
-  if (Platform.OS !== 'android') return () => { };
-
-  const intervalId = setInterval(async () => {
-    try {
-      const [userId, isOnline] = await Promise.all([resolveUserId(), checkOnline()]);
-      await importSMSTransactionsToStore(
-        opts.categories,
-        opts.saveTransactionFn,
-        userId,
-        isOnline,
-      );
-    } catch (err) {
-      console.error('[SMS::Init] Periodic scan error:', err);
-    }
-  }, intervalMinutes * 60 * 1000);
-
-  return () => clearInterval(intervalId);
-};
+// removed periodic scan setup -> superseded by real-time ContentObserver

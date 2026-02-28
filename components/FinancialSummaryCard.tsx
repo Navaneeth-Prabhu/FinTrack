@@ -7,6 +7,7 @@ import { Budget } from '../types';
 import { ThemedText } from './common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 import { tokens } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface FinancialSummaryCardProps {
     budgets: Budget[];
@@ -52,10 +53,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
         ? { name: 'arrow-up', color: '#DB5A42' }
         : { name: 'arrow-down', color: '#4CAF50' };
 
-    // Format currency
-    const formatCurrency = (amount: number) => {
-        return `$${amount.toFixed(2)}`;
-    };
+    const { format } = useCurrency();
 
     return (
         <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
@@ -68,18 +66,18 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
                     <View style={[styles.trendContainer, { backgroundColor: colors.accent }]}>
                         <Ionicons name={spendingTrendIcon.name as any} size={16} color={spendingTrendIcon.color} />
                         <ThemedText style={[styles.trendText, { color: spendingTrendIcon.color }]}>
-                            {Math.abs(spendingTrend).toFixed(2)}
+                            {format(Math.abs(spendingTrend))}
                         </ThemedText>
                     </View>
                 </View>
-                <ThemedText variant='h2'>{formatCurrency(currentMonthSpending)}</ThemedText>
+                <ThemedText variant='h2'>{format(currentMonthSpending)}</ThemedText>
             </View>
 
             {/* Budget Section */}
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Available Budget</Text>
-                    <Text style={styles.remainingText}>{formatCurrency(remainingBudget)}</Text>
+                    <Text style={styles.remainingText}>{format(remainingBudget)}</Text>
                 </View>
 
                 {/* Progress Bar */}
@@ -93,15 +91,15 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
                     />
                 </View>
                 <View style={styles.budgetTextContainer}>
-                    <Text style={styles.budgetText}>{formatCurrency(totalSpent)}</Text>
-                    <Text style={styles.budgetText}>{formatCurrency(totalBudget)}</Text>
+                    <Text style={styles.budgetText}>{format(totalSpent)}</Text>
+                    <Text style={styles.budgetText}>{format(totalBudget)}</Text>
                 </View>
             </View>
 
             {/* Savings Balance Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Savings Balance</Text>
-                <ThemedText variant='h2'>{formatCurrency(savingsBalance)}</ThemedText>
+                <ThemedText variant='h2'>{format(savingsBalance)}</ThemedText>
             </View>
         </View>
     );

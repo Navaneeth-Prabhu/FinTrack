@@ -2,7 +2,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Transaction, RecurringTransaction } from '../types';
-import { format, addDays, parseISO, isSameDay } from 'date-fns';
+import { format as formatDate, addDays, parseISO } from 'date-fns';
+import { useCurrency } from '@/hooks/useCurrency';
+import { useTheme } from '@/hooks/useTheme';
 // import { LineChart } from 'react-native-chart-kit';
 
 interface SmartBalanceForecastProps {
@@ -26,6 +28,9 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
   recurringTransactions,
   currentBalance,
 }) => {
+  const { format } = useCurrency();
+  const { colors } = useTheme();
+
   const forecast = useMemo(() => {
     const days: ForecastDay[] = [];
     const today = new Date();
@@ -152,7 +157,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
   const chartData = {
     labels: forecast
       .filter((_, index) => index % 5 === 0 || index === 29) // Show every 5 days + last day
-      .map(day => format(day.date, 'MMM d')),
+      .map(day => formatDate(day.date, 'MMM d')),
     datasets: [
       {
         data: forecast.map(day => Math.max(0, day.balance)), // Ensure no negative values for chart display
@@ -182,8 +187,8 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
   const screenWidth = width - 32;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Smart Balance Forecast</Text>
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Smart Balance Forecast</Text>
 
       <View style={styles.chartContainer}>
         {/* <LineChart
@@ -207,13 +212,13 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
 
           return (
             <View key={day.date.getTime().toString()} style={styles.keyDateItem}>
-              <View style={styles.dateContainer}>
-                <Text style={styles.dateDay}>{format(day.date, 'd')}</Text>
-                <Text style={styles.dateMonth}>{format(day.date, 'MMM')}</Text>
+              <View style={[styles.dateContainer, { backgroundColor: colors.background }]}>
+                <Text style={[styles.dateDay, { color: colors.text }]}>{formatDate(day.date, 'd')}</Text>
+                <Text style={styles.dateMonth}>{formatDate(day.date, 'MMM')}</Text>
               </View>
               <View style={styles.keyDateDetails}>
-                <Text style={styles.keyDateTitle}>
-                  {impact > 0 ? 'Income' : 'Expense'}: ${Math.abs(impact).toFixed(0)}
+                <Text style={[styles.keyDateTitle, { color: colors.text }]}>
+                  {impact > 0 ? 'Income' : 'Expense'}: {format(Math.abs(impact))}
                 </Text>
                 <Text style={styles.keyDateSubtitle}>
                   {day.events.map(e => e.description).join(', ')}
@@ -222,7 +227,7 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
                   styles.projectedBalance,
                   { color: day.balance > 0 ? '#4CAF50' : '#F44336' }
                 ]}>
-                  Projected: ${day.balance.toFixed(0)}
+                  Projected: {format(day.balance)}
                 </Text>
               </View>
             </View>
@@ -241,7 +246,6 @@ const SmartBalanceForecast: React.FC<SmartBalanceForecastProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     // margin: 16,

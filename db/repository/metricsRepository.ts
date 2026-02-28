@@ -14,6 +14,8 @@ export interface DashboardMetrics {
     totalThirtyDayExpenses: number;
     recentTransactions: Transaction[];
     savingsBalance: number;
+    currentBalance: number;
+    todaySpending: number;
 }
 
 export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
@@ -25,6 +27,7 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
     );
     const totalIncome = totalsRows.find(r => r.type === 'income')?.total || 0;
     const totalExpenses = totalsRows.find(r => r.type === 'expense')?.total || 0;
+    const currentBalance = totalIncome - totalExpenses;
 
     // Dates for current and previous month
     const now = new Date();
@@ -51,6 +54,16 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
 
     const currentMonthSpending = monthlySpendingRows.find(r => r.period === 'current')?.total || 0;
     const previousMonthSpending = monthlySpendingRows.find(r => r.period === 'previous')?.total || 0;
+
+    // Today Spending
+    const todayStartISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const todayEndISO = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+
+    const todaySpendingRows = await db.getAllAsync<{ total: number }>(
+        `SELECT SUM(amount) as total FROM transactions WHERE type = 'expense' AND date >= ? AND date <= ?`,
+        [todayStartISO, todayEndISO]
+    );
+    const todaySpending = todaySpendingRows[0]?.total || 0;
 
     // 3. Expenses By Category (All Time for diversity score)
     const categoryTotalsRows = await db.getAllAsync<{ name: string; total: number; id: string }>(
@@ -156,7 +169,9 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
         thirtyDayCategorySpending,
         totalThirtyDayExpenses,
         recentTransactions,
-        savingsBalance
+        savingsBalance,
+        currentBalance,
+        todaySpending
     };
 };
 

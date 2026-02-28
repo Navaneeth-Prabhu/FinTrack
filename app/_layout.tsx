@@ -16,6 +16,7 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { Platform } from 'react-native';
 import { initializeSMSFeatures } from '@/services/smsInitService';
+import { useSMSObserver } from '@/hooks/useSMSObserver';
 import { useTheme } from '@/hooks/useTheme';
 import SplashScreenComponent from '../components/SplashScreen';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -39,6 +40,9 @@ export default function RootLayout() {
   const { biometrics } = usePreferenceStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { saveTransaction } = useTransactionStore();
+
+  // Start the real-time SMS ContentObserver (while app is alive)
+  useSMSObserver();
 
   // Check biometric support on mount
   useEffect(() => {
