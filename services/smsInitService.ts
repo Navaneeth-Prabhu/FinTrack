@@ -6,6 +6,7 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import { Category, Transaction } from '@/types';
 import { importSMSTransactionsToStore } from '@/utils/SMSTransactionUtil';
 import { supabase } from './supabaseClient';
+import { showOEMBatteryPromptIfNeeded } from './oemDetection';
 
 export interface SMSInitOptions {
   categories: Category[];
@@ -49,6 +50,12 @@ export const initializeSMSFeatures = async (opts: SMSInitOptions): Promise<void>
       console.log('[SMS::Init] Permission not granted');
       return;
     }
+
+    // Show OEM battery optimization prompt (once per install) so background SMS
+    // listener keeps running on aggressive OEM devices (MIUI, EMUI, Samsung, etc.)
+    showOEMBatteryPromptIfNeeded().catch(err =>
+      console.warn('[SMS::Init] OEM prompt error:', err)
+    );
 
     const [userId, isOnline] = await Promise.all([resolveUserId(), checkOnline()]);
     console.log(`[SMS::Init] Starting scan — userId=${userId ? 'set' : 'none'} online=${isOnline}`);

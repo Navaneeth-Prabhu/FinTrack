@@ -1,15 +1,20 @@
 /**
- * sync.ts — Supabase Manual Backup Sync Service
+ * sync.ts — Supabase Sync Service
  *
- * Industry-standard approach:
- *   1. Sync categories first (using local_id as stable dedup key)
- *   2. Sync transactions with proper category_id FK references
- *   3. Log sync to sync_log table
- *
- * No auth yet: uses PLACEHOLDER_USER_ID. Swap for real UUID when auth is added.
+ * Push-first sync:
+ *   1. Get authenticated user from Supabase Auth (bails out if not signed in)
+ *   2. Sync categories first (using local_id as stable dedup key)
+ *   3. Sync transactions with proper category_id FK references
+ *   4. Log sync to sync_log table
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+
+// expo-crypto-based UUID generator — replaces the missing react-native-get-random-values + uuid
+function uuidv4(): string {
+    return Crypto.randomUUID();
+}
 import { supabase } from './supabaseClient';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
 import { initDatabase } from '@/db/services/sqliteService';
@@ -17,13 +22,37 @@ import { Transaction, Category } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/**
- * Fixed placeholder UUID used until Supabase Auth is integrated.
- * Replace with `supabase.auth.getUser()` once auth is wired up.
- */
-export const PLACEHOLDER_USER_ID = '00000000-0000-0000-0000-000000000001';
-
 const LAST_SYNC_KEY = '@fintrack_last_sync_time';
+const DEVICE_ID_KEY = '@fintrack_device_id';
+
+/**
+ * Get or create a stable device UUID stored in AsyncStorage.
+ * Used to identify which device a synced row was written from.
+ */
+export const getDeviceId = async (): Promise<string> => {
+    let id = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+        id = uuidv4();
+        await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+};
+
+/**
+ * Get the current authenticated user's ID from Supabase Auth.
+ * Returns null if the user is not signed in.
+ */
+export const getAuthUserId = async (): Promise<string | null> => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+        console.warn('[Sync] No authenticated user — skipping sync:', error?.message);
+        return null;
+    }
+    return user.id;
+};
+
+/** @deprecated Use getAuthUserId() instead */
+export const PLACEHOLDER_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 // ─── Type Mappings ────────────────────────────────────────────────────────────
 
@@ -239,14 +268,29 @@ export interface SyncResult {
 
 /**
  * Full sync orchestration:
- *   1. Sync categories → get ID map
- *   2. Sync transactions with resolved category FKs
- *   3. Log to sync_log
- *   4. Persist lastSyncTime in AsyncStorage
+ *   1. Get authenticated user (bail if not signed in)
+ *   2. Sync categories → get ID map
+ *   3. Sync transactions with resolved category FKs
+ *   4. Log to sync_log
+ *   5. Persist lastSyncTime in AsyncStorage
  */
 export const syncAll = async (): Promise<SyncResult> => {
-    const userId = PLACEHOLDER_USER_ID;
     const syncedAt = new Date().toISOString();
+
+    // ── Auth check (replaces PLACEHOLDER_USER_ID) ──
+    const userId = await getAuthUserId();
+    if (!userId) {
+        return {
+            success: false,
+            categoriesSynced: 0,
+            transactionsSynced: 0,
+            failed: 0,
+            syncedAt,
+            error: 'Not signed in — sync requires authentication',
+        };
+    }
+
+    const deviceId = await getDeviceId();
 
     try {
         // Step 1: Sync categories first
@@ -258,7 +302,7 @@ export const syncAll = async (): Promise<SyncResult> => {
         // Step 3: Log the sync event
         await supabase.from('sync_log').insert({
             user_id: userId,
-            device_id: 'mobile',
+            device_id: deviceId,
             synced_at: syncedAt,
             categories_synced: catResult.synced,
             transactions_synced: txResult.synced,
@@ -283,7 +327,7 @@ export const syncAll = async (): Promise<SyncResult> => {
         try {
             await supabase.from('sync_log').insert({
                 user_id: userId,
-                device_id: 'mobile',
+                device_id: deviceId,
                 synced_at: syncedAt,
                 categories_synced: 0,
                 transactions_synced: 0,
@@ -302,6 +346,7 @@ export const syncAll = async (): Promise<SyncResult> => {
         };
     }
 };
+
 
 // ─── AsyncStorage Helpers ──────────────────────────────────────────────────────
 

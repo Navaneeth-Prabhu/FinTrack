@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
-import { ArrowRightLeft, Bolt, ChartPie, LayoutPanelLeft } from 'lucide-react-native';
+import { ArrowRightLeft, Bolt, ChartPie, LayoutPanelLeft, TrendingUp } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -48,6 +48,13 @@ export default function TabLayout() {
         options={{
           title: 'Budgets',
           tabBarIcon: ({ color }) => <ChartPie color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="investments"
+        options={{
+          title: 'Investments',
+          tabBarIcon: ({ color }) => <TrendingUp color={color} />,
         }}
       />
       <Tabs.Screen

@@ -40,11 +40,12 @@ export const useAccountStore = create<AccountState>((set, get) => ({
 
     addAccount: async (account: Account) => {
         try {
-            await saveAccountToDB(account);
+            const FinalAccount = { ...account, lastModified: account.lastModified || new Date().toISOString() };
+            await saveAccountToDB(FinalAccount);
             set(state => ({
-                accounts: [...state.accounts, account]
+                accounts: [...state.accounts, FinalAccount]
             }));
-            return account;
+            return FinalAccount;
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to add account'
@@ -55,11 +56,12 @@ export const useAccountStore = create<AccountState>((set, get) => ({
 
     editAccount: async (account: Account) => {
         try {
-            await updateAccountInDB(account);
+            const FinalAccount = { ...account, lastModified: new Date().toISOString() };
+            await updateAccountInDB(FinalAccount);
             set(state => ({
-                accounts: state.accounts.map(a => a.id === account.id ? account : a)
+                accounts: state.accounts.map(a => a.id === FinalAccount.id ? FinalAccount : a)
             }));
-            return account;
+            return FinalAccount;
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update account'
@@ -85,9 +87,10 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     adjustBalance: async (id: string, amountChange: number) => {
         try {
             await updateAccountBalance(id, amountChange);
+            const now = new Date().toISOString();
             set(state => ({
                 accounts: state.accounts.map(a =>
-                    a.id === id ? { ...a, balance: a.balance + amountChange } : a
+                    a.id === id ? { ...a, balance: a.balance + amountChange, lastModified: now } : a
                 )
             }));
         } catch (error) {

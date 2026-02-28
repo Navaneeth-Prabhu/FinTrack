@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert, ActivityIndicator } from 'react-native';
 import {
     Ionicons,
     MaterialCommunityIcons,
@@ -18,19 +18,105 @@ import DataImportSection from './DataImportSection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BiometricToggle from './BiometricSection';
 import CloudSyncSection from '@/components/settings/CloudSyncSection';
+import { useSupabaseAuthStore } from '@/stores/supabaseAuthStore';
+import { syncAll } from '@/services/sync';
+import { resetSmsProcessedIds, wipeAllLocalData } from '@/db/services/sqliteService';
+import { useCategoryStore } from '@/stores/categoryStore';
+import { useTransactionStore } from '@/stores/transactionStore';
+import { useAccountStore } from '@/stores/accountStore';
+import { useBudgetStore } from '@/stores/budgetStore';
+import { useAlertStore } from '@/stores/alertStore';
+import { useLoanStore } from '@/stores/loanStore';
+import { useSIPStore } from '@/stores/sipStore';
+import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
+import { useMetricsStore } from '@/stores/metricsStore';
 
 const MoreScreen = () => {
     const { theme, setTheme } = useThemeStore();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(theme === 'dark');
     const [biometricEnabled, setBiometricEnabled] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const { colors } = useTheme();
+    const { user, signOut } = useSupabaseAuthStore();
 
     const themeChangeHandler = () => {
         setTheme(isDarkMode ? 'light' : 'dark');
         setIsDarkMode(!isDarkMode);
     }
+
+    const handleSync = async () => {
+        if (!user) {
+            router.push('/(auth)/google-signin');
+            return;
+        }
+        setIsSyncing(true);
+        try {
+            await syncAll();
+            Alert.alert('✅ Sync complete', 'Your data has been synced to the cloud.');
+        } catch (e: any) {
+            Alert.alert('Sync failed', e?.message ?? 'Please try again.');
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleSignOut = async () => {
+        Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign Out', style: 'destructive', onPress: signOut },
+        ]);
+    };
+
+    const handleDeleteAllData = () => {
+        // Two-step confirmation to prevent accidental data loss (industry standard)
+        Alert.alert(
+            '⚠️ Delete All Data',
+            'This will permanently delete ALL your transactions, accounts, budgets, categories and investments. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Yes, Delete Everything',
+                    style: 'destructive',
+                    onPress: () => {
+                        // Double-confirm destructive action
+                        Alert.alert(
+                            'Are you absolutely sure?',
+                            'All local data will be irreversibly erased.',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Delete Everything',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            await wipeAllLocalData();
+                                            // Reset all in-memory Zustand stores to reflect empty state
+                                            useCategoryStore.getState().fetchCategories();
+                                            useTransactionStore.getState().fetchTransactions(50);
+                                            useAccountStore.getState().fetchAccounts();
+                                            useBudgetStore.getState().fetchBudgets();
+                                            useAlertStore.getState().fetchAlerts();
+                                            useLoanStore.getState().fetchLoans();
+                                            useSIPStore.getState().fetchSIPs();
+                                            useRecurringTransactionStore.getState().fetchRecurringTransactions();
+                                            useMetricsStore.getState().fetchDashboardMetrics();
+                                            useMetricsStore.setState({ chartData: [] });
+
+                                            Alert.alert('Done', 'All data has been deleted. Your app is now fresh.');
+                                        } catch (e: any) {
+                                            Alert.alert('Error', 'Failed to delete data: ' + (e?.message ?? 'Unknown error'));
+                                        }
+                                    },
+                                },
+                            ]
+                        );
+                    },
+                },
+            ]
+        );
+    };
     // Theme color
     const themeColor = '#8F85FF';
     const darkThemeColor = '#A59BFF';
@@ -77,28 +163,61 @@ const MoreScreen = () => {
                 )}
             </View> */}
 
-                {/* Quick Actions */}
-                {/* <View style={styles.quickActionsContainer}>
-                <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: colors.card }]}>
-                    <MaterialCommunityIcons name="theme-light-dark" size={24} color={isDarkMode ? darkThemeColor : themeColor} />
-                    <ThemedText style={styles.quickActionText}>Theme</ThemedText>
-                </TouchableOpacity>
+                {/* Account / Sync Card */}
+                <View style={[styles.sectionContainer, { marginTop: 16 }]}>
+                    <Text style={[styles.sectionTitle, isDarkMode && styles.darkSectionTitle]}>Account & Sync</Text>
+                    <View style={[styles.sectionContent, { backgroundColor: colors.card }]}>
+                        {user ? (
+                            <>
+                                <View style={styles.menuItem}>
+                                    <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
+                                        <MaterialCommunityIcons name="account-circle" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <ThemedText style={styles.menuText}>{user.user_metadata?.full_name ?? 'Signed In'}</ThemedText>
+                                        <ThemedText style={{ color: colors.subtitle, fontSize: 13 }}>{user.email}</ThemedText>
+                                    </View>
+                                </View>
 
-                <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: colors.card }]}>
-                    <MaterialCommunityIcons name="currency-usd" size={24} color={isDarkMode ? darkThemeColor : themeColor} />
-                    <ThemedText style={styles.quickActionText}>Currency</ThemedText>
-                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={handleSync}
+                                    disabled={isSyncing}
+                                >
+                                    <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
+                                        {isSyncing
+                                            ? <ActivityIndicator size={18} color={isDarkMode ? darkThemeColor : themeColor} />
+                                            : <MaterialCommunityIcons name="cloud-sync-outline" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
+                                        }
+                                    </View>
+                                    <ThemedText style={styles.menuText}>{isSyncing ? 'Syncing...' : 'Sync Now'}</ThemedText>
+                                    <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
+                                </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: colors.card }]}>
-                    <MaterialCommunityIcons name="export-variant" size={24} color={isDarkMode ? darkThemeColor : themeColor} />
-                    <ThemedText style={styles.quickActionText}>Export</ThemedText>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: colors.card }]}>
-                    <MaterialCommunityIcons name="database-import" size={24} color={isDarkMode ? darkThemeColor : themeColor} />
-                    <ThemedText style={styles.quickActionText}>Import</ThemedText>
-                </TouchableOpacity>
-            </View> */}
+                                <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+                                    <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>
+                                        <MaterialCommunityIcons name="logout" size={20} color={isDarkMode ? '#FF6B6B' : '#FF3B30'} />
+                                    </View>
+                                    <ThemedText style={[styles.menuText, { color: '#FF3B30' }]}>Sign Out</ThemedText>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => router.push('/(auth)/google-signin')}
+                            >
+                                <View style={[styles.iconContainer, { backgroundColor: colors.primaryForeground }]}>
+                                    <MaterialCommunityIcons name="google" size={20} color={isDarkMode ? darkThemeColor : themeColor} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText style={styles.menuText}>Sign in with Google</ThemedText>
+                                    <ThemedText style={{ color: colors.subtitle, fontSize: 13 }}>Sync data across devices</ThemedText>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
 
                 {/* Premium Banner */}
                 <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: themeColor }]}>
@@ -201,7 +320,25 @@ const MoreScreen = () => {
                         <DataExportSection />
                         <DataImportSection />
 
-                        <TouchableOpacity style={styles.menuItem}>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => {
+                            Alert.alert('Reset SMS Sync', 'This will wipe remembered SMS IDs and allow them to be scanned again on next launch.', [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Reset', style: 'destructive', onPress: async () => {
+                                        await resetSmsProcessedIds();
+                                        Alert.alert('Done', 'SMS Memory Wiped. Please restart the app.');
+                                    }
+                                },
+                            ]);
+                        }}>
+                            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>
+                                <MaterialCommunityIcons name="message-alert-outline" size={20} color={isDarkMode ? "#FF6B6B" : "#FF3B30"} />
+                            </View>
+                            <ThemedText style={[styles.menuText, { color: isDarkMode ? "#FF6B6B" : "#FF3B30" }]}>Reset SMS Sync</ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.menuItem} onPress={handleDeleteAllData}>
                             <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>
                                 <MaterialIcons name="delete-outline" size={20} color={isDarkMode ? "#FF6B6B" : "#FF3B30"} />
                             </View>
@@ -296,7 +433,7 @@ const MoreScreen = () => {
                 {/* Bottom Padding */}
                 <View style={styles.bottomPadding} />
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 };
 

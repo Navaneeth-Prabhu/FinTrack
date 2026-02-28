@@ -10,9 +10,11 @@ import { Account } from '@/types';
 import { supabase } from '@/services/supabaseClient';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export const ManageAccountScreen = () => {
     const { colors, isDark } = useTheme();
+    const { format: formatCurrency } = useCurrency();
     const { accounts, removeAccount, addAccount, editAccount } = useAccountStore();
 
     const [isFormVisible, setIsFormVisible] = useState(false);
@@ -196,10 +198,24 @@ export const ManageAccountScreen = () => {
                                 <ThemedText variant="h2">{item.icon || '🏦'}</ThemedText>
                             </View>
                             <View style={{ flex: 1 }}>
-                                <ThemedText variant="h3">{item.name}</ThemedText>
-                                <ThemedText variant="body2" style={{ opacity: 0.7 }}>
-                                    {item.provider} {item.accountNumber ? `••••${item.accountNumber}` : ''}
-                                </ThemedText>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <ThemedText variant="h3">{item.name}</ThemedText>
+                                    <ThemedText variant="h3" style={{ color: item.balance >= 0 ? colors.success : colors.error }}>
+                                        {formatCurrency(item.balance)}
+                                    </ThemedText>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                                    <ThemedText variant="body2" style={{ opacity: 0.7 }}>
+                                        {item.provider} {item.accountNumber ? `••••${item.accountNumber}` : ''}
+                                    </ThemedText>
+
+                                    {item.lastModified && (
+                                        <ThemedText variant="caption" style={{ opacity: 0.5 }}>
+                                            Updated {new Date(item.lastModified).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </ThemedText>
+                                    )}
+                                </View>
                             </View>
                         </View>
 

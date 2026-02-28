@@ -99,10 +99,68 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       processedAt INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sip_plans (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      fundName TEXT NOT NULL,
+      amount REAL NOT NULL,
+      frequency TEXT NOT NULL,
+      startDate TEXT NOT NULL,
+      nextDueDate TEXT NOT NULL,
+      sipDay INTEGER NOT NULL,
+      totalInvested REAL NOT NULL DEFAULT 0,
+      units REAL,
+      nav REAL,
+      status TEXT NOT NULL,
+      notes TEXT,
+      categoryId TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      lastModified TEXT NOT NULL,
+      FOREIGN KEY (categoryId) REFERENCES categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS loans (
+      id TEXT PRIMARY KEY NOT NULL,
+      lender TEXT NOT NULL,
+      loanType TEXT NOT NULL,
+      principal REAL NOT NULL,
+      outstanding REAL NOT NULL,
+      emiAmount REAL NOT NULL,
+      emiDueDay INTEGER NOT NULL,
+      tenureMonths INTEGER NOT NULL,
+      startDate TEXT NOT NULL,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      notes TEXT,
+      createdAt TEXT NOT NULL,
+      lastModified TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sms_alerts (
+      id TEXT PRIMARY KEY NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      amount REAL,
+      bank TEXT,
+      accountLast4 TEXT,
+      smsId TEXT,
+      isRead INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_sms_alerts_created ON sms_alerts(createdAt DESC);
   `);
 
   // Safe migrations for existing databases
+  try {
+    await db.execAsync(`
+      ALTER TABLE accounts ADD COLUMN lastModified TEXT;
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
   try {
     await db.execAsync(`
       ALTER TABLE transactions ADD COLUMN fromAccountId TEXT REFERENCES accounts(id);
@@ -237,5 +295,77 @@ export const getSmsWatermarkFromDb = async (): Promise<number> => {
   } catch (err) {
     console.error('[SQLite] Error getting SMS watermark:', err);
     return 0;
+  }
+};
+
+export const resetSmsProcessedIds = async (): Promise<void> => {
+  if (!db) return;
+  try {
+    await db.runAsync('DELETE FROM processed_sms_ids');
+    console.log('[SQLite] Reset SMS processed IDs and watermark successfully');
+  } catch (err) {
+    console.error('[SQLite] Error resetting SMS processed IDs:', err);
+  }
+};
+
+// ─── Wipe All Local Data ──────────────────────────────────────────────────────
+/**
+ * Deletes ALL user data from every local SQLite table, then re-seeds the
+ * default category list so the app starts fresh without needing a reinstall.
+ *
+ * Tables wiped (in correct FK order):
+ *   1. transactions (references categories & accounts & recurring_transactions)
+ *   2. budgets       (references categories)
+ *   3. recurring_transactions (references categories)
+ *   4. sip_plans     (references categories)
+ *   5. loans
+ *   6. sms_alerts
+ *   7. accounts
+ *   8. processed_sms_ids
+ *   9. categories   (wiped last, re-seeded immediately after)
+ */
+export const wipeAllLocalData = async (): Promise<void> => {
+  if (!db) {
+    console.warn('[SQLite] wipeAllLocalData called before DB was initialised');
+    return;
+  }
+
+  try {
+    // Disable foreign keys temporarily so we can wipe in one transaction
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    await db.execAsync('BEGIN TRANSACTION;');
+
+    await db.execAsync('DELETE FROM transactions;');
+    await db.execAsync('DELETE FROM budgets;');
+    await db.execAsync('DELETE FROM recurring_transactions;');
+    await db.execAsync('DELETE FROM sip_plans;');
+    await db.execAsync('DELETE FROM loans;');
+    await db.execAsync('DELETE FROM sms_alerts;');
+    await db.execAsync('DELETE FROM accounts;');
+    await db.execAsync('DELETE FROM processed_sms_ids;');
+    await db.execAsync('DELETE FROM categories;');
+
+    await db.execAsync('COMMIT;');
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+
+    // Re-seed default categories so the app is immediately usable
+    for (const category of categoryConstants) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO categories (id, name, type, color, icon, orderId) VALUES (?, ?, ?, ?, ?, ?);`,
+        category.id,
+        category.name,
+        category.type,
+        category.color,
+        category.icon,
+        category.order ?? 0
+      );
+    }
+
+    console.log('[SQLite] All local data wiped and default categories restored.');
+  } catch (err) {
+    try { await db.execAsync('ROLLBACK;'); } catch { /* ignore */ }
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+    console.error('[SQLite] Error wiping local data:', err);
+    throw err; // Re-throw so the caller can show an error alert
   }
 };

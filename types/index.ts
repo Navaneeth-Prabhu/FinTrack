@@ -106,4 +106,56 @@ export interface Account {
   icon?: string;
   provider?: string;
   accountNumber?: string;
+  lastModified?: string;
+}
+
+export interface SIPPlan {
+  id: string; // UUID
+  name: string; // User-defined name
+  fundName: string; // Actual fund name
+  amount: number; // Monthly/periodic amount
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  startDate: string; // ISO date
+  nextDueDate: string; // ISO date
+  sipDay: number; // Day of month for monthly SIPs
+  totalInvested: number; // Computed or derived
+  units?: number; // Optional units held
+  nav?: number; // Optional current NAV
+  status: 'active' | 'paused' | 'completed';
+  notes?: string;
+  categoryId: string; // Linked category (usually 'investment')
+  createdAt: string; // ISO date
+  lastModified: string; // ISO date
+}
+
+export interface Loan {
+  id: string; // UUID
+  lender: string; // Bank/institution name
+  loanType: 'home' | 'car' | 'personal' | 'education' | 'other';
+  principal: number; // Total loan amount
+  outstanding: number; // Remaining amount
+  emiAmount: number; // Monthly EMI
+  emiDueDay: number; // Day of month
+  tenureMonths: number; // Total duration
+  startDate: string; // ISO date
+  status: 'active' | 'closed' | 'defaulted';
+  source: 'manual' | 'sms' | 'scraped';
+  notes?: string;
+  createdAt: string; // ISO date
+  lastModified: string; // ISO date
+}
+
+export interface SMSAlert {
+  id: string;
+  /** Classification of the alert */
+  type: 'sip_confirmation' | 'emi_deduction' | 'account_balance' | 'loan_alert';
+  title: string;
+  /** Full parsed body text shown to the user */
+  body: string;
+  amount?: number;
+  bank?: string;
+  accountLast4?: string;
+  smsId?: string;
+  isRead: boolean;
+  createdAt: string; // ISO date
 }

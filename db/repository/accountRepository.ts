@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 export const saveAccountToDB = async (account: Account): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync(
-        `INSERT INTO accounts (id, name, type, balance, currency, isIncludeInNetWorth, color, icon, provider, accountNumber)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO accounts (id, name, type, balance, currency, isIncludeInNetWorth, color, icon, provider, accountNumber, lastModified)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         account.id,
         account.name,
         account.type,
@@ -16,7 +16,8 @@ export const saveAccountToDB = async (account: Account): Promise<void> => {
         account.color ?? null,
         account.icon ?? null,
         account.provider ?? null,
-        account.accountNumber ?? null
+        account.accountNumber ?? null,
+        account.lastModified ?? new Date().toISOString()
     );
 };
 
@@ -35,6 +36,7 @@ export const fetchAccountsFromDB = async (): Promise<Account[]> => {
         icon: row.icon,
         provider: row.provider,
         accountNumber: row.accountNumber,
+        lastModified: row.lastModified,
     }));
 };
 
@@ -42,7 +44,7 @@ export const updateAccountInDB = async (account: Account): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync(
         `UPDATE accounts 
-         SET name = ?, type = ?, balance = ?, currency = ?, isIncludeInNetWorth = ?, color = ?, icon = ?, provider = ?, accountNumber = ?
+         SET name = ?, type = ?, balance = ?, currency = ?, isIncludeInNetWorth = ?, color = ?, icon = ?, provider = ?, accountNumber = ?, lastModified = ?
          WHERE id = ?;`,
         account.name,
         account.type,
@@ -53,6 +55,7 @@ export const updateAccountInDB = async (account: Account): Promise<void> => {
         account.icon ?? null,
         account.provider ?? null,
         account.accountNumber ?? null,
+        account.lastModified ?? new Date().toISOString(),
         account.id
     );
 };
@@ -65,8 +68,9 @@ export const deleteAccountFromDB = async (id: string): Promise<void> => {
 export const updateAccountBalance = async (id: string, amountChange: number): Promise<void> => {
     const db = await initDatabase();
     await db.runAsync(
-        `UPDATE accounts SET balance = balance + ? WHERE id = ?;`,
+        `UPDATE accounts SET balance = balance + ?, lastModified = ? WHERE id = ?;`,
         amountChange,
+        new Date().toISOString(),
         id
     );
 };

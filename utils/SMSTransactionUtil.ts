@@ -2,7 +2,9 @@
 // Converts parsed SMS transactions → app Transaction format.
 // Uses the 3-tier smsCategorizationService for intelligent categorization.
 
-import { getTransactionsFromSMS, ParsedSMS } from '@/services/smsParser';
+import { getTransactionsFromSMS, ParsedSMS, readFinancialSMS, extractTransactionFromSMS } from '@/services/smsParser';
+import { classifySMSIntent, SIPConfirmationIntent, EMIDeductionIntent, AccountBalanceIntent, LoanAlertIntent } from '@/services/smsAlertParser';
+import { smsAlertExistsBySmSId } from '@/db/repository/alertRepository';
 import {
   categorizeWithContext,
   CategorizationOptions,
@@ -10,12 +12,16 @@ import {
 } from '@/services/smsCategorizationService';
 import { Category, Transaction, Account } from '@/types';
 import { useAccountStore } from '@/stores/accountStore';
+import { useSIPStore } from '@/stores/sipStore';
+import { useLoanStore } from '@/stores/loanStore';
+import { useAlertStore } from '@/stores/alertStore';
+import { useSmsSyncStore } from '@/stores/smsSyncStore';
 import { supabase } from '@/services/supabaseClient';
 import {
   getProcessedSmsIdsFromDb,
   saveProcessedSmsIdsToDb,
   getSmsWatermarkFromDb,
-  setSmsWatermarkInDb
+  setSmsWatermarkInDb,
 } from '@/db/services/sqliteService';
 
 // ─── Deduplication / Watermark helpers ─────────────────────────────────────────
@@ -58,24 +64,23 @@ function resolvePaymentMode(parsed: ParsedSMS & { smsId?: string }): string {
   return 'Other';
 }
 
-// ─── Bank identification from parsed data ──────────────────────────────────────
 function resolveAccount(parsed: ParsedSMS & { smsId?: string }): string | undefined {
-  if (parsed.bank && parsed.accountLast4) return `${parsed.bank} ••••${parsed.accountLast4}`;
-  if (parsed.bank) return parsed.bank;
+  let detectedBank = parsed.bank;
 
-  const body = (parsed.rawSMS ?? '').toLowerCase();
-  const sender = (parsed.sender ?? '').toLowerCase();
-  const combined = `${sender} ${body}`;
+  if (!detectedBank) {
+    const body = (parsed.rawSMS ?? '').toLowerCase();
+    const sender = (parsed.sender ?? '').toLowerCase();
+    const combined = `${sender} ${body}`;
 
-  let detectedBank: string | undefined = undefined;
-  if (combined.includes('hdfc')) detectedBank = 'HDFC Bank';
-  else if (combined.includes('icici')) detectedBank = 'ICICI Bank';
-  else if (combined.includes('sbi') || combined.includes('onlsbi')) detectedBank = 'SBI';
-  else if (combined.includes('axis')) detectedBank = 'Axis Bank';
-  else if (combined.includes('kotak')) detectedBank = 'Kotak Mahindra';
-  else if (combined.includes('paytm')) detectedBank = 'Paytm';
-  else if (combined.includes('phonepe')) detectedBank = 'PhonePe';
-  else if (combined.includes('kerala gramin') || combined.includes('kgbank')) detectedBank = 'Kerala Gramin Bank';
+    if (combined.includes('hdfc')) detectedBank = 'HDFC Bank';
+    else if (combined.includes('icici')) detectedBank = 'ICICI Bank';
+    else if (combined.includes('sbi') || combined.includes('onlsbi')) detectedBank = 'SBI';
+    else if (combined.includes('axis')) detectedBank = 'Axis Bank';
+    else if (combined.includes('kotak')) detectedBank = 'Kotak Mahindra';
+    else if (combined.includes('paytm')) detectedBank = 'Paytm';
+    else if (combined.includes('phonepe')) detectedBank = 'PhonePe';
+    else if (combined.includes('kerala gramin') || combined.includes('kgbank')) detectedBank = 'Kerala Gramin Bank';
+  }
 
   if (detectedBank) {
     parsed.bank = detectedBank;
@@ -83,7 +88,8 @@ function resolveAccount(parsed: ParsedSMS & { smsId?: string }): string | undefi
     return detectedBank;
   }
 
-  if (parsed.accountLast4) return `••••${parsed.accountLast4}`;
+  // Fallback: if no bank detected but we have an account number
+  if (parsed.accountLast4) return `Account ••••${parsed.accountLast4}`;
   return undefined;
 }
 
@@ -105,7 +111,7 @@ export const convertToAppTransaction = async (
     options,
   );
 
-  const matchedCategory: Category = categories.find(c => c.id === categoryResult.categoryId) ?? {
+  let matchedCategory: Category = categories.find(c => c.id === categoryResult.categoryId) ?? {
     id: categoryResult.categoryId ?? (parsed.type === 'income' ? 'other_income' : 'other_expense'),
     name: categoryResult.categoryName,
     icon: '❗',
@@ -113,17 +119,97 @@ export const convertToAppTransaction = async (
     type: parsed.type === 'income' ? 'income' : 'expense',
   };
 
+  // Force UPI P2P Income to the "Credit" category by default unless the LLM gave a very strong override
+  if (parsed.type === 'income' && parsed.paymentMethod === 'UPI' && parsed.paidBy) {
+    const creditCat = categories.find(c => c.name.toLowerCase() === 'credit' && c.type === 'income');
+    if (creditCat) matchedCategory = creditCat;
+  }
+
+  // ── Auto-Link SIP / EMI (Phase 2) ──
+  let autoLinkNote: string | null = null;
+  if (parsed.subType === 'sip' && parsed.type === 'expense') {
+    const sipStore = useSIPStore.getState();
+    await sipStore.fetchSIPs(); // Ensure loaded
+    // Find active SIP matching the amount (simplistic matcher for MVP)
+    const matchedSip = sipStore.sips.find(s => s.status === 'active' && Math.abs(s.amount - parsed.amount) < 10);
+    if (matchedSip) {
+      // Force categorize as investment
+      const invCat = categories.find(c => c.name.toLowerCase().includes('investment'));
+      if (invCat) matchedCategory = invCat;
+
+      // Update SIP invested amount
+      await sipStore.updateSIP({
+        ...matchedSip,
+        totalInvested: matchedSip.totalInvested + parsed.amount,
+        // Push next due date by 1 month basically
+        nextDueDate: new Date(new Date(matchedSip.nextDueDate).setMonth(new Date(matchedSip.nextDueDate).getMonth() + 1)).toISOString()
+      });
+      autoLinkNote = `Linked to SIP: ${matchedSip.name}`;
+      console.log(`[SMS::Link] Auto-linked transaction to SIP: ${matchedSip.name}`);
+    }
+  } else if (parsed.subType === 'emi' && parsed.type === 'expense') {
+    const loanStore = useLoanStore.getState();
+    await loanStore.fetchLoans();
+    const matchedLoan = loanStore.loans.find(l => l.status === 'active' && Math.abs(l.emiAmount - parsed.amount) < 10);
+    if (matchedLoan) {
+      const emiCat = categories.find(c => c.name.toLowerCase().includes('loan') || c.name.toLowerCase().includes('emi'));
+      if (emiCat) matchedCategory = emiCat;
+
+      // Update Loan outstanding amount
+      const newOutstanding = Math.max(0, matchedLoan.outstanding - parsed.amount);
+      await loanStore.updateLoan({
+        ...matchedLoan,
+        outstanding: newOutstanding,
+        status: newOutstanding <= 0 ? 'closed' : 'active'
+      });
+      autoLinkNote = `Linked to Loan EMI: ${matchedLoan.lender}`;
+      console.log(`[SMS::Link] Auto-linked transaction to Loan: ${matchedLoan.lender}`);
+    }
+  }
+
   // ── Auto-create and Link Account ──
   let linkedAccount: Account | undefined = undefined;
   const accountName = resolveAccount(parsed);
 
   if (accountName && !['Unknown', 'Other', 'UPI', 'Cash'].includes(accountName)) {
     const accountStore = useAccountStore.getState();
-    // 1. Try to find the exact account in the store by name
-    linkedAccount = accountStore.accounts.find(a =>
-      a.name.toLowerCase() === accountName.toLowerCase() ||
-      (a.accountNumber && accountName.includes(a.accountNumber))
-    );
+
+    // 1. Try to find the exact account in the store
+    // This supports multiple accounts at the same bank (e.g. HDFC 1088 and HDFC 9087)
+    linkedAccount = accountStore.accounts.find(a => {
+
+      // 1a. Strict match: if both have an account number, they MUST match exactly
+      if (parsed.accountLast4 && a.accountNumber) {
+        if (a.accountNumber === parsed.accountLast4) {
+          // If bank is known on both, ensure they don't explicitly conflict
+          if (parsed.bank && a.provider && a.provider !== 'Unknown Bank' && !a.provider.toLowerCase().includes(parsed.bank.toLowerCase())) {
+            return false;
+          }
+          return true;
+        }
+        return false; // Account numbers exist but don't match = different accounts
+      }
+
+      // 1b. Adoption match: The SMS has an account number, but the existing account has NO account number
+      // (e.g. User manually created "HDFC Bank"). We adopt it.
+      if (parsed.accountLast4 && !a.accountNumber) {
+        if (parsed.bank && (a.provider?.toLowerCase().includes(parsed.bank.toLowerCase()) || a.name.toLowerCase().includes(parsed.bank.toLowerCase()))) {
+          return true;
+        }
+      }
+
+      // Strong match: Exact account number match (if bank isn't parsed but they share Account Number)
+      if (parsed.accountLast4 && a.accountNumber === parsed.accountLast4) {
+        return true;
+      }
+
+      // Exact name match
+      if (a.name.toLowerCase() === accountName.toLowerCase()) {
+        return true;
+      }
+
+      return false;
+    });
 
     // 2. If it doesn't exist locally, auto-create it
     if (!linkedAccount) {
@@ -131,7 +217,7 @@ export const convertToAppTransaction = async (
         id: `acc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: accountName,
         type: 'bank',
-        balance: 0,
+        balance: parsed.availableBalance ?? 0,
         currency: 'INR',
         isIncludeInNetWorth: true,
         color: '#ABDF75', // Default green-ish bank color
@@ -172,6 +258,39 @@ export const convertToAppTransaction = async (
       }
     } else {
       console.log(`[SMS::Account] Found existing account: ${linkedAccount.name}`);
+
+      // Adopt the newly discovered account number or balance and update the existing account
+      let updated = false;
+      const updates = { ...linkedAccount };
+
+      if (parsed.accountLast4 && !linkedAccount.accountNumber) {
+        updates.accountNumber = parsed.accountLast4;
+        // Rename the adopted manually-created account so the user knows it was linked
+        if (updates.name === parsed.bank) {
+          updates.name = `${parsed.bank} ····${parsed.accountLast4}`;
+        }
+        updated = true;
+      }
+
+      if (parsed.bank && (!linkedAccount.provider || linkedAccount.provider === 'Unknown Bank')) {
+        updates.provider = parsed.bank;
+        updated = true;
+      }
+
+      if (parsed.availableBalance !== undefined) {
+        updates.balance = parsed.availableBalance;
+        updated = true;
+      }
+
+      if (updated) {
+        try {
+          await accountStore.editAccount(updates);
+          linkedAccount = updates; // Ensure we use the updated account metadata for the transaction
+          console.log(`[SMS::Account] Updated existing account with new metadata/balance.`);
+        } catch (err) {
+          console.error('[SMS::Account] Failed to update existing account details:', err);
+        }
+      }
     }
   }
 
@@ -183,7 +302,7 @@ export const convertToAppTransaction = async (
     createdAt: now,
     lastModified: now,
     paidTo: parsed.type !== 'income' ? (parsed.merchant ?? 'Unknown') : undefined,
-    paidBy: parsed.type === 'income' ? (parsed.merchant ?? parsed.sender) : resolveAccount(parsed),
+    paidBy: parsed.type === 'income' ? (parsed.merchant ?? parsed.paidBy ?? parsed.sender) : resolveAccount(parsed),
     category: matchedCategory,
     fromAccount: parsed.type !== 'income' ? linkedAccount : undefined,
     toAccount: parsed.type === 'income' ? linkedAccount : undefined,
@@ -198,9 +317,215 @@ export const convertToAppTransaction = async (
       parsed.bank ? `Bank: ${parsed.bank}` : null,
       parsed.accountLast4 ? `A/c: ••••${parsed.accountLast4}` : null,
       `Source: ${parsed.sender ?? 'Unknown'}`,
+      autoLinkNote
     ].filter(Boolean).join(' | '),
   };
 };
+
+// ─── Intent Handlers ──────────────────────────────────────────────────────────
+
+/**
+ * SIP Confirmation — auto-create SIP plan if one with same fundName doesn't exist,
+ * or update totalInvested + units + nav + nextDueDate on an existing plan.
+ */
+async function handleSIPConfirmation(
+  intent: SIPConfirmationIntent,
+  smsId: string | undefined,
+  bank: string | null,
+): Promise<void> {
+  const alertStore = useAlertStore.getState();
+  if (smsId && await smsAlertExistsBySmSId(smsId)) return;
+
+  const { sips, addSIP, updateSIP, fetchSIPs } = useSIPStore.getState();
+  const now = new Date().toISOString();
+  const existing = sips.find((p: typeof sips[0]) =>
+    p.fundName.toLowerCase().includes(intent.fundName.toLowerCase()) ||
+    intent.fundName.toLowerCase().includes(p.fundName.toLowerCase()),
+  );
+
+  if (existing) {
+    await updateSIP({
+      ...existing,
+      totalInvested: existing.totalInvested + (intent.amount || 0),
+      nav: intent.nav ?? existing.nav,
+      units: (existing.units ?? 0) + (intent.units ?? 0),
+      lastModified: now,
+    });
+    console.log(`[SMS::SIP] Updated plan "${existing.name}" totalInvested += ${intent.amount}`);
+  } else if (intent.amount > 0) {
+    const today = new Date();
+    const nextDue = new Date(today);
+    nextDue.setMonth(nextDue.getMonth() + 1);
+    await addSIP({
+      id: '',
+      name: intent.fundName,
+      fundName: intent.fundName,
+      amount: intent.amount,
+      frequency: 'monthly',
+      startDate: now.split('T')[0],
+      nextDueDate: nextDue.toISOString().split('T')[0],
+      sipDay: today.getDate(),
+      totalInvested: intent.amount,
+      units: intent.units,
+      nav: intent.nav,
+      status: 'active',
+      notes: `Auto-created from SMS${intent.folio ? ` | Folio: ${intent.folio}` : ''}`,
+      categoryId: 'investment',
+      createdAt: now,
+      lastModified: now,
+    });
+    await fetchSIPs();
+    console.log(`[SMS::SIP] Auto-created plan "${intent.fundName}" amount=${intent.amount}`);
+  }
+
+  await alertStore.addAlert({
+    type: 'sip_confirmation',
+    title: `SIP Processed — ${intent.fundName}`,
+    body: [
+      `Amount: ₹${intent.amount.toLocaleString('en-IN')}`,
+      intent.units ? `Units: ${intent.units.toFixed(4)}` : null,
+      intent.nav ? `NAV: ₹${intent.nav}` : null,
+      intent.folio ? `Folio: ${intent.folio}` : null,
+    ].filter(Boolean).join(' | '),
+    amount: intent.amount,
+    bank: bank ?? intent.bank ?? undefined,
+    accountLast4: intent.accountLast4 ?? undefined,
+    smsId,
+  });
+}
+
+/**
+ * EMI Deduction — reduce outstanding balance on the matched loan,
+ * or auto-create a loan stub if none matches.
+ */
+async function handleEMIDeduction(
+  intent: EMIDeductionIntent,
+  smsId: string | undefined,
+  bank: string | null,
+): Promise<void> {
+  const alertStore = useAlertStore.getState();
+
+  if (smsId && await smsAlertExistsBySmSId(smsId)) return;
+
+  const { loans, addLoan, updateLoan, fetchLoans } = useLoanStore.getState();
+  const now = new Date().toISOString();
+
+  // Try to find a matching active loan by lender name
+  const existing = loans.find(l =>
+    l.status === 'active' && (
+      l.lender.toLowerCase().includes(intent.lenderHint.toLowerCase()) ||
+      intent.lenderHint.toLowerCase().includes(l.lender.toLowerCase()) ||
+      (bank && l.lender.toLowerCase().includes(bank.toLowerCase()))
+    ),
+  );
+
+  if (existing) {
+    const newOutstanding = Math.max(0, existing.outstanding - intent.emiAmount);
+    await updateLoan({ ...existing, outstanding: newOutstanding, lastModified: now });
+    await fetchLoans();
+    console.log(`[SMS::EMI] Updated loan "${existing.lender}" outstanding: ${existing.outstanding} → ${newOutstanding}`);
+  } else if (intent.emiAmount > 0) {
+    // Auto-create a stub loan — user can fill in total later
+    await addLoan({
+      id: '',
+      lender: intent.lenderHint || bank || 'Unknown Lender',
+      loanType: 'other',
+      principal: intent.emiAmount * 120,  // rough stub (120 months)
+      outstanding: intent.emiAmount * 119,
+      emiAmount: intent.emiAmount,
+      emiDueDay: new Date().getDate(),
+      tenureMonths: 120,
+      startDate: now.split('T')[0],
+      status: 'active',
+      source: 'sms',
+      notes: `Auto-created from SMS${intent.loanAccountHint ? ` | Loan A/c: ••••${intent.loanAccountHint}` : ''}`,
+      createdAt: now,
+      lastModified: now,
+    });
+    await fetchLoans();
+    console.log(`[SMS::EMI] Auto-created loan stub for "${intent.lenderHint}" EMI=${intent.emiAmount}`);
+  }
+
+  await alertStore.addAlert({
+    type: 'emi_deduction',
+    title: `EMI Paid — ${intent.lenderHint || bank || 'Loan'}`,
+    body: `EMI of ₹${intent.emiAmount.toLocaleString('en-IN')} debited${intent.loanAccountHint ? ` (Loan ••••${intent.loanAccountHint})` : ''}`,
+    amount: intent.emiAmount,
+    bank: bank ?? undefined,
+    accountLast4: intent.accountLast4 ?? undefined,
+    smsId,
+  });
+}
+
+/**
+ * Account Balance — update the matching account's balance in accountStore.
+ */
+async function handleAccountBalance(
+  intent: AccountBalanceIntent,
+  smsId: string | undefined,
+  bank: string | null,
+): Promise<void> {
+  const alertStore = useAlertStore.getState();
+
+  if (smsId && await smsAlertExistsBySmSId(smsId)) return;
+
+  const { accounts, editAccount } = useAccountStore.getState();
+
+  // Match account by bank name and/or last 4 digits
+  const matched = accounts.find(a => {
+    const nameMatch = bank && a.name.toLowerCase().includes(bank.toLowerCase());
+    const acctMatch = intent.accountLast4 && a.accountNumber?.endsWith(intent.accountLast4);
+    return acctMatch || nameMatch;
+  });
+
+  if (matched) {
+    await editAccount({ ...matched, balance: intent.balance });
+    console.log(`[SMS::Balance] Updated account "${matched.name}" balance → ₹${intent.balance}`);
+  } else {
+    console.log(`[SMS::Balance] No matching account found for last4=${intent.accountLast4} bank=${bank}`);
+  }
+
+  await alertStore.addAlert({
+    type: 'account_balance',
+    title: `Balance Update — ${bank || 'Account'}${intent.accountLast4 ? ` ••••${intent.accountLast4}` : ''}`,
+    body: `Available balance: ₹${intent.balance.toLocaleString('en-IN')}`,
+    amount: intent.balance,
+    bank: bank ?? undefined,
+    accountLast4: intent.accountLast4 ?? undefined,
+    smsId,
+  });
+}
+
+/**
+ * Loan Alert — save the due reminder to the alert store (no store write).
+ */
+async function handleLoanAlert(
+  intent: LoanAlertIntent,
+  smsId: string | undefined,
+  bank: string | null,
+): Promise<void> {
+  const alertStore = useAlertStore.getState();
+
+  if (smsId && await smsAlertExistsBySmSId(smsId)) return;
+
+  const duePart = intent.dueAmount
+    ? `₹${intent.dueAmount.toLocaleString('en-IN')}`
+    : 'payment';
+  const datePart = intent.dueDate
+    ? ` due on ${new Date(intent.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    : '';
+
+  await alertStore.addAlert({
+    type: 'loan_alert',
+    title: `Loan Due — ${intent.lenderHint || bank || 'Loan'}`,
+    body: `${duePart}${datePart}`,
+    amount: intent.dueAmount,
+    bank: bank ?? undefined,
+    smsId,
+  });
+
+  console.log(`[SMS::LoanAlert] Saved due alert for "${intent.lenderHint}" amount=${intent.dueAmount}`);
+}
 
 // ─── Main: get new transactions from SMS ──────────────────────────────────────
 export const getNewTransactionsFromSMS = async (
@@ -221,48 +546,114 @@ export const getNewTransactionsFromSMS = async (
     const minDate = watermark > 0 && !force ? watermark + 1 : 0;
 
     // The parser now accepts minDate to pass down to native ContentResolver.
-    const smsTransactions = await getTransactionsFromSMS(minDate);
+    // STEP 1: Read raw financial SMS
+    const rawMessages = await readFinancialSMS(minDate);
+
+    if (rawMessages.length === 0) {
+      console.log('[SMS::Util] No new SMS messages.');
+      return [];
+    }
+
+    // Start global progress UI if processing a bulk batch
+    useSmsSyncStore.getState().startSync(rawMessages.length, `Analyzing ${rawMessages.length} messages...`);
+
+    // STEP 2: Get already-processed IDs for dedup
+    const processedIds = await getProcessedSmsIdsFromDb();
+
+    // STEP 3: Route non-transaction SMS through intent handlers FIRST
+    // These are handled in parallel (account balance, SIP, EMI, loan alerts)
+    // and excluded from the transaction pipeline.
+    const transactionMessages: typeof rawMessages = [];
+
+    await Promise.allSettled(rawMessages.map(async (msg) => {
+      const smsId = msg._id?.toString();
+      if (!force && smsId && processedIds.includes(smsId)) return; // already processed
+
+      const intent = classifySMSIntent(msg.body, msg.address);
+
+      // Detect bank display name from body heuristic for enrichment
+      const bankFromSender = (() => {
+        const lower = (msg.address ?? '').toUpperCase();
+        if (lower.includes('HDFC')) return 'HDFC Bank';
+        if (lower.includes('ICICI')) return 'ICICI Bank';
+        if (lower.includes('SBI')) return 'SBI';
+        if (lower.includes('AXIS')) return 'Axis Bank';
+        if (lower.includes('KOTAK')) return 'Kotak Mahindra Bank';
+        return null;
+      })();
+
+      switch (intent.kind) {
+        case 'sip_confirmation':
+          await handleSIPConfirmation(intent, smsId, bankFromSender);
+          if (smsId) processedIds.push(smsId); // mark as processed
+          break;
+        case 'emi_deduction':
+          await handleEMIDeduction(intent, smsId, bankFromSender);
+          if (smsId) processedIds.push(smsId);
+          break;
+        case 'account_balance':
+          await handleAccountBalance(intent, smsId, bankFromSender);
+          if (smsId) processedIds.push(smsId);
+          break;
+        case 'loan_alert':
+          await handleLoanAlert(intent, smsId, bankFromSender);
+          if (smsId) processedIds.push(smsId);
+          break;
+        case 'transaction':
+          transactionMessages.push(msg); // pass to existing pipeline
+          break;
+        default:
+          break; // unknown — skip
+      }
+    }));
+
+    console.log(`[SMS::Util] Intent routing: ${rawMessages.length} raw → ${transactionMessages.length} transactions`);
+
+    // STEP 4: Parse transaction-intent messages through the existing parser
+    const smsTransactions = transactionMessages
+      .map(msg => {
+        const parsed = extractTransactionFromSMS(msg.body, msg.address);
+        if (!parsed) return null;
+        const smsId = msg._id?.toString();
+        const date = msg.date ? new Date(msg.date).toISOString() : new Date().toISOString();
+        return { ...parsed, smsId, date };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
 
     if (smsTransactions.length === 0) {
       console.log('[SMS::Util] No new SMS transactions.');
       return [];
     }
 
-    // Get ALL historically processed IDs from SQLite (fast O(1) loop filter)
-    const processedIds = await getProcessedSmsIdsFromDb();
-
+    // STEP 5: Dedup and filter by confidence
     const newTransactions = force
       ? smsTransactions
       : smsTransactions.filter(t => t.smsId && !processedIds.includes(t.smsId));
 
-    if (newTransactions.length === 0) {
-      console.log('[SMS::Util] No un-processed SMS transactions after dedup.');
-      return [];
-    }
-
-    // Filter by confidence *before* running AI conversion
     const MIN_CONFIDENCE_THRESHOLD = 0.35;
     const highConfidenceTransactions = newTransactions.filter(t => t.confidence >= MIN_CONFIDENCE_THRESHOLD);
+    console.log(`[SMS::Util] Converting ${highConfidenceTransactions.length} new transactions (filtered ${newTransactions.length - highConfidenceTransactions.length} low confidence)`);
 
-    console.log(`[SMS::Util] Converting ${highConfidenceTransactions.length} new transactions (filtered out ${newTransactions.length - highConfidenceTransactions.length} low confidence)`);
-
-    // Process all high-confidence transactions in parallel using Promise.all
-    const conversionPromises = highConfidenceTransactions.map(async t => {
-      const tx = await convertToAppTransaction(t, categories, options);
-      return { tx, smsId: t.smsId, date: t.date };
-    });
-
-    const conversionResults = await Promise.all(conversionPromises);
-
+    // STEP 6: Convert to app transactions sequentially to prevent DB race conditions
+    // (e.g., auto-creating duplicate accounts)
     const appTransactions: Transaction[] = [];
     const newlyProcessedIds: string[] = [];
     let maxDateProcessed = watermark;
 
-    for (const res of conversionResults) {
-      appTransactions.push(res.tx);
-      if (res.smsId) newlyProcessedIds.push(res.smsId);
+    let processedCount = 0;
+    for (const t of highConfidenceTransactions) {
+      processedCount++;
+      useSmsSyncStore.getState().updateProgress(
+        processedCount,
+        `Converting to transactions (${processedCount}/${highConfidenceTransactions.length})`
+      );
 
-      const txDateTs = new Date(res.date).getTime();
+      const tx = await convertToAppTransaction(t, categories, options);
+
+      appTransactions.push(tx);
+      if (t.smsId) newlyProcessedIds.push(t.smsId);
+
+      const txDateTs = new Date(t.date).getTime();
       if (txDateTs > maxDateProcessed) {
         maxDateProcessed = txDateTs;
       }
@@ -296,11 +687,16 @@ export const importSMSTransactionsToStore = async (
   try {
     const transactions = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
 
+    if (transactions.length > 0) {
+      useSmsSyncStore.getState().startSync(transactions.length, 'Saving to Database...');
+    }
+
     let savedCount = 0;
     for (const tx of transactions) {
       try {
         await saveTransactionFn(tx);
         savedCount++;
+        useSmsSyncStore.getState().updateProgress(savedCount, `Saving transaction ${savedCount} of ${transactions.length}...`);
       } catch (err) {
         console.error('[SMS::Util] Save error for tx:', tx.id, err);
       }
@@ -311,5 +707,8 @@ export const importSMSTransactionsToStore = async (
   } catch (err) {
     console.error('[SMS::Util] Import error:', err);
     return 0;
+  } finally {
+    // Ensure we hide the sync UI when done or on failure
+    useSmsSyncStore.getState().endSync();
   }
 };

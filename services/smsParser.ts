@@ -17,6 +17,7 @@ export type TxType = 'income' | 'expense' | 'transfer' | 'investment';
 
 export interface ParsedSMS {
     type: TxType;
+    subType?: 'sip' | 'emi';
     amount: number;
     merchant: string | null;
     date: string | null;          // ISO string
@@ -26,7 +27,9 @@ export interface ParsedSMS {
     bank: string | null;          // e.g. "HDFC Bank" | null
     accountLast4: string | null;  // e.g. "1234" | null
     paymentMethod: string | null; // "UPI" | "Card" | "NEFT" | etc.
+    paidBy?: string | null;       // The VPA or name of who sent you money (for UPI received)
     refNumber: string | null;     // Extracted reference number / Transaction ID
+    availableBalance?: number;    // Extracted available balance if present
     confidence: number;           // 0–1
 }
 
@@ -70,7 +73,26 @@ const BANK_SENDER_MAP: Record<string, string[]> = {
     phonepe: ['PHNPAY', 'PHONEP', 'PHPEBN'],
     gpay: ['GOOGPAY', 'GPAY', 'OKAXIS', 'OKICICI', 'OKSBI', 'OKHDFCBANK'],
     kgbank: ['KGBANK', 'KGB'],
+    // Mutual Fund AMCs and RTAs (for SIP confirmation SMS)
+    amc: [
+        'SBIMF', 'SBIMFU',
+        'HDFCMF', 'HDFMFU',
+        'ICICMF', 'ICICIP',
+        'AXISMF', 'AXMFND',
+        'KAMC', 'KOTMF',
+        'NFMFL', 'NIPPON', 'NIPMF',       // Nippon India
+        'MIRAE', 'MIRAEF',
+        'PPFAS', 'PPFMF',
+        'DSPBR', 'DSPMF',
+        'UTIMF', 'UTIIND',
+        'ABSLMF', 'ABSUND',               // Aditya Birla Sun Life
+        'SNDRM', 'SUNDMF',
+        'KFINTECH', 'CAMSCO', 'CAMSMF',   // RTAs
+        'GROWWS', 'GROWWI',               // Groww platform
+        'ZCOINS',                         // Zerodha Coin
+    ],
 };
+
 
 // Pretty display names
 const BANK_DISPLAY_NAMES: Record<string, string> = {
@@ -108,9 +130,9 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
     hdfc: {
         debit: [
             /(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s*(?:has been|is)\s*debited/i,
-            /debited.*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
-            /(?:spent|paid).*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
-            /NACH.*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
+            /debited[\s\S]*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
+            /(?:spent|paid|sent)[\s\S]*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
+            /NACH[\s\S]*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
         ],
         credit: [
             /(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s*(?:has been|is)\s*credited/i,
@@ -569,6 +591,47 @@ function extractMerchant(body: string, bankKey: string | null, type: TxType): st
     return tryPatterns(genericPatterns);
 }
 
+// ─── Extract Payer VPA (For Income / Credit) ──────────────────────────────────
+function extractPayerVPA(body: string): { paidBy: string | null; merchant: string | null } {
+    const tryPatterns = (patterns: RegExp[]): string | null => {
+        for (const p of patterns) {
+            const m = body.match(p);
+            if (m?.[1]) return m[1].trim();
+        }
+        return null;
+    };
+
+    const payerPatterns: RegExp[] = [
+        /from\s+([\w.\-]+@[\w.\-]+)/i,             // "from amitverma@okhdfcbank"
+        /(?:credited|received).*?from\s+([\w.\-]+@[\w.\-]+)/i,
+        /from\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+via|\s+on|\s+a\/c|\s+bank|\.|\s*$)/i,
+        /(?:credited|received).*?by\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+via|\s+on|\s+a\/c|\s+bank|\.|\s*$)/i,
+    ];
+
+    const paidBy = tryPatterns(payerPatterns);
+
+    if (!paidBy) return { paidBy: null, merchant: null };
+
+    // Derive a friendly display name from the VPA if it contains an '@'
+    let merchantName = paidBy;
+    if (paidBy.includes('@')) {
+        const vpaPrefix = paidBy.split('@')[0];
+        // If the prefix is just numbers (e.g., 9876543210), keep it as is
+        if (/^\d+$/.test(vpaPrefix)) {
+            merchantName = vpaPrefix;
+        } else {
+            // "amit.verma" -> "Amit Verma"
+            merchantName = vpaPrefix
+                .replace(/[.\-_]/g, ' ')
+                .replace(/\b(\w)/g, c => c.toUpperCase());
+        }
+    } else {
+        merchantName = normalizeMerchant(paidBy);
+    }
+
+    return { paidBy, merchant: merchantName };
+}
+
 // ─── Date extraction ──────────────────────────────────────────────────────────
 const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -653,6 +716,23 @@ function extractRefNumber(body: string): string | null {
     return null;
 }
 
+// ─── Extract Available Balance ────────────────────────────────────────────────
+function extractAvailableBalance(body: string): number | undefined {
+    // Patterns for available balance, e.g., "Avl bal:INR 7,239.16", "Available Balance: Rs. 1000", "Bal Rs.123.45"
+    const patterns = [
+        /(?:avl(?:\.|iable)?\s*bal(?:ance)?|available\s*balance)[\s:;\-]*?(?:inr|rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+        /bal(?:ance)?[\s:;\-]*?(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i
+    ];
+    for (const p of patterns) {
+        const m = body.match(p);
+        if (m && m[1]) {
+            const val = parseFloat(m[1].replace(/,/g, ''));
+            if (!isNaN(val)) return val;
+        }
+    }
+    return undefined;
+}
+
 // ─── Confidence scoring ───────────────────────────────────────────────────────
 function calculateConfidence(fields: {
     amount: number;
@@ -671,16 +751,19 @@ function calculateConfidence(fields: {
 }
 
 // ─── Read financial SMS ───────────────────────────────────────────────────────
-export const readFinancialSMS = async (minDate = 0, limit = 300): Promise<RawSmsMessage[]> => {
+// Passes minDate watermark to the native layer; the native module does the
+// isFinancialSms() filtering for us, so we can safely scan a large window.
+export const readFinancialSMS = async (minDate = 0, limit = 10_000): Promise<RawSmsMessage[]> => {
     const hasPermission = await requestSMSPermission();
     if (!hasPermission) return [];
 
+    // Native layer already filters to financial-only messages, so we do NOT
+    // re-apply isFinancialSms() here — that would be redundant and wasteful.
     const messages = await readSmsMessages(limit, minDate);
-    const financial = messages.filter(m => m.body && isFinancialSms(m.body));
-    console.log(`[SMS::Parser] Scan (minDate=${minDate}): ${messages.length} total → ${financial.length} financial`);
+    console.log(`[SMS::Parser] Received ${messages.length} financial SMS from native (minDate=${minDate})`);
 
     await AsyncStorage.setItem(LAST_SMS_SCAN_KEY, Date.now().toString());
-    return financial;
+    return messages;
 };
 
 // ─── Debug helper ─────────────────────────────────────────────────────────────
@@ -711,11 +794,23 @@ export const extractTransactionFromSMS = (
     if (!amount) return null;
 
     const type = refineType(smsBody, rawType);
-    const merchant = extractMerchant(smsBody, bankKey, type);
+    let merchant = extractMerchant(smsBody, bankKey, type);
+    let paidBy: string | null = null;
+
+    // For income, attempt to extract the P2P sender
+    if (type === 'income') {
+        const payerInfo = extractPayerVPA(smsBody);
+        if (payerInfo.paidBy) {
+            paidBy = payerInfo.paidBy;
+            merchant = payerInfo.merchant; // Use derived friendly name
+        }
+    }
+
     const date = extractDate(smsBody, bankKey);
     const accountLast4 = extractAccount(smsBody, bankKey);
     const paymentMethod = detectPaymentMethod(smsBody);
     const refNumber = extractRefNumber(smsBody);
+    const availableBalance = extractAvailableBalance(smsBody);
 
     // We optionally add the refNumber to confidence calculation if we want, currently skipped.
     const confidence = calculateConfidence({ amount, merchant, date, accountLast4, bankKey });
@@ -724,12 +819,22 @@ export const extractTransactionFromSMS = (
         ? `${date.getDate()} ${MONTH_NAMES[date.getMonth()].charAt(0).toUpperCase()}${MONTH_NAMES[date.getMonth()].slice(1)} ${date.getFullYear()}`
         : null;
 
+    // Phase 2: Detect SIP / EMI subtypes
+    let subType: 'sip' | 'emi' | undefined;
+    const lowerBody = smsBody.toLowerCase();
+    if (lowerBody.includes('sip') || lowerBody.includes('mutual fund') || lowerBody.includes('units allotted')) {
+        subType = 'sip';
+    } else if (lowerBody.includes('emi') || lowerBody.includes('loan instalment') || lowerBody.includes('equated monthly')) {
+        subType = 'emi';
+    }
+
     console.log(
-        `[SMS::Parser] bank=${bankKey ?? 'unknown'} type=${type} amount=${amount} merchant="${merchant}" confidence=${confidence.toFixed(2)}`
+        `[SMS::Parser] bank=${bankKey ?? 'unknown'} type=${type} subType=${subType ?? 'none'} amount=${amount} merchant="${merchant}" confidence=${confidence.toFixed(2)}`
     );
 
     return {
         type,
+        subType,
         amount,
         merchant,
         date: date?.toISOString() ?? null,
@@ -739,7 +844,9 @@ export const extractTransactionFromSMS = (
         bank: bankName,
         accountLast4,
         paymentMethod,
+        paidBy,
         refNumber,
+        availableBalance,
         confidence,
     };
 };

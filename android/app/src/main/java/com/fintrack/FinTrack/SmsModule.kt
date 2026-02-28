@@ -160,19 +160,27 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
-    // ─── Read SMS inbox (existing API — unchanged) ────────────────────────────
+    // ─── Read SMS inbox ───────────────────────────────────────────────────────
+    // Industry-standard approach: filter by financial keywords NATIVELY inside
+    // the ContentResolver cursor loop, so only relevant SMS messages cross the
+    // React Native bridge. This allows scanning up to 10,000 messages with
+    // minimal memory pressure and zero JS thread blocking.
     @ReactMethod
     fun getTransactionSms(maxCount: Int, minDate: Double, promise: Promise) {
         try {
             val uri = Uri.parse(SMS_URI)
             val projection = arrayOf("_id", "address", "body", "date")
 
+            // Build WHERE clause: only apply date filter if a watermark is set
             val selectionParts = mutableListOf<String>()
             if (minDate > 0) {
                 selectionParts.add("date >= ${minDate.toLong()}")
             }
             val selection = if (selectionParts.isEmpty()) null else selectionParts.joinToString(" AND ")
 
+            // We query a large window (up to maxCount) to scan the full history,
+            // but apply financial keyword filtering INSIDE the loop — only matching
+            // rows are added to the result JSON Array sent across the bridge.
             val cursor: Cursor? = reactContext.contentResolver.query(
                 uri,
                 projection,
@@ -182,6 +190,9 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
             )
 
             val result = JSONArray()
+            var scanned = 0
+            var financialCount = 0
+
             cursor?.use { c ->
                 val idIdx = c.getColumnIndexOrThrow("_id")
                 val addressIdx = c.getColumnIndexOrThrow("address")
@@ -189,17 +200,26 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
                 val dateIdx = c.getColumnIndexOrThrow("date")
 
                 while (c.moveToNext()) {
+                    scanned++
+                    val body = c.getString(bodyIdx) ?: continue
+
+                    // ✅ Filter natively — only financial SMS cross the bridge
+                    if (!isFinancialSms(body)) continue
+
+                    financialCount++
                     val sms = JSONObject()
                     sms.put("_id", c.getString(idIdx))
                     sms.put("address", c.getString(addressIdx))
-                    sms.put("body", c.getString(bodyIdx))
+                    sms.put("body", body)
                     sms.put("date", c.getLong(dateIdx))
                     result.put(sms)
                 }
             }
 
+            Log.d(TAG, "SMS scan complete: $scanned scanned → $financialCount financial (sent to JS)")
             promise.resolve(result.toString())
         } catch (e: Exception) {
+            Log.e(TAG, "Error reading SMS", e)
             promise.reject("SMS_READ_ERROR", e.message ?: "Unknown error reading SMS", e)
         }
     }

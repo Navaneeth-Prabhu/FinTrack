@@ -129,6 +129,8 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
         date: row.date,
         description: row.description,
         type: row.type,
+        paidTo: row.paidTo,
+        paidBy: row.paidBy,
         categoryId: row.categoryId,
         recurringId: row.recurringId,
         accountId: row.accountId,

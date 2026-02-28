@@ -18,11 +18,12 @@ export const TransactionDetails: React.FC<TransactionDetailsProps> = ({
 }) => {
     const { colors } = useTheme();
 
+    console.log(transaction, 'asdfasdf');
     return (
         <View style={styles.container}>
             <View style={styles.titleContainer}>
                 <ThemedText variant='h3' numberOfLines={2} style={{ color: colors.text }}>
-                    {transaction.paidTo || transaction.category.name} 
+                    {transaction.paidTo || transaction.paidBy || "Unknown"}
                 </ThemedText>
                 {isRecurring && (
                     <FontAwesome name="repeat" size={14} color={colors.muted} />

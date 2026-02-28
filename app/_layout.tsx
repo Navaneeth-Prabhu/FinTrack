@@ -18,7 +18,11 @@ import { Platform } from 'react-native';
 import { initializeSMSFeatures } from '@/services/smsInitService';
 import { useSMSObserver } from '@/hooks/useSMSObserver';
 import { useTheme } from '@/hooks/useTheme';
+import { useAlertStore } from '@/stores/alertStore';
+import { useAccountStore } from '@/stores/accountStore';
+import { useSupabaseAuthStore } from '@/stores/supabaseAuthStore';
 import SplashScreenComponent from '../components/SplashScreen';
+import { GlobalSmsSyncModal } from '@/components/settings/GlobalSmsSyncModal';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 
@@ -40,6 +44,7 @@ export default function RootLayout() {
   const { biometrics } = usePreferenceStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { saveTransaction } = useTransactionStore();
+  const { initialize: initAuth } = useSupabaseAuthStore();
 
   // Start the real-time SMS ContentObserver (while app is alive)
   useSMSObserver();
@@ -76,9 +81,14 @@ export default function RootLayout() {
           if (categories.length === 0) {
             await loadCategories();
           }
+          await useAccountStore.getState().fetchAccounts();
           await useRecurringTransactionStore.getState().fetchRecurringTransactions();
           await useTransactionStore.getState().fetchTransactions(50);
+          await useAlertStore.getState().fetchAlerts();
           await registerRecurringTask();
+
+          // Initialize Supabase Auth session (non-blocking)
+          initAuth().catch(err => console.warn('[Auth] Session restore error:', err));
 
           // Step 3: Generate due transactions (potentially depends on fetch)
           await useRecurringTransactionStore.getState().generateRecurringTransactions();
@@ -166,6 +176,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
+          <GlobalSmsSyncModal />
           <StatusBar style={isDark ? 'light' : 'dark'} />
         </BottomSheetModalProvider>
       </ThemeProvider>

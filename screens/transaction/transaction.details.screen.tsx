@@ -186,8 +186,12 @@ const TransactionDetailScreen: React.FC<TransactionDetailScreenProps> = ({ trans
                         </View>
                     )}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <ThemedText variant="body1">Paid To</ThemedText>
-                        <ThemedText variant="body1">{transaction?.paidTo || 'N/A'}</ThemedText>
+                        <ThemedText variant="body1">{transaction?.type === 'income' ? 'Paid By' : 'Paid To'}</ThemedText>
+                        <ThemedText variant="body1">
+                            {transaction?.type === 'income'
+                                ? transaction?.paidBy || 'N/A'
+                                : transaction?.paidTo || 'N/A'}
+                        </ThemedText>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <ThemedText variant="body1">Mode</ThemedText>
