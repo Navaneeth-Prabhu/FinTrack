@@ -9,18 +9,10 @@ interface TransactionAmountProps {
   isUpcoming?: boolean;
 }
 
-export const TransactionAmount: React.FC<TransactionAmountProps> = ({
-  amount,
-  type,
-  isUpcoming,
-}) => {
+export const TransactionAmount: React.FC<TransactionAmountProps> = React.memo((
+  { amount, type, isUpcoming }
+) => {
   const { colors } = useTheme();
-
-  const amountColor = isUpcoming
-    ? colors.muted
-    : type === 'income'
-      ? colors.income
-      : colors.expense;
 
   return (
     <ThemedText variant='h3' style={[{ color: colors.text }]}>
@@ -28,7 +20,7 @@ export const TransactionAmount: React.FC<TransactionAmountProps> = ({
       ${amount.toFixed(2)}
     </ThemedText>
   );
-};
+});
 
 const styles = StyleSheet.create({
   amount: {

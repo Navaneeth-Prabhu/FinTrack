@@ -26,15 +26,15 @@ const TotalBalance = () => {
             </View>
             <View style={[styles.cardFooter, { backgroundColor: colors.card }]}>
                 <View style={styles.footerDiv}>
-                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Today's Expense</ThemedText>
+                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Monthly Income</ThemedText>
                     <ThemedText variant='subtitle' style={{ fontWeight: tokens.fontWeight.medium }}>
-                        {format(dashboardMetrics?.todaySpending || 0)}
+                        {format(dashboardMetrics?.currentMonthIncome || 0)}
                     </ThemedText>
                 </View>
                 <View style={styles.footerDiv}>
-                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Expense Last Month</ThemedText>
+                    <ThemedText variant='body1' style={{ color: colors.subtitle, fontWeight: tokens.fontWeight.medium }}>Monthly Expense</ThemedText>
                     <ThemedText variant='subtitle' style={{ fontWeight: tokens.fontWeight.medium }}>
-                        {format(dashboardMetrics?.previousMonthSpending || 0)}
+                        {format(dashboardMetrics?.currentMonthSpending || 0)}
                     </ThemedText>
                 </View>
             </View>

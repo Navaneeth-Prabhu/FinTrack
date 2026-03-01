@@ -22,6 +22,8 @@ interface FilterBottomSheetProps {
     };
 }
 
+const TIME_PERIOD_OPTIONS = ['Day', 'Week', 'Month', 'Year', 'Custom'] as TimeView[];
+
 export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
     bottomSheetRef,
     selectedView,
@@ -55,11 +57,6 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
         bottomSheetRef.current?.close();
     }, [bottomSheetRef]);
 
-    // Memoize time period options to prevent recreation
-    const timePeriodOptions = useMemo(() =>
-        ['Day', 'Week', 'Month', 'Year', 'Custom'] as TimeView[],
-        []);
-
     return (
         <BottomSheetModal
             ref={bottomSheetRef}
@@ -92,7 +89,7 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                 <View>
                     <ThemedText variant='body1' style={{ marginBottom: 14 }}>Time Period</ThemedText>
                     <View style={styles.optionsRow}>
-                        {timePeriodOptions.map((view) => (
+                        {TIME_PERIOD_OPTIONS.map((view) => (
                             <FilterChip
                                 key={view}
                                 label={view}

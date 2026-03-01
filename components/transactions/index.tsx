@@ -19,6 +19,9 @@ interface TransactionListProps {
     transactions: Transaction[];
     overView?: boolean;
     recurringTransactions?: RecurringTransaction[];
+    isFetching?: boolean;
+    isCurrentMonth?: boolean;
+    lastMonthTotals?: { income: number; expense: number } | null;
 }
 
 // ─── Item type union ─────────────────────────────────────────────────────────
@@ -64,11 +67,17 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     transactions,
     overView = true,
     recurringTransactions,
+    isFetching = false,
+    isCurrentMonth = false,
+    lastMonthTotals = null,
 }) => {
     // ── Hooks (always at top, no early returns before this) ──────────────────
     const { colors } = useTheme();
     const { theme } = usePreferenceStore();
+    const sectionStartTime = Date.now();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
+    const sectionEndTime = Date.now();
+
     const categories = useCategoryStore(state => state.categories);
     const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
     const [loading, setLoading] = React.useState(false);
@@ -83,6 +92,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         flatData: ListItem[];
         stickyIndices: number[];
     }>(() => {
+        const flatStartTime = Date.now();
         const data: ListItem[] = [];
         const sticky: number[] = [];
 
@@ -108,8 +118,9 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
             });
         });
 
+        console.log(`⏱️ [Render Perf] sections=${sectionEndTime - sectionStartTime}ms, flatten=${Date.now() - flatStartTime}ms, totalTx=${transactions.length}`);
         return { flatData: data, stickyIndices: sticky };
-    }, [sections]);
+    }, [sections, sectionEndTime, sectionStartTime, transactions.length]);
 
     // ── Render callbacks (stable references via useCallback) ─────────────────
     const renderItem = useCallback(({ item }: { item: ListItem }) => {
@@ -117,11 +128,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
             return (
                 <View style={[
                     styles.headerWrapper,
-                    {
-                        paddingTop: item.isFirst ? 0 : 12,
-                        paddingBottom: 8,
-                        backgroundColor: sectionBg
-                    },
+                    item.isFirst ? styles.headerFirst : styles.headerRest,
+                    { backgroundColor: sectionBg },
                 ]}>
                     <MemoizedSectionHeader section={item.section} />
                 </View>
@@ -140,13 +148,39 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     // Tells FlashList which recycling pool to use — critical for performance
     const getItemType = useCallback((item: ListItem) => item.type, []);
 
+    // ── FlashList stable keys ──────────────────────────────────────────────────
+    // Without this, React uses array indices. If the user changes filters/months,
+    // the indices change, causing a complete unmount/remount of the list tree.
+    const keyExtractor = useCallback((item: ListItem) => {
+        return item.type === 'header'
+            ? `header-${item.section.title}`
+            : `tx-${item.transaction.id}`;
+    }, []);
+
     const ListHeader = useCallback(() => (
-        overView ? <ListSummary totals={totals} /> : null
-    ), [overView, totals]);
+        overView ? <ListSummary totals={totals} isCurrentMonth={isCurrentMonth} lastMonthTotals={lastMonthTotals} /> : null
+    ), [overView, totals, isCurrentMonth, lastMonthTotals]);
 
     const ListFooterComponent = useCallback(() => (
         <ListFooter totals={totals} count={transactions.length} isFetchingMore={isFetchingMore} />
     ), [totals, transactions.length, isFetchingMore]);
+
+    // ── FlashList stable callbacks ────────────────────────────────────────────
+    const overrideItemLayout = useCallback((layout: any, item: ListItem) => {
+        layout.size = item.type === 'header' ? (item.isFirst ? 40 : 52) : 88;
+    }, []);
+
+    const renderEmpty = useCallback(() => {
+        if ((isLoading || isFetching) && flatData.length === 0) {
+            return (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <ThemedText style={[styles.loadingText, { color: colors.subtitle }]}>Loading transactions...</ThemedText>
+                </View>
+            );
+        }
+        return <EmptyList />;
+    }, [isLoading, isFetching, flatData.length, colors]);
 
     // ── SMS import handler ────────────────────────────────────────────────────
     const handleImport = useCallback(async () => {
@@ -207,40 +241,30 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 data={flatData}
                 renderItem={renderItem}
                 getItemType={getItemType}
+                keyExtractor={keyExtractor}
                 // Updated to match the actual measured item height + margin (80 + 8 = 88)
                 estimatedItemSize={88}
                 // Setting estimatedListSize helps FlashList skip a major layout calculation step
-                estimatedListSize={{ height: 800, width: 400 }}
-                // Pre-render more items off-screen so fast-scrolling doesn't reveal blank space
-                drawDistance={1000}
+                estimatedListSize={ESTIMATED_LIST_SIZE}
                 stickyHeaderIndices={stickyIndices}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={ListHeader}
                 ListFooterComponent={ListFooterComponent}
-                ListEmptyComponent={
-                    isLoading && flatData.length === 0 ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                            <ThemedText style={[styles.loadingText, { color: colors.subtitle }]}>Loading transactions...</ThemedText>
-                        </View>
-                    ) : (
-                        <EmptyList />
-                    )
-                }
+                ListEmptyComponent={renderEmpty}
                 onRefresh={handleRefresh}
                 refreshing={loading}
                 // Pagination props
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5} // Trigger when half a screen from bottom
                 // Performance tuning - explicit hints skip measuring phases
-                overrideItemLayout={(layout, item, index, maxDim) => {
-                    // Header height + padding calculation matches render styles exactly
-                    layout.size = item.type === 'header' ? (item.isFirst ? 40 : 52) : 88;
-                }}
+                overrideItemLayout={overrideItemLayout}
             />
         </View>
     );
 });
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const ESTIMATED_LIST_SIZE = { height: 800, width: 400 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
@@ -248,7 +272,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerWrapper: {
-        // Background ensures sticky header covers scrolling content
+        // Base styles — paddingTop/Bottom split out below
+    },
+    headerFirst: {
+        paddingTop: 0,
+        paddingBottom: 8,
+    },
+    headerRest: {
+        paddingTop: 12,
+        paddingBottom: 8,
     },
     itemWrapper: {
         marginBottom: 8,

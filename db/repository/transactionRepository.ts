@@ -314,3 +314,81 @@ export const fetchFilteredTransactionsFromDB = async (
     const transactions = await db.getAllAsync(query, ...params);
     return transactions.map(mapRowToTransaction);
 };
+
+export const fetchTimelineTransactionsFromDB = async (
+    startDate?: string,
+    endDate?: string,
+    types?: string[],
+    categories?: string[]
+): Promise<Transaction[]> => {
+    const db = await initDatabase();
+    let query = `${baseSelectQuery} WHERE 1=1`;
+    const params: any[] = [];
+
+    if (startDate) {
+        query += ` AND t.date >= ?`;
+        params.push(startDate);
+    }
+
+    if (endDate) {
+        query += ` AND t.date <= ?`;
+        params.push(endDate);
+    }
+
+    if (types && types.length > 0) {
+        const placeholders = types.map(() => '?').join(', ');
+        query += ` AND t.type IN (${placeholders})`;
+        params.push(...types);
+    }
+
+    if (categories && categories.length > 0) {
+        // category names are passed in from the UI filter, not ids, so we join on c.name
+        const placeholders = categories.map(() => '?').join(', ');
+        query += ` AND c.name IN (${placeholders})`;
+        params.push(...categories);
+    }
+
+    query += ` ORDER BY t.date DESC`;
+
+    const transactions = await db.getAllAsync(query, ...params);
+    return transactions.map(mapRowToTransaction);
+};
+
+export const fetchMonthlyTotalsFromDB = async (
+    startDate: string,
+    endDate: string,
+    types?: string[],
+    categories?: string[]
+): Promise<{ income: number; expense: number }> => {
+    const db = await initDatabase();
+
+    // We only need SUM for income and expense types
+    let query = `
+        SELECT 
+            SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
+            SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expense
+        FROM transactions t
+        LEFT JOIN categories c ON t.categoryId = c.id
+        WHERE t.date >= ? AND t.date <= ?
+    `;
+    const params: any[] = [startDate, endDate];
+
+    if (types && types.length > 0) {
+        const placeholders = types.map(() => '?').join(', ');
+        query += ` AND t.type IN (${placeholders})`;
+        params.push(...types);
+    }
+
+    if (categories && categories.length > 0) {
+        const placeholders = categories.map(() => '?').join(', ');
+        query += ` AND c.name IN (${placeholders})`;
+        params.push(...categories);
+    }
+
+    const result = await db.getFirstAsync<{ income: number; expense: number }>(query, ...params);
+
+    return {
+        income: result?.income || 0,
+        expense: result?.expense || 0
+    };
+};

@@ -1,197 +1,224 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, ScrollView } from 'react-native';
+import React, { useCallback, useRef, useState, useMemo } from 'react';
+import { View, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
+import {
+    startOfMonth,
+    endOfMonth,
+    subMonths,
+    addMonths,
+    isSameMonth,
+    startOfDay,
+} from 'date-fns';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useCategoryStore } from '@/stores/categoryStore';
-import { Screen } from '@/components/layout/Screen';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { FilterBottomSheet } from '@/components/bottomSheet/transactionFilterBottomSheet';
 import { Ionicons } from '@expo/vector-icons';
-import { TimeView } from '@/types';
 import { TransactionList } from '@/components/transactions';
-import SMSImportButton from '@/components/SMSImportButton';
+import { useTimelineData } from './hooks/useTimelineData';
+import { TimeView } from '@/types';
+import { MonthNavigator, TimePreset } from '@/components/transactions/MonthNavigator';
 import { darkTheme, fontSizes, lightTheme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import usePreferenceStore from '@/stores/preferenceStore';
 
-export default function TimeLineScreen() {
-    const { theme } = usePreferenceStore();
-    const { transactions, fetchTransactions, isLoading } = useTransactionStore();
-    const { recurringTransactions } = useRecurringTransactionStore();
-    const { categories } = useCategoryStore();
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
-    // Track if we've ever successfully fetched — prevents re-fetch on every tab switch
-    const hasFetchedRef = useRef(false);
+// ─── Zustand selectors (hoisted — stable references, prevent full-store re-renders) ──
+const selectTransactions = (s: any) => s.transactions;
+const selectRecurringTransactions = (s: any) => s.recurringTransactions;
+const selectCategories = (s: any) => s.categories;
+const selectTheme = (s: any) => s.theme;
 
-    // Applied filters state (only updated when Apply button is pressed)
+export default function TimeLineScreen() {
+    // ── Selective Zustand subscriptions (only re-render when THIS slice changes) ──
+    const theme = usePreferenceStore(selectTheme);
+    // Remove pulling ALL transactions into memory for the timeline
+    const recurringTransactions = useRecurringTransactionStore(selectRecurringTransactions);
+    const categories = useCategoryStore(selectCategories);
+
+    const bottomSheetRef = useRef<BottomSheetModal>(null);
+
+    // ── Applied filters (type / category — shown as chips) ────────────────────
     const [appliedFilters, setAppliedFilters] = useState({
         transactionType: [] as string[],
         categories: [] as string[],
     });
 
-    // Temporary filter state (for the bottom sheet UI)
-    const [tempFilterState, setTempFilterState] = useState({
+    // ── Temp filter state now in a REF to avoid re-rendering the list when
+    //    the user interacts with the bottom sheet. The bottom sheet reads from
+    //    the ref; we only trigger a state update on Apply. ─────────────────────
+    const tempFilterRef = useRef({
         transactionType: [] as string[],
         categories: [] as string[],
     });
+    // Counter to force the bottom sheet to re-read ref values when opened
+    const [sheetRevision, setSheetRevision] = useState(0);
 
     const [selectedView, setSelectedView] = useState<TimeView>('Month');
 
-    // Transactions are now pre-fetched in _layout.tsx during the splash screen
+    // ── Time scope state ──────────────────────────────────────────────────────
+    const [selectedMonth, setSelectedMonth] = useState<Date>(() => startOfMonth(new Date()));
+    const [timePreset, setTimePreset] = useState<TimePreset | null>(null);
 
-    // Memoize active filters for display
+    // ── Date range: hook initialises synchronously from cache, no deferral needed ─
+    const dateRange = useMemo(() => {
+        if (timePreset === 'All') return null;
+        const now = startOfDay(new Date());
+        if (timePreset === '3M') return { start: subMonths(now, 3).toISOString(), end: '9999-12-31T23:59:59.999Z' };
+        if (timePreset === '6M') return { start: subMonths(now, 6).toISOString(), end: '9999-12-31T23:59:59.999Z' };
+        return {
+            start: startOfMonth(selectedMonth).toISOString(),
+            end: endOfMonth(selectedMonth).toISOString(),
+        };
+    }, [selectedMonth, timePreset]);
+
+    // ── Direct SQLite Fetching (Instant, zero JS array reallocation) ─────────
+    // This replaces in-memory Zustand filtering. When dateRange or filters change,
+    // this hook queries the DB directly for exactly what we need.
+    const {
+        data: filteredTransactions,
+        lastMonthTotals,
+        isCurrentMonth,
+        loading: dbLoading
+    } = useTimelineData(dateRange, appliedFilters);
+
+    // ── Active filter chips (unchanged) ──────────────────────────────────────
     const activeFilters = useMemo(() => {
-        const filters: { type: string, value: string }[] = [];
-
-        appliedFilters.transactionType.forEach(type => {
-            filters.push({
-                type: 'transactionType',
-                value: type
-            });
-        });
-
-        appliedFilters.categories.forEach(category => {
-            filters.push({
-                type: 'categories',
-                value: category
-            });
-        });
-
+        const filters: { type: string; value: string }[] = [];
+        appliedFilters.transactionType.forEach(type =>
+            filters.push({ type: 'transactionType', value: type })
+        );
+        appliedFilters.categories.forEach(category =>
+            filters.push({ type: 'categories', value: category })
+        );
         return filters;
     }, [appliedFilters.transactionType, appliedFilters.categories]);
 
-    // Memoize filtered transactions based on APPLIED filters only
-    const filteredTransactions = useMemo(() => {
-        return transactions.filter(tx => {
-            // Filter by transaction type if any applied
-            if (appliedFilters.transactionType.length > 0 && !appliedFilters.transactionType.includes(tx.type)) {
-                return false;
-            }
-            // Filter by category if any applied
-            if (appliedFilters.categories.length > 0 && (!tx.category || !appliedFilters.categories.includes(tx.category.name))) {
-                return false;
-            }
-            return true;
-        });
-    }, [transactions, appliedFilters.transactionType, appliedFilters.categories]);
+    // ── Month navigation ──────────────────────────────────────────────────────
+    const handlePrevMonth = useCallback(() => {
+        setSelectedMonth(prev => startOfMonth(subMonths(prev, 1)));
+    }, []);
 
-    // Handle opening the bottom sheet
+    const handleNextMonth = useCallback(() => {
+        setSelectedMonth(prev => {
+            const next = addMonths(prev, 1);
+            return isSameMonth(next, new Date()) || next < new Date()
+                ? startOfMonth(next)
+                : prev;
+        });
+    }, []);
+
+    const handlePresetSelect = useCallback((preset: TimePreset) => {
+        setTimePreset(prev => (prev === preset ? null : preset));
+        setSelectedMonth(startOfMonth(new Date()));
+    }, []);
+
+    // ── Filter bottom sheet handlers (use ref to avoid re-rendering list) ─────
     const handlePresentModalPress = useCallback(() => {
-        // Set temp state to current applied filters when opening
-        setTempFilterState({
+        // Snapshot applied filters into the ref for the sheet to read
+        tempFilterRef.current = {
             transactionType: [...appliedFilters.transactionType],
             categories: [...appliedFilters.categories],
-        });
-
-        if (bottomSheetRef.current) {
-            bottomSheetRef.current.present();
-        } else {
-            console.warn("bottomSheetRef is not available");
-        }
+        };
+        setSheetRevision(r => r + 1);
+        bottomSheetRef.current?.present();
     }, [appliedFilters]);
 
-    // Filter options
     const filterOptions = useMemo(() => ({
         transactionTypes: [
             { label: 'Income', value: 'income' },
             { label: 'Expense', value: 'expense' },
-            { label: 'Transfer', value: 'transfer' }
+            { label: 'Transfer', value: 'transfer' },
         ],
         accountTypes: [],
-        categories: categories
+        categories,
     }), [categories]);
 
-    // Handle filter changes in the bottom sheet (temporary state)
+    // The bottom sheet still needs to show its current selections, so we keep
+    // a thin state wrapper that ONLY the sheet subscribes to (via sheetRevision).
+    const tempFilterState = tempFilterRef.current;
+
     const handleFilterChange = useCallback((filterType: string, value: string) => {
+        const ref = tempFilterRef.current;
         if (filterType === 'categories') {
-            setTempFilterState(prev => {
-                if (prev.categories.includes(value)) {
-                    return {
-                        ...prev,
-                        categories: prev.categories.filter(cat => cat !== value)
-                    };
-                } else {
-                    return {
-                        ...prev,
-                        categories: [...prev.categories, value]
-                    };
-                }
-            });
+            ref.categories = ref.categories.includes(value)
+                ? ref.categories.filter(cat => cat !== value)
+                : [...ref.categories, value];
         } else if (filterType === 'transactionType') {
-            setTempFilterState(prev => {
-                if (prev.transactionType.includes(value)) {
-                    return {
-                        ...prev,
-                        transactionType: prev.transactionType.filter(type => type !== value)
-                    };
-                } else {
-                    return {
-                        ...prev,
-                        transactionType: [...prev.transactionType, value]
-                    };
-                }
-            });
+            ref.transactionType = ref.transactionType.includes(value)
+                ? ref.transactionType.filter(type => type !== value)
+                : [...ref.transactionType, value];
         }
+        // Force the sheet UI to update (but NOT the list)
+        setSheetRevision(r => r + 1);
     }, []);
 
-    // Apply filters - copy temp state to applied state
     const handleApplyFilters = useCallback(() => {
         setAppliedFilters({
-            transactionType: [...tempFilterState.transactionType],
-            categories: [...tempFilterState.categories],
+            transactionType: [...tempFilterRef.current.transactionType],
+            categories: [...tempFilterRef.current.categories],
         });
-
-        if (bottomSheetRef.current) {
-            bottomSheetRef.current.dismiss();
-        }
-    }, [tempFilterState]);
-
-    // Clear filters in bottom sheet (temporary state)
-    const handleClearFilters = useCallback(() => {
-        setTempFilterState({
-            transactionType: [],
-            categories: []
-        });
+        bottomSheetRef.current?.dismiss();
     }, []);
 
-    // Remove specific applied filter
-    const handleRemoveFilter = useCallback((filter: { type: string, value: string }) => {
+    const handleClearFilters = useCallback(() => {
+        tempFilterRef.current = { transactionType: [], categories: [] };
+        setSheetRevision(r => r + 1);
+    }, []);
+
+    const handleRemoveFilter = useCallback((filter: { type: string; value: string }) => {
         if (filter.type === 'categories') {
             setAppliedFilters(prev => ({
                 ...prev,
-                categories: prev.categories.filter(cat => cat !== filter.value)
+                categories: prev.categories.filter(cat => cat !== filter.value),
             }));
         } else if (filter.type === 'transactionType') {
             setAppliedFilters(prev => ({
                 ...prev,
-                transactionType: prev.transactionType.filter(type => type !== filter.value)
+                transactionType: prev.transactionType.filter(type => type !== filter.value),
             }));
         }
     }, []);
 
+    // ── Derived colours (stable as long as theme doesn't change) ──────────────
+    const containerBg = theme === 'dark' ? darkTheme.background : lightTheme.card;
+    const filterChipBg = theme === 'dark' ? darkTheme.card : lightTheme.card;
+
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? darkTheme.background : lightTheme.card }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: containerBg }]}>
+            {/* ── Header ─────────────────────────────────────────────────────── */}
             <View style={styles.header}>
                 <ThemedText variant="h3" style={styles.title}>Transactions</ThemedText>
                 <View style={styles.headerActions}>
-                    <TouchableOpacity
+                    <Pressable
                         style={styles.iconButton}
-                        onPress={() => router.push('/transaction/searchTransaction')}
+                        onPress={navigateToSearch}
+                        hitSlop={ICON_HIT_SLOP}
                     >
                         <Ionicons name="search-outline" size={22} color="#666" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
+                    </Pressable>
+                    <Pressable
                         style={styles.iconButton}
                         onPress={handlePresentModalPress}
+                        hitSlop={ICON_HIT_SLOP}
                     >
                         <Ionicons name="filter-outline" size={22} color="#666" />
-                    </TouchableOpacity>
+                    </Pressable>
                 </View>
             </View>
-            {/* <SMSImportButton style={{ marginBottom: 16 }} /> */}
-            {activeFilters.length > 0 && (
+
+            {/* ── Month navigator + presets ─────────────────────────────────── */}
+            <MonthNavigator
+                selectedMonth={selectedMonth}
+                timePreset={timePreset}
+                onPrevMonth={handlePrevMonth}
+                onNextMonth={handleNextMonth}
+                onPresetSelect={handlePresetSelect}
+            />
+
+            {/* ── Active type/category filter chips ─────────────────────────── */}
+            {activeFilters.length > 0 ? (
                 <View style={styles.activeFiltersContainer}>
                     <ThemedText style={styles.filterLabel}>Active Filters:</ThemedText>
                     <ScrollView
@@ -199,36 +226,38 @@ export default function TimeLineScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.filtersRow}
                     >
-                        {activeFilters.map((filter, index) => (
-                            <TouchableOpacity
+                        {activeFilters.map((filter) => (
+                            <Pressable
                                 key={`${filter.type}-${filter.value}`}
-                                style={[
-                                    styles.filterChip,
-                                    { backgroundColor: theme === 'dark' ? darkTheme.card : lightTheme.card }
-                                ]}
+                                style={[styles.filterChip, { backgroundColor: filterChipBg }]}
                                 onPress={() => handleRemoveFilter(filter)}
                             >
                                 <ThemedText style={styles.filterChipText}>
                                     {filter.value}
                                 </ThemedText>
                                 <Ionicons name="close-circle" size={16} color="#666" />
-                            </TouchableOpacity>
+                            </Pressable>
                         ))}
                     </ScrollView>
                 </View>
-            )}
+            ) : null}
 
+            {/* ── Transaction list ──────────────────────────────────────────── */}
             <TransactionList
-                transactions={filteredTransactions}
+                transactions={filteredTransactions || []}
                 overView={true}
                 recurringTransactions={recurringTransactions}
+                isFetching={dbLoading}
+                isCurrentMonth={isCurrentMonth}
+                lastMonthTotals={lastMonthTotals}
             />
 
+            {/* ── Filter bottom sheet ───────────────────────────────────────── */}
             <FilterBottomSheet
                 bottomSheetRef={bottomSheetRef}
                 selectedView={selectedView}
                 onViewSelect={setSelectedView}
-                filterState={tempFilterState} // Pass temporary state
+                filterState={tempFilterState}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}
                 onApplyFilters={handleApplyFilters}
@@ -238,6 +267,13 @@ export default function TimeLineScreen() {
     );
 }
 
+// ─── Hoisted statics ─────────────────────────────────────────────────────────
+const ICON_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 } as const;
+
+// Stable navigation callback (no deps, prevents re-creation)
+const navigateToSearch = () => router.push('/transaction/searchTransaction');
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -248,7 +284,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingVertical: 12,
-        marginBottom: 8
+        marginBottom: 8,
     },
     title: {
         fontSize: fontSizes.FONT24,
@@ -262,13 +298,13 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     activeFiltersContainer: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
         marginBottom: 12,
     },
     filterLabel: {
         fontSize: 14,
         marginBottom: 6,
-        opacity: 0.7
+        opacity: 0.7,
     },
     filtersRow: {
         flexDirection: 'row',

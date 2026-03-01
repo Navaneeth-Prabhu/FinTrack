@@ -9,25 +9,21 @@ interface CategoryIconProps {
   category: Category;
 }
 
-export const CategoryIcon: React.FC<CategoryIconProps> = ({ category }) => {
+export const CategoryIcon: React.FC<CategoryIconProps> = React.memo(({ category }) => {
   const { colors } = useTheme();
   const IconComponent = categoryIcons.lucide.find(i => i.name === category.icon)?.component;
 
   return (
-    <View style={[styles.container, {
-      // backgroundColor: category.color,
-      borderColor: category.color
-    }]}>
+    <View style={[styles.container, { borderColor: category.color }]}>
       <View style={[styles.colorOverlay, { backgroundColor: category.color }]} />
       {IconComponent !== undefined ? (
         <IconComponent size={24} strokeWidth={1.5} color={colors.text} />
       ) : (
         <ThemedText style={styles.icon}>{category.icon}</ThemedText>
       )}
-      {/* <View style={[styles.colorOverlay, { backgroundColor: category.color }]} /> */}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -30,6 +30,8 @@ import { useLoanStore } from '@/stores/loanStore';
 import { useSIPStore } from '@/stores/sipStore';
 import { useRecurringTransactionStore } from '@/stores/recurringTransactionStore';
 import { useMetricsStore } from '@/stores/metricsStore';
+import { importSMSTransactionsToStore } from '@/utils/SMSTransactionUtil';
+import { resetOEMPromptFlag, showOEMBatteryPromptIfNeeded } from '@/services/oemDetection';
 
 const MoreScreen = () => {
     const { theme, setTheme } = useThemeStore();
@@ -67,6 +69,26 @@ const MoreScreen = () => {
             { text: 'Cancel', style: 'cancel' },
             { text: 'Sign Out', style: 'destructive', onPress: signOut },
         ]);
+    };
+
+    const handleResyncSMS = () => {
+        Alert.alert(
+            '📨 Resync SMS Transactions',
+            'This will re-read all your bank SMS messages. Duplicates will be skipped automatically.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Resync',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await resetSmsProcessedIds();
+                        const categories = useCategoryStore.getState().categories;
+                        const saveTransaction = useTransactionStore.getState().saveTransaction;
+                        await importSMSTransactionsToStore(categories, saveTransaction);
+                    },
+                },
+            ]
+        );
     };
 
     const handleDeleteAllData = () => {
@@ -320,21 +342,22 @@ const MoreScreen = () => {
                         <DataExportSection />
                         <DataImportSection />
 
-                        <TouchableOpacity style={styles.menuItem} onPress={() => {
-                            Alert.alert('Reset SMS Sync', 'This will wipe remembered SMS IDs and allow them to be scanned again on next launch.', [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                    text: 'Reset', style: 'destructive', onPress: async () => {
-                                        await resetSmsProcessedIds();
-                                        Alert.alert('Done', 'SMS Memory Wiped. Please restart the app.');
-                                    }
-                                },
-                            ]);
+                        <TouchableOpacity style={styles.menuItem} onPress={async () => {
+                            await resetOEMPromptFlag();
+                            await showOEMBatteryPromptIfNeeded();
                         }}>
+                            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>
+                                <MaterialCommunityIcons name="battery-alert" size={20} color={isDarkMode ? "#EAB308" : "#CA8A04"} />
+                            </View>
+                            <ThemedText style={[styles.menuText, { color: isDarkMode ? "#EAB308" : "#CA8A04" }]}>Fix Background SMS</ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.menuItem} onPress={handleResyncSMS}>
                             <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? darkTheme.primaryForeground : '#F5E8E8' }]}>
                                 <MaterialCommunityIcons name="message-alert-outline" size={20} color={isDarkMode ? "#FF6B6B" : "#FF3B30"} />
                             </View>
-                            <ThemedText style={[styles.menuText, { color: isDarkMode ? "#FF6B6B" : "#FF3B30" }]}>Reset SMS Sync</ThemedText>
+                            <ThemedText style={[styles.menuText, { color: isDarkMode ? "#FF6B6B" : "#FF3B30" }]}>Resync All SMS Messages</ThemedText>
                             <Ionicons name="chevron-forward" size={18} color={colors.muted} style={styles.chevron} />
                         </TouchableOpacity>
 

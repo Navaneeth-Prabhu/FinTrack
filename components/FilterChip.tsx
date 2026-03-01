@@ -19,19 +19,21 @@ const FilterChip: React.FC<ActiveFilterChipsProps> = ({
 }) => {
 
     const { colors } = useTheme();
+
+    const dynamicStyle = {
+        borderColor: selected ? selectedColor : colors.border,
+        borderWidth: 2
+    };
+
     return (
         <TouchableOpacity
-            style={[styles.chip, {
-                // backgroundColor: selected ? colors.accent : colors.accent,
-                borderColor: selected ? selectedColor : colors.border,
-                borderWidth: 2
-            }]}
+            style={[styles.chip, dynamicStyle]}
             onPress={() => onPress(label)}
         >
             <ThemedText style={styles.chipText}>{label}</ThemedText>
         </TouchableOpacity>
-    )
-}
+    );
+};
 
 export default FilterChip
 

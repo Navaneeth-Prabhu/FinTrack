@@ -6,6 +6,8 @@ export interface DashboardMetrics {
     totalExpenses: number;
     currentMonthSpending: number;
     previousMonthSpending: number;
+    currentMonthIncome: number;
+    previousMonthIncome: number;
     expensesByCategory: Record<string, number>;
     expensesByBudgetCategory: Record<string, number>;
     hasRegularIncome: boolean;
@@ -37,23 +39,26 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
     const prevMonthStartISO = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
     const prevMonthEndISO = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).toISOString();
 
-    // 2. Current Month & Previous Month Spending
-    const monthlySpendingRows = await db.getAllAsync<{ period: string; total: number }>(
+    // 2. Current Month & Previous Month Spending and Income
+    const monthlySpendingRows = await db.getAllAsync<{ period: string; type: string; total: number }>(
         `SELECT 
             CASE 
                 WHEN date >= ? AND date <= ? THEN 'current'
                 WHEN date >= ? AND date <= ? THEN 'previous'
                 ELSE 'other'
             END as period,
+            type,
             SUM(amount) as total
          FROM transactions
-         WHERE type = 'expense'
-         GROUP BY period`,
+         WHERE type IN ('expense', 'income')
+         GROUP BY period, type`,
         [currentMonthStartISO, currentMonthEndISO, prevMonthStartISO, prevMonthEndISO]
     );
 
-    const currentMonthSpending = monthlySpendingRows.find(r => r.period === 'current')?.total || 0;
-    const previousMonthSpending = monthlySpendingRows.find(r => r.period === 'previous')?.total || 0;
+    const currentMonthSpending = monthlySpendingRows.find(r => r.period === 'current' && r.type === 'expense')?.total || 0;
+    const previousMonthSpending = monthlySpendingRows.find(r => r.period === 'previous' && r.type === 'expense')?.total || 0;
+    const currentMonthIncome = monthlySpendingRows.find(r => r.period === 'current' && r.type === 'income')?.total || 0;
+    const previousMonthIncome = monthlySpendingRows.find(r => r.period === 'previous' && r.type === 'income')?.total || 0;
 
     // Today Spending
     const todayStartISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -164,6 +169,8 @@ export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
         totalExpenses,
         currentMonthSpending,
         previousMonthSpending,
+        currentMonthIncome,
+        previousMonthIncome,
         expensesByCategory,
         expensesByBudgetCategory,
         hasRegularIncome,

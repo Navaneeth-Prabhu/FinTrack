@@ -22,6 +22,7 @@ import ReportChart from '@/components/charts/ReportChart';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { AccountsList } from '@/components/accounts/AccountsList';
+import { InsightsBanner } from '@/components/common/InsightsBanner';
 
 const HomeScreen = () => {
     const { colors, isDark } = useTheme();
@@ -106,6 +107,9 @@ const HomeScreen = () => {
 
                 {/* Account Balances List Component */}
                 <AccountsList />
+
+                {/* Smart Insights generated from offline local transactions */}
+                <InsightsBanner />
 
                 <ReportChart />
                 <View style={{

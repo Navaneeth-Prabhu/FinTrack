@@ -11,30 +11,27 @@ interface TransactionDetailsProps {
     isRecurring: boolean;
 }
 
-export const TransactionDetails: React.FC<TransactionDetailsProps> = ({
-    transaction,
-    date,
-    isRecurring,
-}) => {
+export const TransactionDetails: React.FC<TransactionDetailsProps> = React.memo((
+    { transaction, date, isRecurring }
+) => {
     const { colors } = useTheme();
 
-    console.log(transaction, 'asdfasdf');
     return (
         <View style={styles.container}>
             <View style={styles.titleContainer}>
                 <ThemedText variant='h3' numberOfLines={2} style={{ color: colors.text }}>
                     {transaction.paidTo || transaction.paidBy || "Unknown"}
                 </ThemedText>
-                {isRecurring && (
+                {isRecurring ? (
                     <FontAwesome name="repeat" size={14} color={colors.muted} />
-                )}
+                ) : null}
             </View>
             <ThemedText variant='body1' style={[{ color: colors.subtitle }]}>
                 {date}
             </ThemedText>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

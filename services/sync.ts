@@ -226,6 +226,7 @@ export const syncTransactionsToSupabase = async (
             currency: 'INR',
             merchant: tx.paidTo ?? tx.paidBy ?? null,
             ref_number: tx.refNumber ?? null,
+            updated_at: tx.lastModified || new Date().toISOString(),
         };
     });
 

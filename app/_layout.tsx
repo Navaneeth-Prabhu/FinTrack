@@ -23,6 +23,7 @@ import { useAccountStore } from '@/stores/accountStore';
 import { useSupabaseAuthStore } from '@/stores/supabaseAuthStore';
 import SplashScreenComponent from '../components/SplashScreen';
 import { GlobalSmsSyncModal } from '@/components/settings/GlobalSmsSyncModal';
+import { checkAndGenerateEmiAlerts } from '@/services/emiAlertService';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 
@@ -86,6 +87,9 @@ export default function RootLayout() {
           await useTransactionStore.getState().fetchTransactions(50);
           await useAlertStore.getState().fetchAlerts();
           await registerRecurringTask();
+
+          // Generate active alerts for upcoming EMIs
+          await checkAndGenerateEmiAlerts();
 
           // Initialize Supabase Auth session (non-blocking)
           initAuth().catch(err => console.warn('[Auth] Session restore error:', err));

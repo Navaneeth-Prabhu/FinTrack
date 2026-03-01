@@ -17,19 +17,18 @@ export function GlobalSmsSyncModal() {
     const { isSyncing, totalMessages, currentProgress, statusMessage } = useSmsSyncStore();
     const { colors, isDark } = useTheme();
 
-    if (!isSyncing) return null;
-
     // Calculate generic progress percentage safely
     const progressPercent = totalMessages > 0 ? (currentProgress / totalMessages) * 100 : 0;
-    // If we are in "Analyzing" phase but progress isn't updating per SMS (because it uses Promise.all locally),
-    // we just show an indeterminate-like full bar, or stick to 0. We've added currentProgress mostly for the saving stage.
     const displayPercent = progressPercent > 0 ? progressPercent : 15; // Give a small default width so it looks active
 
+    // ⚠️ useAnimatedStyle MUST be called before any early return (Rules of Hooks)
     const progressBarAnimatedStyle = useAnimatedStyle(() => {
         return {
             width: withTiming(`${displayPercent}%`, { duration: 300 }),
         };
     });
+
+    if (!isSyncing) return null;
 
     return (
         <Modal transparent visible={isSyncing} animationType="fade">

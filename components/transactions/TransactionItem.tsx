@@ -3,7 +3,6 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import Animated from 'react-native-reanimated';
 import { Transaction } from '@/types';
 import { ThemedText } from '@/components/common/ThemedText';
 import { CategoryIcon } from './CategoryIcon';
@@ -75,18 +74,18 @@ export const TransactionItem: React.FC<TransactionItemProps> = React.memo(
                 onPress={handlePress}
                 style={[styles.container]}
             >
-                <Animated.View
+                <View
                     style={[styles.item, { opacity: isUpcoming ? 0.5 : 1 }]}
                 >
                     <CategoryIcon category={transaction.category} />
-                    <View style={{ flexShrink: 1, minWidth: 0 }}>
+                    <View style={styles.textContainer}>
                         <TransactionDetails
                             transaction={transaction}
                             date={formattedDate}
                             isRecurring={transaction.source.type === 'auto'}
                         />
                     </View>
-                </Animated.View>
+                </View>
                 <View style={styles.amountContainer}>
                     <TransactionAmount
                         amount={transaction.amount}
@@ -113,6 +112,10 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
         gap: 16,
         flex: 1,
+        minWidth: 0,
+    },
+    textContainer: {
+        flexShrink: 1,
         minWidth: 0,
     },
     amountContainer: {
