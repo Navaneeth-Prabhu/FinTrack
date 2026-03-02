@@ -20,6 +20,9 @@ interface SIPStore {
 
     getTotalInvested: () => number;
     getMonthlyInvestment: () => number;
+    getCurrentValue: () => number;
+    getReturns: () => number;
+    getXIRR: () => number;
 }
 
 export const useSIPStore = create<SIPStore>((set, get) => ({
@@ -83,5 +86,32 @@ export const useSIPStore = create<SIPStore>((set, get) => ({
             }
             return sum + (sip.status === 'active' ? monthlyAmount : 0);
         }, 0);
+    },
+
+    getCurrentValue: () => {
+        return get().sips.reduce((sum, sip) => {
+            // If nav and units exist, current value is nav * units.
+            // If lacking data, fallback to totalInvested to avoid dropping the portfolio value.
+            if (sip.nav != null && sip.units != null && sip.nav > 0 && sip.units > 0) {
+                return sum + (sip.nav * sip.units);
+            }
+            return sum + sip.totalInvested;
+        }, 0);
+    },
+
+    getReturns: () => {
+        const invested = get().getTotalInvested();
+        const current = get().getCurrentValue();
+        return current - invested;
+    },
+
+    getXIRR: () => {
+        // TODO: Implement actual XIRR array calculation based on cashflows.
+        // For right now, returning a mock / simple annualized return placeholder.
+        const invested = get().getTotalInvested();
+        const current = get().getCurrentValue();
+        if (invested === 0) return 0;
+
+        return ((current - invested) / invested) * 100; // simple absolute return % for now
     },
 }));

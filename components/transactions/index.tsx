@@ -74,9 +74,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     // ── Hooks (always at top, no early returns before this) ──────────────────
     const { colors } = useTheme();
     const { theme } = usePreferenceStore();
-    const sectionStartTime = Date.now();
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
-    const sectionEndTime = Date.now();
 
     const categories = useCategoryStore(state => state.categories);
     const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
@@ -92,7 +90,6 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         flatData: ListItem[];
         stickyIndices: number[];
     }>(() => {
-        const flatStartTime = Date.now();
         const data: ListItem[] = [];
         const sticky: number[] = [];
 
@@ -118,9 +115,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
             });
         });
 
-        console.log(`⏱️ [Render Perf] sections=${sectionEndTime - sectionStartTime}ms, flatten=${Date.now() - flatStartTime}ms, totalTx=${transactions.length}`);
         return { flatData: data, stickyIndices: sticky };
-    }, [sections, sectionEndTime, sectionStartTime, transactions.length]);
+    }, [sections]);
 
     // ── Render callbacks (stable references via useCallback) ─────────────────
     const renderItem = useCallback(({ item }: { item: ListItem }) => {

@@ -10,24 +10,26 @@ import LoansView from './components/LoansView';
 import AlertsScreen from '@/screens/alerts/AlertsScreen';
 import { useAlertStore } from '@/stores/alertStore';
 
-type Tab = 'Holdings' | 'SIPs' | 'Loans' | 'Alerts';
-const TABS: Tab[] = ['Holdings', 'SIPs', 'Loans', 'Alerts'];
+import OverviewView from './components/OverviewView';
+
+type Tab = 'Overview' | 'Holdings' | 'SIPs' | 'Loans' | 'Alerts';
+const TABS: Tab[] = ['Overview', 'Holdings', 'SIPs', 'Loans', 'Alerts'];
 
 export default function InvestmentsScreen() {
     const { colors } = useTheme();
-    const [activeTab, setActiveTab] = useState<Tab>('Holdings');
+    const [activeTab, setActiveTab] = useState<Tab>('Overview');
     const { unreadCount } = useAlertStore();
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <ThemedText variant="h2">Investments</ThemedText>
-                {activeTab === 'SIPs' && (
+                {activeTab !== 'Loans' && activeTab !== 'Alerts' && (
                     <TouchableOpacity
                         style={[styles.addButton, { backgroundColor: colors.primary }]}
-                        onPress={() => router.push('/investment/add-sip')}
+                        onPress={() => router.push('/investment/add-investment-type' as any)}
                     >
-                        <ThemedText style={styles.addButtonText}>Add SIP</ThemedText>
+                        <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
                     </TouchableOpacity>
                 )}
                 {activeTab === 'Loans' && (
@@ -56,7 +58,7 @@ export default function InvestmentsScreen() {
                                 style={[
                                     styles.tabText,
                                     { color: activeTab === tab ? colors.primary : colors.subtitle },
-                                    activeTab === tab && styles.tabTextActive,
+                                    activeTab === tab ? styles.tabTextActive : {},
                                 ]}
                             >
                                 {tab}
@@ -75,6 +77,7 @@ export default function InvestmentsScreen() {
 
             {/* Content Area */}
             <View style={styles.content}>
+                {activeTab === 'Overview' && <OverviewView />}
                 {activeTab === 'Holdings' && <HoldingsView />}
                 {activeTab === 'SIPs' && <SIPsView />}
                 {activeTab === 'Loans' && <LoansView />}

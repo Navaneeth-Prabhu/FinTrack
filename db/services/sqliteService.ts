@@ -116,6 +116,7 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       categoryId TEXT NOT NULL,
       createdAt TEXT NOT NULL,
       lastModified TEXT NOT NULL,
+      priceUpdatedAt TEXT,
       FOREIGN KEY (categoryId) REFERENCES categories(id)
     );
 
@@ -134,6 +135,22 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       notes TEXT,
       createdAt TEXT NOT NULL,
       lastModified TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS holdings (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      ticker TEXT,
+      quantity REAL NOT NULL,
+      avg_buy_price REAL NOT NULL,
+      current_price REAL NOT NULL,
+      buy_date TEXT NOT NULL,
+      notes TEXT,
+      price_updated_at TEXT,
+      is_deleted INTEGER DEFAULT 0,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS sms_alerts (
@@ -204,6 +221,14 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   try {
     await db.execAsync(`
       ALTER TABLE accounts ADD COLUMN accountNumber TEXT;
+    `);
+  } catch (e) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execAsync(`
+      ALTER TABLE sip_plans ADD COLUMN priceUpdatedAt TEXT;
     `);
   } catch (e) {
     // Column might already exist
@@ -342,6 +367,7 @@ export const wipeAllLocalData = async (): Promise<void> => {
     await db.execAsync('DELETE FROM loans;');
     await db.execAsync('DELETE FROM sms_alerts;');
     await db.execAsync('DELETE FROM accounts;');
+    await db.execAsync('DELETE FROM holdings;');
     await db.execAsync('DELETE FROM processed_sms_ids;');
     await db.execAsync('DELETE FROM categories;');
 

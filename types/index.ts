@@ -126,6 +126,7 @@ export interface SIPPlan {
   categoryId: string; // Linked category (usually 'investment')
   createdAt: string; // ISO date
   lastModified: string; // ISO date
+  priceUpdatedAt?: string; // ISO date when nav/units were last updated
 }
 
 export interface Loan {
@@ -158,4 +159,20 @@ export interface SMSAlert {
   smsId?: string;
   isRead: boolean;
   createdAt: string; // ISO date
+}
+
+export interface Holding {
+  id: string;
+  user_id?: string;
+  type: 'stock' | 'fd' | 'bond' | 'gold' | 'crypto' | 'ppf' | 'nps' | 'other';
+  name: string;
+  ticker?: string;
+  quantity: number;
+  avg_buy_price: number;
+  current_price: number;
+  buy_date: string;
+  notes?: string;
+  price_updated_at?: string;
+  is_deleted?: number;
+  updated_at: string;
 }

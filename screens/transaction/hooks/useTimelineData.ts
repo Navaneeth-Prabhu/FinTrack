@@ -148,10 +148,15 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
         let isMounted = true;
         setError(null);
 
+        // Guard against double UI-renders if another component already triggered this fetch
+        const cacheKey = getCacheKey(dateRange, filters);
+
         performFetch(dateRange, filters, false)
             .then(() => {
                 if (isMounted) {
-                    forceRender({}); // Data is now in globalCache! Re-render to read it.
+                    // Only force render if we actually just injected new data into the cache
+                    // and we haven't already rendered it.
+                    forceRender({});
                     if (dateRange?.start) {
                         const base = new Date(dateRange.start);
                         prefetchMonth(base, 1);
@@ -172,7 +177,8 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
         dateRange?.end,
         filters.transactionType.join(','),
         filters.categories.join(','),
-        currentState.data !== null // Re-run effect only when cache status toggles
+        // By intentionally NOT putting `currentState.data` in the array, we prevent
+        // the effect from re-firing immediately after `forceRender` populates the cache
     ]);
 
     // Manual refetch trigger

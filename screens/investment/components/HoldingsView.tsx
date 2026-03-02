@@ -1,78 +1,173 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useRef, useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
-import { useTransactionStore } from '@/stores/transactionStore';
+import { useHoldingsStore } from '@/stores/holdingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
+import HoldingCard from './HoldingCard';
+import UpdatePriceSheet, { UpdatePriceSheetRef } from './UpdatePriceSheet';
+import { Holding } from '@/types';
+
+type FilterType = 'All' | 'Stocks' | 'FD / Bonds' | 'Gold' | 'Other';
+const FILTERS: FilterType[] = ['All', 'Stocks', 'FD / Bonds', 'Gold', 'Other'];
 
 export default function HoldingsView() {
-    const { transactions } = useTransactionStore();
+    const { holdings, getTotalInvested, getCurrentValue } = useHoldingsStore();
     const { format } = useCurrency();
-    const { colors, getShadow } = useTheme();
+    const { colors } = useTheme();
+    const sheetRef = useRef<UpdatePriceSheetRef>(null);
 
-    // Aggregate holdings from 'investment' type transactions
-    const holdings = useMemo(() => {
-        const map = new Map<string, number>();
+    const [activeFilter, setActiveFilter] = useState<FilterType>('All');
 
-        transactions
-            .filter(t => t.type === 'investment' && t.category?.name !== 'Loan Repayment')
-            .forEach(t => {
-                // Group by payee/merchant
-                const provider = t.paidTo || t.paidBy || 'Other';
-                const current = map.get(provider) || 0;
-                map.set(provider, current + t.amount);
-            });
+    const totalInvested = getTotalInvested();
+    const currentTotal = getCurrentValue();
+    const totalProfit = currentTotal - totalInvested;
+    const isProfit = totalProfit >= 0;
+    const profitColor = isProfit ? colors.success : '#FF4D4D';
 
-        const items = Array.from(map.entries()).map(([provider, amount]) => ({
-            provider,
-            amount
-        }));
+    const handleUpdatePrice = (holding: Holding) => {
+        sheetRef.current?.present(holding);
+    };
 
-        return items.sort((a, b) => b.amount - a.amount);
-    }, [transactions]);
+    // Calculate grouped lists
+    const groupedHoldings = useMemo(() => {
+        const groups: Record<string, { label: string, data: Holding[], profit: number }> = {
+            'Stocks': { label: 'STOCKS', data: [], profit: 0 },
+            'FD / Bonds': { label: 'FIXED DEPOSITS / BONDS', data: [], profit: 0 },
+            'Gold': { label: 'GOLD', data: [], profit: 0 },
+            'Other': { label: 'OTHER', data: [], profit: 0 }
+        };
 
-    const totalInvested = holdings.reduce((sum, h) => sum + h.amount, 0);
+        holdings.forEach(h => {
+            let catKey = 'Other';
+            if (h.type === 'stock') catKey = 'Stocks';
+            else if (h.type === 'fd' || h.type === 'bond' || h.type === 'ppf' || h.type === 'nps') catKey = 'FD / Bonds';
+            else if (h.type === 'gold') catKey = 'Gold';
+
+            // Calculate profit for this holding to add to the group sum
+            const isFixedIncome = ['fd', 'bond', 'ppf', 'nps'].includes(h.type);
+            const inv = isFixedIncome ? h.avg_buy_price : h.quantity * h.avg_buy_price;
+            const curValue = isFixedIncome ? (h.current_price || h.avg_buy_price) : h.quantity * (h.current_price || h.avg_buy_price);
+            groups[catKey].profit += (curValue - inv);
+
+            groups[catKey].data.push(h);
+        });
+
+        return groups;
+    }, [holdings]);
 
     if (holdings.length === 0) {
         return (
             <View style={styles.emptyContainer}>
                 <ThemedText style={[styles.emptyText, { color: colors.subtitle }]}>
-                    No investment holdings found. Add an investment transaction to see it here.
+                    No investment holdings found. Add an investment to see it here.
                 </ThemedText>
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <View style={[styles.summaryCard, getShadow(2), { backgroundColor: colors.card }]}>
-                <ThemedText style={{ color: colors.subtitle }}>Total Holdings</ThemedText>
-                <ThemedText variant="h1" style={styles.totalAmount}>
-                    {format(totalInvested)}
-                </ThemedText>
+        <View style={styles.container}>
+            {/* Filter Chips */}
+            <View style={styles.filterContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                    {FILTERS.map(filter => {
+                        const isActive = activeFilter === filter;
+                        return (
+                            <TouchableOpacity
+                                key={filter}
+                                style={[
+                                    styles.filterChip,
+                                    isActive ? styles.filterChipActive : { borderColor: 'rgba(255,255,255,0.1)' } // Dark theme border
+                                ]}
+                                onPress={() => setActiveFilter(filter)}
+                            >
+                                <ThemedText style={{ color: isActive ? '#FBBF24' : '#8E8E93', fontSize: 13, fontWeight: '600' }}>
+                                    {filter}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
-            <ThemedText variant="h3" style={styles.sectionTitle}>Providers</ThemedText>
-
-            {holdings.map((holding, index) => (
-                <View
-                    key={`${holding.provider}-${index}`}
-                    style={[styles.holdingCard, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-                >
-                    <View style={styles.holdingInfo}>
-                        <View style={[styles.iconPlaceholder, { backgroundColor: colors.accent }]} />
-                        <ThemedText style={styles.providerName}>{holding.provider}</ThemedText>
+            <ScrollView contentContainerStyle={styles.content}>
+                {/* Summary Card */}
+                <View style={[styles.summaryCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                    <View style={styles.summaryCol}>
+                        <ThemedText style={[styles.summaryLabel, { color: colors.subtitle }]}>TOTAL</ThemedText>
+                        <ThemedText style={styles.summaryValue}>{format(currentTotal)}</ThemedText>
                     </View>
-                    <ThemedText style={styles.holdingAmount}>{format(holding.amount)}</ThemedText>
+                    <View style={[styles.summaryCol, styles.summaryBorder]}>
+                        <ThemedText style={[styles.summaryLabel, { color: colors.subtitle }]}>INVESTED</ThemedText>
+                        <ThemedText style={[styles.summaryValue, { color: '#D1D5DB' }]}>{format(totalInvested)}</ThemedText>
+                    </View>
+                    <View style={styles.summaryCol}>
+                        <ThemedText style={[styles.summaryLabel, { color: colors.subtitle }]}>P&L</ThemedText>
+                        <ThemedText style={[styles.summaryValue, { color: profitColor }]}>
+                            {isProfit ? '+' : ''}{format(totalProfit)}
+                        </ThemedText>
+                    </View>
                 </View>
-            ))}
-        </ScrollView>
+
+                {/* Grouped Lists */}
+                {Object.entries(groupedHoldings).map(([key, group]) => {
+                    if (group.data.length === 0) return null;
+                    if (activeFilter !== 'All' && activeFilter !== key) return null;
+
+                    const groupIsProfit = group.profit >= 0;
+
+                    return (
+                        <View key={key} style={styles.groupContainer}>
+                            <View style={styles.groupHeader}>
+                                <ThemedText style={[styles.groupTitle, { color: colors.subtitle }]}>
+                                    {group.label} · {group.data.length}
+                                </ThemedText>
+                                <ThemedText style={[styles.groupProfit, { color: groupIsProfit ? colors.success : '#FF4D4D' }]}>
+                                    {groupIsProfit ? '+' : ''}{format(group.profit)}
+                                </ThemedText>
+                            </View>
+
+                            {group.data.map((holding) => (
+                                <HoldingCard
+                                    key={holding.id}
+                                    holding={holding}
+                                    onUpdatePrice={handleUpdatePrice}
+                                />
+                            ))}
+                        </View>
+                    );
+                })}
+            </ScrollView>
+
+            <UpdatePriceSheet ref={sheetRef} />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    filterContainer: {
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    filterScroll: {
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        backgroundColor: '#111',
+    },
+    filterChipActive: {
+        borderColor: '#FBBF24',
+        backgroundColor: 'rgba(251, 191, 36, 0.1)',
     },
     content: {
         padding: 16,
@@ -90,43 +185,49 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     summaryCard: {
-        padding: 24,
+        flexDirection: 'row',
+        paddingVertical: 20,
+        paddingHorizontal: 12,
         borderRadius: 16,
-        alignItems: 'center',
         marginBottom: 24,
     },
-    totalAmount: {
-        marginTop: 8,
-        color: '#4CD791', // Match income/success green roughly
+    summaryCol: {
+        flex: 1,
+        alignItems: 'center',
     },
-    sectionTitle: {
-        marginBottom: 16,
+    summaryBorder: {
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
     },
-    holdingCard: {
+    summaryLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    summaryValue: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFF',
+    },
+    groupContainer: {
+        marginBottom: 24,
+    },
+    groupHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 8,
+        marginBottom: 12,
+        paddingHorizontal: 4,
     },
-    holdingInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
+    groupTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
     },
-    iconPlaceholder: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 12,
-    },
-    providerName: {
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    holdingAmount: {
-        fontSize: 16,
-        fontWeight: '600',
+    groupProfit: {
+        fontSize: 13,
+        fontWeight: '700',
     }
 });

@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     },
     mainRow: {
         flexDirection: 'column',
-        gap: 16,
+        gap: 4,
     },
     netBlock: {
         alignItems: 'flex-start',
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     statsBlock: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingTop: 16,
+        paddingTop: 4,
         paddingHorizontal: 4,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: 'rgba(150, 150, 150, 0.25)',
