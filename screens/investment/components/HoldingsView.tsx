@@ -8,10 +8,13 @@ import HoldingCard from './HoldingCard';
 import UpdatePriceSheet, { UpdatePriceSheetRef } from './UpdatePriceSheet';
 import { Holding } from '@/types';
 
+import { useRouter } from 'expo-router';
+
 type FilterType = 'All' | 'Stocks' | 'FD / Bonds' | 'Gold' | 'Other';
 const FILTERS: FilterType[] = ['All', 'Stocks', 'FD / Bonds', 'Gold', 'Other'];
 
 export default function HoldingsView() {
+    const router = useRouter();
     const { holdings, getTotalInvested, getCurrentValue } = useHoldingsStore();
     const { format } = useCurrency();
     const { colors } = useTheme();
@@ -132,6 +135,7 @@ export default function HoldingsView() {
                                 <HoldingCard
                                     key={holding.id}
                                     holding={holding}
+                                    onPress={(h) => router.push(`/investment/holding/${h.id}`)}
                                     onUpdatePrice={handleUpdatePrice}
                                 />
                             ))}

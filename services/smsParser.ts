@@ -13,6 +13,18 @@ import { readSmsMessages, RawSmsMessage } from './nativeSmsModule';
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 const LAST_SMS_SCAN_KEY = 'last_sms_scan_timestamp';
 
+// ─── SMS body normalisation ───────────────────────────────────────────────────
+// Some banks (HDFC, SBI) send multiline SMS that span 2-3 lines.
+// Collapsing them to a single line ensures regex patterns work reliably.
+export const normaliseSMSBody = (body: string): string => {
+    return body
+        .replace(/\r\n/g, ' ')  // Windows CRLF
+        .replace(/\n/g, ' ')    // Unix LF
+        .replace(/\r/g, ' ')    // old Mac CR
+        .replace(/\s{2,}/g, ' ') // collapse multiple spaces
+        .trim();
+};
+
 export type TxType = 'income' | 'expense' | 'transfer' | 'investment';
 
 export interface ParsedSMS {
@@ -30,6 +42,8 @@ export interface ParsedSMS {
     paidBy?: string | null;       // The VPA or name of who sent you money (for UPI received)
     refNumber: string | null;     // Extracted reference number / Transaction ID
     availableBalance?: number;    // Extracted available balance if present
+    units?: number;               // Extracted units for SIPs
+    nav?: number;                 // Extracted NAV for SIPs
     confidence: number;           // 0–1
 }
 
@@ -787,30 +801,34 @@ export const extractTransactionFromSMS = (
 ): ParsedSMS | null => {
     if (!smsBody?.trim()) return null;
 
+    // Normalise multiline SMS to a single line so all regex patterns work reliably.
+    // Multiline HDFC/SBI UPI SMS were silently failing before this.
+    const body = normaliseSMSBody(smsBody);
+
     const bankKey = detectBank(sender);
     const bankName = bankKey ? BANK_DISPLAY_NAMES[bankKey] ?? null : null;
 
-    const { amount, type: rawType } = extractAmount(smsBody, bankKey);
+    const { amount, type: rawType } = extractAmount(body, bankKey);
     if (!amount) return null;
 
-    const type = refineType(smsBody, rawType);
-    let merchant = extractMerchant(smsBody, bankKey, type);
+    const type = refineType(body, rawType);
+    let merchant = extractMerchant(body, bankKey, type);
     let paidBy: string | null = null;
 
     // For income, attempt to extract the P2P sender
     if (type === 'income') {
-        const payerInfo = extractPayerVPA(smsBody);
+        const payerInfo = extractPayerVPA(body);
         if (payerInfo.paidBy) {
             paidBy = payerInfo.paidBy;
             merchant = payerInfo.merchant; // Use derived friendly name
         }
     }
 
-    const date = extractDate(smsBody, bankKey);
-    const accountLast4 = extractAccount(smsBody, bankKey);
-    const paymentMethod = detectPaymentMethod(smsBody);
-    const refNumber = extractRefNumber(smsBody);
-    const availableBalance = extractAvailableBalance(smsBody);
+    const date = extractDate(body, bankKey);
+    const accountLast4 = extractAccount(body, bankKey);
+    const paymentMethod = detectPaymentMethod(body);
+    const refNumber = extractRefNumber(body);
+    const availableBalance = extractAvailableBalance(body);
 
     // We optionally add the refNumber to confidence calculation if we want, currently skipped.
     const confidence = calculateConfidence({ amount, merchant, date, accountLast4, bankKey });
@@ -821,9 +839,21 @@ export const extractTransactionFromSMS = (
 
     // Phase 2: Detect SIP / EMI subtypes
     let subType: 'sip' | 'emi' | undefined;
-    const lowerBody = smsBody.toLowerCase();
-    if (lowerBody.includes('sip') || lowerBody.includes('mutual fund') || lowerBody.includes('units allotted')) {
+    const lowerBody = body.toLowerCase();
+    let units: number | undefined;
+    let nav: number | undefined;
+
+    if (lowerBody.includes('sip') || lowerBody.includes('mutual fund') || lowerBody.includes('units allotted') || lowerBody.includes('allotment') || bankKey === 'amc') {
         subType = 'sip';
+
+        // Extract NAV
+        const navMatch = body.match(/(?:NAV|Price)[\s:;-]*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d+)?)/i);
+        if (navMatch && navMatch[1]) nav = parseFloat(navMatch[1].replace(/,/g, ''));
+
+        // Extract Units
+        const unitsMatch = body.match(/(?:Units|Qty)[\s:;-]*([\d,]+(?:\.\d+)?)/i) || body.match(/([\d,]+(?:\.\d+)?)\s*(?:units|qty)/i);
+        if (unitsMatch && unitsMatch[1]) units = parseFloat(unitsMatch[1].replace(/,/g, ''));
+
     } else if (lowerBody.includes('emi') || lowerBody.includes('loan instalment') || lowerBody.includes('equated monthly')) {
         subType = 'emi';
     }
@@ -839,7 +869,7 @@ export const extractTransactionFromSMS = (
         merchant,
         date: date?.toISOString() ?? null,
         dateStr,
-        rawSMS: smsBody,
+        rawSMS: smsBody, // keep original for audit trail
         sender,
         bank: bankName,
         accountLast4,
@@ -847,6 +877,8 @@ export const extractTransactionFromSMS = (
         paidBy,
         refNumber,
         availableBalance,
+        units,
+        nav,
         confidence,
     };
 };

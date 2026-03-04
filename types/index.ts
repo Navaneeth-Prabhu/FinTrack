@@ -127,6 +127,9 @@ export interface SIPPlan {
   createdAt: string; // ISO date
   lastModified: string; // ISO date
   priceUpdatedAt?: string; // ISO date when nav/units were last updated
+  currentValue?: number; // V2
+  schemeCode?: string; // V2
+  isDeleted?: boolean; // V2
 }
 
 export interface Loan {
@@ -173,6 +176,42 @@ export interface Holding {
   buy_date: string;
   notes?: string;
   price_updated_at?: string;
+  is_deleted?: boolean;
+  updated_at: string;
+  folio_number?: string;
+  account_number?: string;
+  invested_amount?: number;
+  current_value?: number;
+  metadata?: string; // JSON payload
+  source?: string;
+}
+
+export interface InvestmentTransaction {
+  id: string;
+  user_id?: string;
+  holding_id: string;
+  holding_type: 'sip' | 'stock' | 'fd' | 'bond' | 'gold' | 'crypto' | 'ppf' | 'nps' | 'other';
+  event_type: 'buy' | 'sell' | 'allotment' | 'dividend' | 'interest' | 'price_update' | 'payment';
+  amount: number;
+  units?: number;
+  nav?: number;
+  price?: number;
+  quantity?: number;
+  balance_after?: number;
+  notes?: string;
+  event_date: string;
+  source?: string;
+  sms_id?: string;
   is_deleted?: number;
   updated_at: string;
+  created_at: string;
+}
+
+export interface PriceSnapshot {
+  id: string;
+  holding_id: string;
+  price: number;
+  recorded_at: string;
+  source?: string;
+  created_at: string;
 }

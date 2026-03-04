@@ -1,11 +1,16 @@
 import { create } from 'zustand';
-import { SIPPlan } from '@/types';
+import { SIPPlan, InvestmentTransaction } from '@/types';
 import {
     fetchSIPsFromDB,
     saveSIPToDB,
     updateSIPInDB,
     deleteSIPFromDB,
 } from '@/db/repository/sipRepository';
+import { useInvestmentTxStore } from './investmentTxStore';
+import { amfiNavService } from '@/services/amfiNavService';
+
+// Simple ID generator for local SQLite inserts
+const generateId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 
 interface SIPStore {
     sips: SIPPlan[];
@@ -17,6 +22,8 @@ interface SIPStore {
     addSIP: (sip: SIPPlan) => Promise<SIPPlan>;
     updateSIP: (sip: SIPPlan) => Promise<SIPPlan>;
     removeSIP: (id: string) => Promise<void>;
+    recordAllotment: (sipId: string, amount: number, nav?: number, units?: number) => Promise<void>;
+    fetchLatestPrices: () => Promise<void>;
 
     getTotalInvested: () => number;
     getMonthlyInvestment: () => number;
@@ -70,6 +77,41 @@ export const useSIPStore = create<SIPStore>((set, get) => ({
         set({ sips: filteredSIPs, lastUpdated: Date.now() });
     },
 
+    recordAllotment: async (sipId: string, amount: number, nav?: number, units?: number) => {
+        const sip = get().sips.find(s => s.id === sipId);
+        if (!sip) throw new Error('SIP not found');
+
+        const now = new Date().toISOString();
+
+        // 1. Create Transaction
+        const tx: InvestmentTransaction = {
+            id: generateId(),
+            holding_id: sipId,
+            holding_type: 'sip',
+            event_type: 'allotment',
+            amount: amount,
+            nav: nav,
+            units: units,
+            event_date: now,
+            updated_at: now,
+            created_at: now,
+        };
+
+        await useInvestmentTxStore.getState().addTransaction(tx);
+
+        // 2. Update SIP Totals
+        const updatedSIP = {
+            ...sip,
+            totalInvested: sip.totalInvested + amount,
+            units: (sip.units || 0) + (units || 0),
+            nav: nav || sip.nav,
+            lastModified: now,
+            priceUpdatedAt: nav ? now : sip.priceUpdatedAt,
+        };
+
+        await get().updateSIP(updatedSIP);
+    },
+
     getTotalInvested: () => {
         return get().sips.reduce((sum, sip) => sum + sip.totalInvested, 0);
     },
@@ -90,12 +132,7 @@ export const useSIPStore = create<SIPStore>((set, get) => ({
 
     getCurrentValue: () => {
         return get().sips.reduce((sum, sip) => {
-            // If nav and units exist, current value is nav * units.
-            // If lacking data, fallback to totalInvested to avoid dropping the portfolio value.
-            if (sip.nav != null && sip.units != null && sip.nav > 0 && sip.units > 0) {
-                return sum + (sip.nav * sip.units);
-            }
-            return sum + sip.totalInvested;
+            return sum + (sip.currentValue || (sip.nav != null && sip.units != null ? sip.nav * sip.units : sip.totalInvested));
         }, 0);
     },
 
@@ -113,5 +150,52 @@ export const useSIPStore = create<SIPStore>((set, get) => ({
         if (invested === 0) return 0;
 
         return ((current - invested) / invested) * 100; // simple absolute return % for now
+    },
+
+    fetchLatestPrices: async () => {
+        const sips = get().sips;
+        let updatedCount = 0;
+
+        for (const sip of sips) {
+            if (sip.schemeCode) {
+                try {
+                    const navData = await amfiNavService.getNavBySchemeCode(sip.schemeCode);
+                    if (navData && navData.netAssetValue !== sip.nav) {
+                        const now = new Date().toISOString();
+
+                        // 1. Record a price update transaction
+                        const tx: InvestmentTransaction = {
+                            id: generateId(),
+                            holding_id: sip.id,
+                            holding_type: 'sip',
+                            event_type: 'price_update',
+                            amount: 0,
+                            price: navData.netAssetValue,
+                            event_date: now,
+                            updated_at: now,
+                            created_at: now,
+                            source: 'amfi_auto_fetch'
+                        };
+                        await useInvestmentTxStore.getState().addTransaction(tx);
+
+                        // 2. Update SIP NAV and implicitly Current Value
+                        const updatedSIP = {
+                            ...sip,
+                            nav: navData.netAssetValue,
+                            priceUpdatedAt: now,
+                            lastModified: now,
+                        };
+                        await get().updateSIP(updatedSIP);
+                        updatedCount++;
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch NAV for scheme ${sip.schemeCode}`, e);
+                }
+            }
+        }
+
+        if (updatedCount > 0) {
+            console.log(`Auto-updated NAVs for ${updatedCount} SIPs.`);
+        }
     },
 }));

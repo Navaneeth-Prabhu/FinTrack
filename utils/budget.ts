@@ -3,8 +3,8 @@ import { getEndDateForFrequency } from "./date";
 
 export const getBudgetPeriodDates = (budget: Budget, targetDate: Date = new Date()) => {
     const start = new Date(budget.startDate);
-    let periodStart: Date;
-    let periodEnd: Date;
+    let periodStart: Date = new Date();
+    let periodEnd: Date = new Date();
 
     // Reset target date hours to start of day to ensure consistent comparison
     targetDate = new Date(targetDate.setHours(0, 0, 0, 0));

@@ -1,10 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import TimeLineScreen from '@/screens/transaction/timeline.screen'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const TimeLine = () => {
     return (
-        <TimeLineScreen />
+        <ErrorBoundary>
+            <TimeLineScreen />
+        </ErrorBoundary>
     )
 }
 

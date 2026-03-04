@@ -8,8 +8,8 @@ export const saveSIPToDB = async (sip: SIPPlan): Promise<void> => {
         `INSERT INTO sip_plans (
         id, name, fundName, amount, frequency, startDate, nextDueDate,
         sipDay, totalInvested, units, nav, status, notes, categoryId,
-        createdAt, lastModified, priceUpdatedAt
-    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        createdAt, lastModified, priceUpdatedAt, currentValue, schemeCode, isDeleted
+    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         sip.id,
         sip.name,
         sip.fundName,
@@ -26,14 +26,17 @@ export const saveSIPToDB = async (sip: SIPPlan): Promise<void> => {
         sip.categoryId,
         sip.createdAt,
         sip.lastModified,
-        sip.priceUpdatedAt ?? null
+        sip.priceUpdatedAt ?? null,
+        sip.currentValue ?? 0,
+        sip.schemeCode ?? null,
+        sip.isDeleted ? 1 : 0
     );
 };
 
 export const fetchSIPsFromDB = async (): Promise<SIPPlan[]> => {
     const db = await initDatabase();
     const result = await db.getAllAsync<any>(
-        'SELECT * FROM sip_plans ORDER BY createdAt DESC'
+        'SELECT * FROM sip_plans WHERE isDeleted = 0 OR isDeleted IS NULL ORDER BY createdAt DESC'
     );
 
     return result.map(row => ({
@@ -42,6 +45,9 @@ export const fetchSIPsFromDB = async (): Promise<SIPPlan[]> => {
         nav: row.nav !== null ? row.nav : undefined,
         notes: row.notes !== null ? row.notes : undefined,
         priceUpdatedAt: row.priceUpdatedAt !== null ? row.priceUpdatedAt : undefined,
+        currentValue: row.currentValue !== null ? row.currentValue : undefined,
+        schemeCode: row.schemeCode !== null ? row.schemeCode : undefined,
+        isDeleted: row.isDeleted === 1,
     }));
 };
 
@@ -52,7 +58,8 @@ export const updateSIPInDB = async (sip: SIPPlan): Promise<SIPPlan> => {
         `UPDATE sip_plans SET
         name = ?, fundName = ?, amount = ?, frequency = ?, startDate = ?,
         nextDueDate = ?, sipDay = ?, totalInvested = ?, units = ?, nav = ?,
-        status = ?, notes = ?, categoryId = ?, lastModified = ?, priceUpdatedAt = ?
+        status = ?, notes = ?, categoryId = ?, lastModified = ?, priceUpdatedAt = ?,
+        currentValue = ?, schemeCode = ?, isDeleted = ?
         WHERE id = ?`,
         sip.name,
         sip.fundName,
@@ -69,6 +76,9 @@ export const updateSIPInDB = async (sip: SIPPlan): Promise<SIPPlan> => {
         sip.categoryId,
         now,
         sip.priceUpdatedAt ?? null,
+        sip.currentValue ?? 0,
+        sip.schemeCode ?? null,
+        sip.isDeleted ? 1 : 0,
         sip.id
     );
     return { ...sip, lastModified: now };

@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
-import { useSIPStore } from '@/stores/sipStore';
-import { useHoldingsStore } from '@/stores/holdingsStore';
+import { usePortfolioSummary } from '@/hooks/usePortfolioSummary';
 import { useTheme } from '@/hooks/useTheme';
 
 const ASSET_COLORS: Record<string, string> = {
@@ -15,45 +14,22 @@ const ASSET_COLORS: Record<string, string> = {
 
 export default function AllocationBar() {
     const { colors } = useTheme();
-    const sipCurrent = useSIPStore(state => state.getCurrentValue());
-    const holdings = useHoldingsStore(state => state.holdings);
+    const { assetAllocation, currentValue } = usePortfolioSummary();
 
     const allocation = useMemo(() => {
-        let mf = sipCurrent;
-        let stock = 0;
-        let fd = 0;
-        let gold = 0;
-        let other = 0;
-
-        holdings.forEach(h => {
-            const val = h.type === 'fd' || h.type === 'bond' || h.type === 'ppf' || h.type === 'nps'
-                ? (h.current_price || h.avg_buy_price)
-                : (h.quantity * h.current_price);
-
-            switch (h.type) {
-                case 'stock': stock += val; break;
-                case 'fd':
-                case 'bond':
-                case 'ppf':
-                case 'nps': fd += val; break;
-                case 'gold': gold += val; break;
-                default: other += val; break;
-            }
-        });
-
-        const total = mf + stock + fd + gold + other;
+        const total = currentValue;
         if (total === 0) return [];
 
         const items = [
-            { label: 'MF', value: mf, percentage: (mf / total) * 100 },
-            { label: 'Stocks', value: stock, percentage: (stock / total) * 100 },
-            { label: 'FD', value: fd, percentage: (fd / total) * 100 },
-            { label: 'Gold', value: gold, percentage: (gold / total) * 100 },
-            { label: 'Other', value: other, percentage: (other / total) * 100 },
+            { label: 'MF', value: assetAllocation.mutualFunds, percentage: (assetAllocation.mutualFunds / total) * 100 },
+            { label: 'Stocks', value: assetAllocation.stocks, percentage: (assetAllocation.stocks / total) * 100 },
+            { label: 'FD', value: assetAllocation.fixedIncome, percentage: (assetAllocation.fixedIncome / total) * 100 },
+            { label: 'Gold', value: assetAllocation.gold, percentage: (assetAllocation.gold / total) * 100 },
+            { label: 'Other', value: assetAllocation.others, percentage: (assetAllocation.others / total) * 100 },
         ].filter(item => item.value > 0);
 
         return items.sort((a, b) => b.value - a.value);
-    }, [sipCurrent, holdings]);
+    }, [assetAllocation, currentValue]);
 
     if (allocation.length === 0) {
         return (

@@ -17,6 +17,11 @@ function uuidv4(): string {
 }
 import { supabase } from './supabaseClient';
 import { fetchTransactionsFromDB } from '@/db/repository/transactionRepository';
+import { fetchSIPsFromDB } from '@/db/repository/sipRepository';
+import { fetchHoldingsFromDB } from '@/db/repository/holdingsRepository';
+import { fetchLoansFromDB } from '@/db/repository/loanRepository';
+import { fetchAllInvestmentTxsFromDB } from '@/db/repository/investmentTxRepository';
+import { fetchAllPriceSnapshotsFromDB } from '@/db/repository/priceSnapshotRepository';
 import { initDatabase } from '@/db/services/sqliteService';
 import { Transaction, Category } from '@/types';
 
@@ -256,6 +261,164 @@ export const syncTransactionsToSupabase = async (
     return { synced: totalSynced, failed: totalFailed };
 };
 
+// ─── Batch Upsert Helper ───────────────────────────────────────────────────────
+const batchUpsertToSupabase = async (table: string, rows: any[], conflictKey: string = 'id'): Promise<TransactionSyncResult> => {
+    const CHUNK_SIZE = 200;
+    let totalSynced = 0;
+    let totalFailed = 0;
+
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+            .from(table)
+            .upsert(chunk, {
+                onConflict: conflictKey,
+                ignoreDuplicates: false,
+            });
+
+        if (error) {
+            console.error(`[Sync] ${table} upsert error (chunk ${i}):`, error.message);
+            totalFailed += chunk.length;
+        } else {
+            totalSynced += chunk.length;
+        }
+    }
+
+    console.log(`[Sync] ${table} synced: ${totalSynced}, failed: ${totalFailed}`);
+    return { synced: totalSynced, failed: totalFailed };
+};
+
+// ─── Investment Syncs ─────────────────────────────────────────────────────────
+
+export const syncSIPsToSupabase = async (
+    userId: string,
+    categoryIdMap: Record<string, string>
+): Promise<TransactionSyncResult> => {
+    const sips = await fetchSIPsFromDB();
+    if (sips.length === 0) return { synced: 0, failed: 0 };
+
+    const rows = sips.map(sip => ({
+        user_id: userId,
+        id: sip.id,
+        name: sip.name,
+        fund_name: sip.fundName,
+        amount: sip.amount,
+        frequency: sip.frequency,
+        start_date: sip.startDate,
+        next_due_date: sip.nextDueDate,
+        sip_day: sip.sipDay,
+        total_invested: sip.totalInvested,
+        units: sip.units ?? null,
+        nav: sip.nav ?? null,
+        status: sip.status,
+        notes: sip.notes ?? null,
+        category_id: sip.categoryId ? (categoryIdMap[sip.categoryId] ?? null) : null,
+        created_at: sip.createdAt,
+        last_modified: sip.lastModified,
+        price_updated_at: sip.priceUpdatedAt ?? null,
+        current_value: sip.currentValue ?? 0,
+        scheme_code: sip.schemeCode ?? null,
+        is_deleted: sip.isDeleted ?? false
+    }));
+
+    return batchUpsertToSupabase('sips', rows, 'id');
+};
+
+export const syncHoldingsToSupabase = async (userId: string): Promise<TransactionSyncResult> => {
+    const holdings = await fetchHoldingsFromDB();
+    if (holdings.length === 0) return { synced: 0, failed: 0 };
+
+    const rows = holdings.map(h => ({
+        user_id: userId,
+        id: h.id,
+        type: h.type,
+        name: h.name,
+        ticker: h.ticker ?? null,
+        quantity: h.quantity,
+        avg_buy_price: h.avg_buy_price,
+        current_price: h.current_price,
+        buy_date: h.buy_date,
+        notes: h.notes ?? null,
+        price_updated_at: h.price_updated_at ?? null,
+        is_deleted: h.is_deleted ?? false,
+        updated_at: h.updated_at,
+        folio_number: h.folio_number ?? null,
+        account_number: h.account_number ?? null,
+        invested_amount: h.invested_amount ?? null,
+        current_value: h.current_value ?? null,
+        metadata: h.metadata ?? null,
+        source: h.source ?? 'manual'
+    }));
+
+    return batchUpsertToSupabase('holdings', rows, 'id');
+};
+
+export const syncLoansToSupabase = async (userId: string): Promise<TransactionSyncResult> => {
+    const loans = await fetchLoansFromDB();
+    if (loans.length === 0) return { synced: 0, failed: 0 };
+
+    const rows = loans.map(l => ({
+        user_id: userId,
+        id: l.id,
+        lender: l.lender,
+        loan_type: l.loanType,
+        principal: l.principal,
+        outstanding: l.outstanding,
+        emi_amount: l.emiAmount,
+        emi_due_day: l.emiDueDay,
+        tenure_months: l.tenureMonths,
+        start_date: l.startDate,
+        status: l.status,
+        source: l.source,
+        notes: l.notes ?? null,
+        created_at: l.createdAt,
+        last_modified: l.lastModified
+    }));
+    return batchUpsertToSupabase('loans', rows, 'id');
+};
+
+export const syncInvestmentTxsToSupabase = async (userId: string): Promise<TransactionSyncResult> => {
+    const txs = await fetchAllInvestmentTxsFromDB();
+    if (txs.length === 0) return { synced: 0, failed: 0 };
+
+    const rows = txs.map(tx => ({
+        user_id: userId,
+        id: tx.id,
+        holding_id: tx.holding_id,
+        holding_type: tx.holding_type,
+        event_type: tx.event_type,
+        amount: tx.amount,
+        units: tx.units ?? null,
+        nav: tx.nav ?? null,
+        price: tx.price ?? null,
+        quantity: tx.quantity ?? null,
+        balance_after: tx.balance_after ?? null,
+        notes: tx.notes ?? null,
+        event_date: tx.event_date,
+        source: tx.source ?? 'manual',
+        sms_id: tx.sms_id ?? null,
+        is_deleted: tx.is_deleted ?? false,
+        updated_at: tx.updated_at,
+        created_at: tx.created_at
+    }));
+    return batchUpsertToSupabase('investment_transactions', rows, 'id');
+};
+
+export const syncPriceSnapshotsToSupabase = async (): Promise<TransactionSyncResult> => {
+    const snaps = await fetchAllPriceSnapshotsFromDB();
+    if (snaps.length === 0) return { synced: 0, failed: 0 };
+
+    const rows = snaps.map(s => ({
+        id: s.id,
+        holding_id: s.holding_id,
+        price: s.price,
+        recorded_at: s.recorded_at,
+        source: s.source ?? 'manual',
+        created_at: s.created_at
+    }));
+    return batchUpsertToSupabase('price_snapshots', rows, 'id');
+};
+
 // ─── Main Orchestrator ─────────────────────────────────────────────────────────
 
 export interface SyncResult {
@@ -300,14 +463,24 @@ export const syncAll = async (): Promise<SyncResult> => {
         // Step 2: Sync transactions using category ID map
         const txResult = await syncTransactionsToSupabase(userId, catResult.idMap);
 
-        // Step 3: Log the sync event
+        // Step 3: Sync new investment tables
+        const sipResult = await syncSIPsToSupabase(userId, catResult.idMap);
+        const holdingsResult = await syncHoldingsToSupabase(userId);
+        const loansResult = await syncLoansToSupabase(userId);
+        const invTxResult = await syncInvestmentTxsToSupabase(userId);
+        const snapsResult = await syncPriceSnapshotsToSupabase();
+
+        const totalInvSynced = sipResult.synced + holdingsResult.synced + loansResult.synced + invTxResult.synced + snapsResult.synced;
+        const totalInvFailed = sipResult.failed + holdingsResult.failed + loansResult.failed + invTxResult.failed + snapsResult.failed;
+
+        // Step 4: Log the sync event
         await supabase.from('sync_log').insert({
             user_id: userId,
             device_id: deviceId,
             synced_at: syncedAt,
             categories_synced: catResult.synced,
-            transactions_synced: txResult.synced,
-            status: txResult.failed === 0 ? 'success' : 'partial',
+            transactions_synced: txResult.synced + totalInvSynced,
+            status: (txResult.failed + totalInvFailed) === 0 ? 'success' : 'partial',
         });
 
         // Step 4: Persist timestamp
@@ -316,8 +489,8 @@ export const syncAll = async (): Promise<SyncResult> => {
         return {
             success: true,
             categoriesSynced: catResult.synced,
-            transactionsSynced: txResult.synced,
-            failed: catResult.failed + txResult.failed,
+            transactionsSynced: txResult.synced + totalInvSynced,
+            failed: catResult.failed + txResult.failed + totalInvFailed,
             syncedAt,
         };
     } catch (err: any) {

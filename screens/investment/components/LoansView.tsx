@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
@@ -9,7 +9,10 @@ import LoanSummaryCard from './LoanSummaryCard';
 import EMICountdown from './EMICountdown';
 import { format as formatDate, setDate, isBefore, addMonths } from 'date-fns';
 
+import { useRouter } from 'expo-router';
+
 export default function LoansView() {
+    const router = useRouter();
     const { loans, fetchLoans, isLoading } = useLoanStore();
     const { format } = useCurrency();
     const { colors } = useTheme();
@@ -64,9 +67,11 @@ export default function LoansView() {
                 const typeColor = loan.loanType === 'home' ? '#3B82F6' : loan.loanType === 'personal' ? '#A855F7' : colors.primary;
 
                 return (
-                    <View
+                    <TouchableOpacity
                         key={loan.id}
                         style={[styles.loanCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}
+                        onPress={() => router.push(`/investment/loan/${loan.id}`)}
+                        activeOpacity={0.8}
                     >
                         <View style={styles.cardHeader}>
                             <View style={{ flex: 1, marginRight: 16 }}>
@@ -125,7 +130,7 @@ export default function LoansView() {
                             </ThemedText>
                             <EMICountdown emiDueDay={loan.emiDueDay} />
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 );
             })}
         </ScrollView>

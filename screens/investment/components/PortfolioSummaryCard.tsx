@@ -3,26 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useSIPStore } from '@/stores/sipStore';
-import { useHoldingsStore } from '@/stores/holdingsStore';
+import { usePortfolioSummary } from '@/hooks/usePortfolioSummary';
 import AllocationBar from './AllocationBar';
 
 export default function PortfolioSummaryCard() {
     const { colors } = useTheme();
     const { format } = useCurrency();
 
-    const sipInvested = useSIPStore(state => state.getTotalInvested());
-    const sipCurrent = useSIPStore(state => state.getCurrentValue());
+    const { totalInvested, currentValue, totalReturns, totalReturnsPercent } = usePortfolioSummary();
 
-    const holdingsInvested = useHoldingsStore(state => state.getTotalInvested());
-    const holdingsCurrent = useHoldingsStore(state => state.getCurrentValue());
-
-    const totalInvested = sipInvested + holdingsInvested;
-    const currentTotal = sipCurrent + holdingsCurrent;
-    const returns = currentTotal - totalInvested;
-    const returnsPercent = totalInvested > 0 ? (returns / totalInvested) * 100 : 0;
-
-    const isPositive = returns >= 0;
+    const isPositive = totalReturns >= 0;
     const returnColor = isPositive ? colors.success : colors.error;
 
     // Hardcoded XIRR for now as we don't have a reliable global XIRR calculator combining both yet
@@ -34,7 +24,7 @@ export default function PortfolioSummaryCard() {
             <View style={[styles.heroCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
                 <ThemedText style={[styles.heroSubtitle, { color: colors.subtitle }]}>TOTAL PORTFOLIO VALUE</ThemedText>
                 <ThemedText style={styles.heroAmount}>
-                    {format(currentTotal)}
+                    {format(currentValue)}
                 </ThemedText>
 
                 <View style={[
@@ -46,7 +36,7 @@ export default function PortfolioSummaryCard() {
                     }
                 ]}>
                     <ThemedText style={{ color: returnColor, fontWeight: '700', fontSize: 13 }}>
-                        {isPositive ? '▲ +' : '▼ '}{returnsPercent.toFixed(1)}% ({format(returns)} gain)
+                        {isPositive ? '▲ +' : '▼ '}{totalReturnsPercent.toFixed(1)}% ({format(totalReturns)} gain)
                     </ThemedText>
                 </View>
 
@@ -59,7 +49,7 @@ export default function PortfolioSummaryCard() {
                         <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>Returns</ThemedText>
                         <ThemedText style={[styles.heroGridValue, { color: returnColor }]}>
                             {isPositive ? '+' : ''}
-                            {format(returns)}
+                            {format(totalReturns)}
                         </ThemedText>
                     </View>
                     <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>

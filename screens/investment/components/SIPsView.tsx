@@ -5,23 +5,28 @@ import { ThemedText } from '@/components/common/ThemedText';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import { useSIPStore } from '@/stores/sipStore';
+import { usePortfolioSummary } from '@/hooks/usePortfolioSummary';
 import SIPCard from '@/components/investments/SIPCard';
 import UpdateNAVSheet, { UpdateNAVSheetRef } from '@/components/investments/UpdateNAVSheet';
 import { SIPPlan } from '@/types';
 
+import { useRouter } from 'expo-router';
+
 export default function SIPsView() {
+    const router = useRouter();
     const { sips, fetchSIPs, isLoading, getTotalInvested, getCurrentValue, getReturns, getXIRR } = useSIPStore();
     const { format } = useCurrency();
     const { colors, getShadow } = useTheme();
     const sheetRef = useRef<UpdateNAVSheetRef>(null);
+    const portfolioSummary = usePortfolioSummary();
 
     useEffect(() => {
         fetchSIPs();
     }, [fetchSIPs]);
 
     const handleCardPress = useCallback((sip: SIPPlan) => {
-        sheetRef.current?.present(sip);
-    }, []);
+        router.push(`/investment/sip/${sip.id}`);
+    }, [router]);
 
     const renderItem = useCallback(({ item }: { item: SIPPlan }) => {
         return <SIPCard sip={item} onPress={handleCardPress} />;
@@ -77,22 +82,61 @@ export default function SIPsView() {
                     </View>
                 </View>
 
-                {/* Asset Allocation (Hardcoded mockup based on screenshot for now) */}
+                {/* Asset Allocation — live data from usePortfolioSummary */}
                 <View style={styles.allocationSection}>
-                    <View style={styles.allocationHeader}>
-                        <ThemedText style={[styles.allocationLabel, { color: colors.subtitle }]}>Asset Allocation</ThemedText>
-                        <ThemedText style={[styles.allocationCount, { color: colors.subtitle }]}>3 types</ThemedText>
-                    </View>
-                    <View style={styles.allocationBarContainer}>
-                        <View style={[styles.allocationSegment, { width: '58%', backgroundColor: colors.warning, borderTopLeftRadius: 4, borderBottomLeftRadius: 4 }]} />
-                        <View style={[styles.allocationSegment, { width: '28%', backgroundColor: colors.primary }]} />
-                        <View style={[styles.allocationSegment, { width: '14%', backgroundColor: '#a855f7', borderTopRightRadius: 4, borderBottomRightRadius: 4 }]} />
-                    </View>
-                    <View style={styles.allocationLegendRow}>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: colors.warning }]} /><ThemedText style={styles.legendText}>MF 58%</ThemedText></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: colors.primary }]} /><ThemedText style={styles.legendText}>Stocks 28%</ThemedText></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} /><ThemedText style={styles.legendText}>FD/Bonds 14%</ThemedText></View>
-                    </View>
+                    {(() => {
+                        const { assetAllocation } = portfolioSummary;
+                        const total = assetAllocation.mutualFunds + assetAllocation.stocks +
+                            assetAllocation.fixedIncome + assetAllocation.gold + assetAllocation.others;
+                        if (total <= 0) return null;
+
+                        const segments = [
+                            { label: 'MF', value: assetAllocation.mutualFunds, color: colors.warning },
+                            { label: 'Stocks', value: assetAllocation.stocks, color: colors.primary },
+                            { label: 'FD/Bonds', value: assetAllocation.fixedIncome, color: '#a855f7' },
+                            { label: 'Gold', value: assetAllocation.gold, color: '#f59e0b' },
+                            { label: 'Other', value: assetAllocation.others, color: colors.subtitle },
+                        ].filter(s => s.value > 0);
+
+                        const typeCount = segments.length;
+
+                        return (
+                            <>
+                                <View style={styles.allocationHeader}>
+                                    <ThemedText style={[styles.allocationLabel, { color: colors.subtitle }]}>Asset Allocation</ThemedText>
+                                    <ThemedText style={[styles.allocationCount, { color: colors.subtitle }]}>{typeCount} type{typeCount !== 1 ? 's' : ''}</ThemedText>
+                                </View>
+                                <View style={styles.allocationBarContainer}>
+                                    {segments.map((seg, idx) => (
+                                        <View
+                                            key={seg.label}
+                                            style={[
+                                                styles.allocationSegment,
+                                                {
+                                                    width: `${(seg.value / total) * 100}%` as any,
+                                                    backgroundColor: seg.color,
+                                                    borderTopLeftRadius: idx === 0 ? 4 : 0,
+                                                    borderBottomLeftRadius: idx === 0 ? 4 : 0,
+                                                    borderTopRightRadius: idx === segments.length - 1 ? 4 : 0,
+                                                    borderBottomRightRadius: idx === segments.length - 1 ? 4 : 0,
+                                                }
+                                            ]}
+                                        />
+                                    ))}
+                                </View>
+                                <View style={styles.allocationLegendRow}>
+                                    {segments.map(seg => (
+                                        <View key={seg.label} style={styles.legendItem}>
+                                            <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+                                            <ThemedText style={styles.legendText}>
+                                                {seg.label} {((seg.value / total) * 100).toFixed(0)}%
+                                            </ThemedText>
+                                        </View>
+                                    ))}
+                                </View>
+                            </>
+                        );
+                    })()}
                 </View>
 
                 <View style={styles.sectionHeaderRow}>
@@ -101,7 +145,7 @@ export default function SIPsView() {
                 </View>
             </View>
         );
-    }, [colors, format, getCurrentValue, getReturns, getTotalInvested, getXIRR]);
+    }, [colors, format, getCurrentValue, getReturns, getTotalInvested, getXIRR, portfolioSummary]);
 
     if (isLoading && sips.length === 0) {
         return (

@@ -564,6 +564,10 @@ export const getNewTransactionsFromSMS = async (
     // These are handled in parallel (account balance, SIP, EMI, loan alerts)
     // and excluded from the transaction pipeline.
     const transactionMessages: typeof rawMessages = [];
+    // FIX (Blocker 2): track intent-handled IDs separately so we can flush them
+    // to SQLite at the end. Previously they were only pushed to the in-memory
+    // processedIds array and never persisted — causing re-processing on restart.
+    const intentHandledIds: string[] = [];
 
     await Promise.allSettled(rawMessages.map(async (msg) => {
       const smsId = msg._id?.toString();
@@ -585,19 +589,20 @@ export const getNewTransactionsFromSMS = async (
       switch (intent.kind) {
         case 'sip_confirmation':
           await handleSIPConfirmation(intent, smsId, bankFromSender);
-          if (smsId) processedIds.push(smsId); // mark as processed
+          // Mark AFTER successful handler — if handler throws, ID stays unprocessed (safe retry)
+          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
           break;
         case 'emi_deduction':
           await handleEMIDeduction(intent, smsId, bankFromSender);
-          if (smsId) processedIds.push(smsId);
+          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
           break;
         case 'account_balance':
           await handleAccountBalance(intent, smsId, bankFromSender);
-          if (smsId) processedIds.push(smsId);
+          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
           break;
         case 'loan_alert':
           await handleLoanAlert(intent, smsId, bankFromSender);
-          if (smsId) processedIds.push(smsId);
+          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
           break;
         case 'transaction':
           transactionMessages.push(msg); // pass to existing pipeline
@@ -606,6 +611,13 @@ export const getNewTransactionsFromSMS = async (
           break; // unknown — skip
       }
     }));
+
+    // FIX (Blocker 2): Flush intent-handled IDs to SQLite immediately.
+    // Previously these were never saved to the DB, so they'd re-process on every restart.
+    if (intentHandledIds.length > 0) {
+      await saveProcessedSmsIdsToDb(intentHandledIds);
+      console.log(`[SMS::Util] Flushed ${intentHandledIds.length} intent-handled IDs to SQLite`);
+    }
 
     console.log(`[SMS::Util] Intent routing: ${rawMessages.length} raw → ${transactionMessages.length} transactions`);
 

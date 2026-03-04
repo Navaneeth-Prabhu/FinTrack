@@ -69,7 +69,7 @@ export default function PerformanceBars() {
 
                     // Specific color overrides based on the mockup context if needed, but we can compute:
                     // Usually we want a gradient from green to yellow to red. For simplicity:
-                    let barColor = colors.success;
+                    let barColor: string = colors.success;
                     if (!isPositive) barColor = '#F87171'; // Red
                     else if (item.returnsPercent < 5) barColor = colors.warning;
                     else if (item.returnsPercent < 10) barColor = '#4ADE80'; // Lighter green

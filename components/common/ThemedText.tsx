@@ -21,8 +21,8 @@ interface TextProps {
 }
 ``
 const createTextStyles = (scale: number) => ({
-  fontSize: fontSizes[`FONT${scale}`],
-  lineHeight: fontSizes[`FONT${scale + 8}`], // Add 8 to fontSize for lineHeight
+  fontSize: fontSizes[`FONT${scale}` as keyof typeof fontSizes],
+  lineHeight: fontSizes[`FONT${scale + 8}` as keyof typeof fontSizes], // Add 8 to fontSize for lineHeight
 });
 
 export function ThemedText({

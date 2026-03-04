@@ -7,8 +7,9 @@ export const saveHoldingToDB = async (holding: Holding): Promise<void> => {
     await db.runAsync(
         `INSERT INTO holdings (
         id, user_id, type, name, ticker, quantity, avg_buy_price, current_price,
-        buy_date, notes, price_updated_at, is_deleted, updated_at
-    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        buy_date, notes, price_updated_at, is_deleted, updated_at, folio_number,
+        account_number, invested_amount, current_value, metadata, source
+    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         holding.id,
         holding.user_id ?? null,
         holding.type,
@@ -20,8 +21,14 @@ export const saveHoldingToDB = async (holding: Holding): Promise<void> => {
         holding.buy_date,
         holding.notes ?? null,
         holding.price_updated_at ?? null,
-        holding.is_deleted ?? 0,
-        holding.updated_at
+        holding.is_deleted ? 1 : 0,
+        holding.updated_at,
+        holding.folio_number ?? null,
+        holding.account_number ?? null,
+        holding.invested_amount ?? null,
+        holding.current_value ?? null,
+        holding.metadata ?? null,
+        holding.source ?? 'manual'
     );
 };
 
@@ -37,6 +44,13 @@ export const fetchHoldingsFromDB = async (): Promise<Holding[]> => {
         ticker: row.ticker !== null ? row.ticker : undefined,
         notes: row.notes !== null ? row.notes : undefined,
         price_updated_at: row.price_updated_at !== null ? row.price_updated_at : undefined,
+        folio_number: row.folio_number !== null ? row.folio_number : undefined,
+        account_number: row.account_number !== null ? row.account_number : undefined,
+        invested_amount: row.invested_amount !== null ? row.invested_amount : undefined,
+        current_value: row.current_value !== null ? row.current_value : undefined,
+        metadata: row.metadata !== null ? row.metadata : undefined,
+        source: row.source !== null ? row.source : undefined,
+        is_deleted: row.is_deleted === 1,
     }));
 };
 
@@ -47,7 +61,8 @@ export const updateHoldingInDB = async (holding: Holding): Promise<Holding> => {
         `UPDATE holdings SET
         user_id = ?, type = ?, name = ?, ticker = ?, quantity = ?, avg_buy_price = ?,
         current_price = ?, buy_date = ?, notes = ?, price_updated_at = ?,
-        is_deleted = ?, updated_at = ?
+        is_deleted = ?, updated_at = ?, folio_number = ?, account_number = ?,
+        invested_amount = ?, current_value = ?, metadata = ?, source = ?
         WHERE id = ?`,
         holding.user_id ?? null,
         holding.type,
@@ -59,8 +74,14 @@ export const updateHoldingInDB = async (holding: Holding): Promise<Holding> => {
         holding.buy_date,
         holding.notes ?? null,
         holding.price_updated_at ?? null,
-        holding.is_deleted ?? 0,
+        holding.is_deleted ? 1 : 0,
         now,
+        holding.folio_number ?? null,
+        holding.account_number ?? null,
+        holding.invested_amount ?? null,
+        holding.current_value ?? null,
+        holding.metadata ?? null,
+        holding.source ?? 'manual',
         holding.id
     );
     return { ...holding, updated_at: now };

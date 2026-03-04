@@ -166,6 +166,36 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       createdAt TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS investment_transactions (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT,
+      holding_id TEXT NOT NULL,
+      holding_type TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      units REAL,
+      nav REAL,
+      price REAL,
+      quantity REAL,
+      balance_after REAL,
+      notes TEXT,
+      event_date TEXT NOT NULL,
+      source TEXT DEFAULT 'manual',
+      sms_id TEXT,
+      is_deleted INTEGER DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS price_snapshots (
+      id TEXT PRIMARY KEY NOT NULL,
+      holding_id TEXT NOT NULL,
+      price REAL NOT NULL,
+      recorded_at TEXT NOT NULL,
+      source TEXT DEFAULT 'manual',
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
     CREATE INDEX IF NOT EXISTS idx_sms_alerts_created ON sms_alerts(createdAt DESC);
   `);
@@ -228,11 +258,23 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
 
   try {
     await db.execAsync(`
-      ALTER TABLE sip_plans ADD COLUMN priceUpdatedAt TEXT;
-    `);
+        ALTER TABLE sip_plans ADD COLUMN priceUpdatedAt TEXT;
+      `);
   } catch (e) {
     // Column might already exist
   }
+
+  // V2 Investment Schema Migrations
+  try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN currentValue REAL;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN schemeCode TEXT;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN isDeleted INTEGER DEFAULT 0;`); } catch (e) { }
+
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN folio_number TEXT;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN account_number TEXT;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN invested_amount REAL;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN current_value REAL;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN metadata TEXT;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN source TEXT DEFAULT 'manual';`); } catch (e) { }
 
   let categoriesAdded = 0;
 
@@ -368,6 +410,8 @@ export const wipeAllLocalData = async (): Promise<void> => {
     await db.execAsync('DELETE FROM sms_alerts;');
     await db.execAsync('DELETE FROM accounts;');
     await db.execAsync('DELETE FROM holdings;');
+    await db.execAsync('DELETE FROM investment_transactions;');
+    await db.execAsync('DELETE FROM price_snapshots;');
     await db.execAsync('DELETE FROM processed_sms_ids;');
     await db.execAsync('DELETE FROM categories;');
 

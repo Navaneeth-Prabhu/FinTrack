@@ -10,9 +10,10 @@ import { differenceInDays, parseISO } from 'date-fns';
 interface HoldingCardProps {
     holding: Holding;
     onUpdatePrice: (holding: Holding) => void;
+    onPress?: (holding: Holding) => void;
 }
 
-export default function HoldingCard({ holding, onUpdatePrice }: HoldingCardProps) {
+export default function HoldingCard({ holding, onUpdatePrice, onPress }: HoldingCardProps) {
     const { colors } = useTheme();
     const { format } = useCurrency();
 
@@ -44,7 +45,7 @@ export default function HoldingCard({ holding, onUpdatePrice }: HoldingCardProps
     return (
         <TouchableOpacity
             style={[styles.card, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}
-            onPress={() => onUpdatePrice(holding)}
+            onPress={() => onPress ? onPress(holding) : onUpdatePrice(holding)}
             activeOpacity={0.8}
         >
             <View style={styles.iconContainer}>
