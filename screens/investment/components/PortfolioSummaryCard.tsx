@@ -5,25 +5,31 @@ import { useTheme } from '@/hooks/useTheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { usePortfolioSummary } from '@/hooks/usePortfolioSummary';
 import AllocationBar from './AllocationBar';
+import { useSIPStore } from '@/stores/sipStore';
 
 export default function PortfolioSummaryCard() {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const { format } = useCurrency();
 
     const { totalInvested, currentValue, totalReturns, totalReturnsPercent } = usePortfolioSummary();
+    // Calculate live XIRR from the SIP store
+    const { getXIRR } = useSIPStore();
 
     const isPositive = totalReturns >= 0;
     const returnColor = isPositive ? colors.success : colors.error;
+    const xirr = getXIRR();
 
-    // Hardcoded XIRR for now as we don't have a reliable global XIRR calculator combining both yet
-    const xirr = 14.2;
+    const heroBg = isDark ? '#1A1A1A' : colors.card;
+    const heroBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
+    const gridBoxBg = isDark ? '#222' : colors.background;
+    const gridBoxBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
 
     return (
         <View style={styles.headerContainer}>
             {/* Total Portfolio Hero Card */}
-            <View style={[styles.heroCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+            <View style={[styles.heroCard, { backgroundColor: heroBg, borderColor: heroBorder, borderWidth: 1 }]}>
                 <ThemedText style={[styles.heroSubtitle, { color: colors.subtitle }]}>TOTAL PORTFOLIO VALUE</ThemedText>
-                <ThemedText style={styles.heroAmount}>
+                <ThemedText style={[styles.heroAmount, { color: colors.text }]}>
                     {format(currentValue)}
                 </ThemedText>
 
@@ -41,18 +47,18 @@ export default function PortfolioSummaryCard() {
                 </View>
 
                 <View style={styles.heroGrid}>
-                    <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                    <View style={[styles.heroGridBox, { backgroundColor: gridBoxBg, borderColor: gridBoxBorder, borderWidth: 1 }]}>
                         <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>Invested</ThemedText>
-                        <ThemedText style={styles.heroGridValue}>{format(totalInvested)}</ThemedText>
+                        <ThemedText style={[styles.heroGridValue, { color: colors.text }]}>{format(totalInvested)}</ThemedText>
                     </View>
-                    <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                    <View style={[styles.heroGridBox, { backgroundColor: gridBoxBg, borderColor: gridBoxBorder, borderWidth: 1 }]}>
                         <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>Returns</ThemedText>
                         <ThemedText style={[styles.heroGridValue, { color: returnColor }]}>
                             {isPositive ? '+' : ''}
                             {format(totalReturns)}
                         </ThemedText>
                     </View>
-                    <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                    <View style={[styles.heroGridBox, { backgroundColor: gridBoxBg, borderColor: gridBoxBorder, borderWidth: 1 }]}>
                         <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>XIRR</ThemedText>
                         <ThemedText style={[styles.heroGridValue, { color: colors.warning }]}>{xirr.toFixed(1)}%</ThemedText>
                     </View>
@@ -86,7 +92,6 @@ const styles = StyleSheet.create({
         lineHeight: 48,
         fontWeight: '700',
         marginBottom: 16,
-        color: '#FFF',
     },
     returnsPill: {
         alignSelf: 'flex-start',
@@ -111,7 +116,6 @@ const styles = StyleSheet.create({
     heroGridValue: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFF',
     },
     allocationSection: {
         marginBottom: 12,

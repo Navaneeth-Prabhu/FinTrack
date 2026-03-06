@@ -8,8 +8,13 @@ import { differenceInDays, setDate, addMonths, isBefore, startOfDay, format as f
 
 export default function LoanSummaryCard() {
     const { loans, getTotalOutstanding, getTotalEMI } = useLoanStore();
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const { format } = useCurrency();
+
+    const cardBg = isDark ? '#1A1A1A' : colors.card;
+    const cardBorder = isDark ? 'rgba(255,255,255,0.05)' : colors.border;
+    const statBg = isDark ? '#222' : colors.background;
+    const statBorder = isDark ? 'rgba(255,255,255,0.05)' : colors.border;
 
     const activeLoansCount = loans.filter(l => l.status === 'active').length;
     const outstanding = getTotalOutstanding();
@@ -45,7 +50,7 @@ export default function LoanSummaryCard() {
     }, [loans]);
 
     return (
-        <View style={[styles.card, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }]}>
             <View style={styles.mainContent}>
                 <ThemedText style={[styles.title, { color: colors.subtitle }]}>TOTAL OUTSTANDING</ThemedText>
                 <ThemedText style={styles.totalAmount}>
@@ -54,7 +59,7 @@ export default function LoanSummaryCard() {
             </View>
 
             <View style={styles.statsRow}>
-                <View style={[styles.statBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                <View style={[styles.statBox, { backgroundColor: statBg, borderColor: statBorder, borderWidth: 1 }]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>
                         MONTHLY EMI
                     </ThemedText>
@@ -63,16 +68,16 @@ export default function LoanSummaryCard() {
                     </ThemedText>
                 </View>
 
-                <View style={[styles.statBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                <View style={[styles.statBox, { backgroundColor: statBg, borderColor: statBorder, borderWidth: 1 }]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>
                         LOANS ACTIVE
                     </ThemedText>
-                    <ThemedText style={[styles.statValue, { color: '#FFF' }]}>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
                         {activeLoansCount}
                     </ThemedText>
                 </View>
 
-                <View style={[styles.statBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                <View style={[styles.statBox, { backgroundColor: statBg, borderColor: statBorder, borderWidth: 1 }]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>
                         NEXT DUE
                     </ThemedText>
@@ -105,7 +110,6 @@ const styles = StyleSheet.create({
         fontSize: 36,
         lineHeight: 48,
         fontWeight: '400',
-        color: '#FFF',
     },
     statsRow: {
         flexDirection: 'row',

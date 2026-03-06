@@ -14,7 +14,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import usePreferenceStore from '@/stores/preferenceStore';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { initializeSMSFeatures } from '@/services/smsInitService';
 import { useSMSObserver } from '@/hooks/useSMSObserver';
 import { useTheme } from '@/hooks/useTheme';
@@ -26,6 +26,8 @@ import { GlobalSmsSyncModal } from '@/components/settings/GlobalSmsSyncModal';
 import { checkAndGenerateEmiAlerts } from '@/services/emiAlertService';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
+import { fetchAndUpdateNAVs } from '@/services/amfiNavService';
+import { requestSMSPermission } from '@/services/smsParser';
 
 // Prevent splash screen from hiding until we're ready
 SplashScreen.preventAutoHideAsync();
@@ -100,11 +102,15 @@ export default function RootLayout() {
           // Step 5: Initialize SMS features after categories are loaded
           const currentCategories = useCategoryStore.getState().categories;
           if (Platform.OS === 'android' && currentCategories.length > 0) {
-            // Run SMS initialization in background without blocking startup
-            initializeSMSFeatures({
-              categories: currentCategories,
-              saveTransactionFn: saveTransaction,
-            }).catch(err => console.error('[SMS::Init] Background init failed:', err));
+            requestSMSPermission().then(async (hasPermission) => {
+              if (hasPermission) {
+                // Run SMS initialization in background without blocking startup
+                initializeSMSFeatures({
+                  categories: currentCategories,
+                  saveTransactionFn: saveTransaction,
+                }).catch(err => console.error('[SMS::Init] Background init failed:', err));
+              }
+            });
           }
 
           // Step 6: Prompt for biometric authentication if supported AND enabled in preferences
@@ -140,6 +146,20 @@ export default function RootLayout() {
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // ── AMFI NAV auto-fetch on app foreground ────────────────────────────────────
+  // amfiNavService caches for 12h internally, so firing on every foreground event
+  // is safe — it will only actually hit the AMFI server once per day.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        fetchAndUpdateNAVs().catch(err =>
+          console.warn('[AMFI] Foreground NAV fetch failed:', err)
+        );
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   // Update navigation bar color and button style on theme change (Android only)

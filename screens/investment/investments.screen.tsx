@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useTheme } from '@/hooks/useTheme';
@@ -9,6 +9,8 @@ import SIPsView from './components/SIPsView';
 import LoansView from './components/LoansView';
 import AlertsScreen from '@/screens/alerts/AlertsScreen';
 import { useAlertStore } from '@/stores/alertStore';
+import { Ionicons } from '@expo/vector-icons';
+import { importCamsData } from '@/services/camsCasParser';
 
 import OverviewView from './components/OverviewView';
 
@@ -19,27 +21,57 @@ export default function InvestmentsScreen() {
     const { colors } = useTheme();
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
     const { unreadCount } = useAlertStore();
+    const [isImporting, setIsImporting] = useState(false);
+
+    const handleImportCams = async () => {
+        setIsImporting(true);
+        const result = await importCamsData();
+        setIsImporting(false);
+
+        if (result.status === 'success') {
+            Alert.alert('Import Successful', result.message);
+        } else if (result.status === 'error') {
+            Alert.alert('Import Failed', result.message);
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <ThemedText variant="h2">Investments</ThemedText>
-                {activeTab !== 'Loans' && activeTab !== 'Alerts' && (
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: colors.primary }]}
-                        onPress={() => router.push('/investment/add-investment-type' as any)}
-                    >
-                        <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
-                    </TouchableOpacity>
-                )}
-                {activeTab === 'Loans' && (
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: colors.primary }]}
-                        onPress={() => router.push('/investment/add-loan')}
-                    >
-                        <ThemedText style={styles.addButtonText}>Add Loan</ThemedText>
-                    </TouchableOpacity>
-                )}
+
+                <View style={styles.headerActions}>
+                    {(activeTab === 'Holdings' || activeTab === 'Overview') && (
+                        <TouchableOpacity
+                            style={[styles.iconButton, { backgroundColor: 'rgba(96, 165, 250, 0.15)' }]}
+                            onPress={handleImportCams}
+                            disabled={isImporting}
+                        >
+                            {isImporting ? (
+                                <ActivityIndicator size="small" color="#60A5FA" />
+                            ) : (
+                                <Ionicons name="cloud-upload-outline" size={20} color="#60A5FA" />
+                            )}
+                        </TouchableOpacity>
+                    )}
+
+                    {activeTab !== 'Loans' && activeTab !== 'Alerts' && (
+                        <TouchableOpacity
+                            style={[styles.addButton, { backgroundColor: colors.primary }]}
+                            onPress={() => router.push('/investment/add-investment-type' as any)}
+                        >
+                            <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
+                        </TouchableOpacity>
+                    )}
+                    {activeTab === 'Loans' && (
+                        <TouchableOpacity
+                            style={[styles.addButton, { backgroundColor: colors.primary }]}
+                            onPress={() => router.push('/investment/add-loan')}
+                        >
+                            <ThemedText style={styles.addButtonText}>Add Loan</ThemedText>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
 
             {/* Segmented Control */}
@@ -98,6 +130,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 16,
         paddingBottom: 8,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    iconButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     addButton: {
         paddingHorizontal: 16,

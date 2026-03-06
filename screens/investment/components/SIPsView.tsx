@@ -16,7 +16,7 @@ export default function SIPsView() {
     const router = useRouter();
     const { sips, fetchSIPs, isLoading, getTotalInvested, getCurrentValue, getReturns, getXIRR } = useSIPStore();
     const { format } = useCurrency();
-    const { colors, getShadow } = useTheme();
+    const { colors, getShadow, isDark } = useTheme();
     const sheetRef = useRef<UpdateNAVSheetRef>(null);
     const portfolioSummary = usePortfolioSummary();
 
@@ -44,7 +44,7 @@ export default function SIPsView() {
         return (
             <View style={styles.headerContainer}>
                 {/* Total Portfolio Hero Card */}
-                <View style={[styles.heroCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                <View style={[styles.heroCard, { backgroundColor: isDark ? '#1A1A1A' : colors.card, borderColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border, borderWidth: 1 }]}>
                     <ThemedText style={[styles.heroSubtitle, { color: colors.subtitle }]}>TOTAL PORTFOLIO VALUE</ThemedText>
                     <ThemedText style={styles.heroAmount}>
                         {format(currentValue)}
@@ -64,18 +64,18 @@ export default function SIPsView() {
                     </View>
 
                     <View style={styles.heroGrid}>
-                        <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                        <View style={[styles.heroGridBox, { backgroundColor: isDark ? '#222' : colors.background, borderColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border, borderWidth: 1 }]}>
                             <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>Invested</ThemedText>
-                            <ThemedText style={styles.heroGridValue}>{format(totalInvested)}</ThemedText>
+                            <ThemedText style={[styles.heroGridValue, { color: colors.text }]}>{format(totalInvested)}</ThemedText>
                         </View>
-                        <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                        <View style={[styles.heroGridBox, { backgroundColor: isDark ? '#222' : colors.background, borderColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border, borderWidth: 1 }]}>
                             <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>Returns</ThemedText>
                             <ThemedText style={[styles.heroGridValue, { color: returnColor }]}>
                                 {isPositive ? '+' : ''}
                                 {format(returns)}
                             </ThemedText>
                         </View>
-                        <View style={[styles.heroGridBox, { backgroundColor: '#222', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
+                        <View style={[styles.heroGridBox, { backgroundColor: isDark ? '#222' : colors.background, borderColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border, borderWidth: 1 }]}>
                             <ThemedText style={[styles.heroGridLabel, { color: colors.subtitle }]}>XIRR</ThemedText>
                             <ThemedText style={[styles.heroGridValue, { color: colors.warning }]}>{xirr.toFixed(1)}%</ThemedText>
                         </View>
@@ -221,7 +221,6 @@ const styles = StyleSheet.create({
         lineHeight: 48,
         fontWeight: '700',
         marginBottom: 16,
-        color: '#FFF',
     },
     returnsPill: {
         alignSelf: 'flex-start',
@@ -246,7 +245,6 @@ const styles = StyleSheet.create({
     heroGridValue: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFF',
     },
     allocationSection: {
         marginBottom: 28,
@@ -287,7 +285,6 @@ const styles = StyleSheet.create({
     legendText: {
         fontSize: 12,
         fontWeight: '500',
-        color: '#A1A1AA',
     },
     sectionHeaderRow: {
         flexDirection: 'row',
@@ -298,7 +295,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFF',
     },
     seeAllText: {
         fontSize: 13,

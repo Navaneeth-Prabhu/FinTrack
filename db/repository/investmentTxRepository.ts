@@ -71,3 +71,28 @@ export const fetchAllInvestmentTxsFromDB = async (): Promise<InvestmentTransacti
         is_deleted: row.is_deleted === 1,
     }));
 };
+
+/**
+ * Deduplication check — returns the existing transaction if an SMS with
+ * the given sms_id was already processed. Returns null if this is new.
+ */
+export const findInvestmentTxBySmsId = async (smsId: string): Promise<InvestmentTransaction | null> => {
+    const db = await initDatabase();
+    const result = await db.getFirstAsync<any>(
+        'SELECT * FROM investment_transactions WHERE sms_id = ? AND is_deleted = 0 LIMIT 1',
+        smsId
+    );
+    if (!result) return null;
+    return {
+        ...result,
+        units: result.units !== null ? result.units : undefined,
+        nav: result.nav !== null ? result.nav : undefined,
+        price: result.price !== null ? result.price : undefined,
+        quantity: result.quantity !== null ? result.quantity : undefined,
+        balance_after: result.balance_after !== null ? result.balance_after : undefined,
+        notes: result.notes !== null ? result.notes : undefined,
+        sms_id: result.sms_id !== null ? result.sms_id : undefined,
+        is_deleted: result.is_deleted === 1,
+    };
+};
+

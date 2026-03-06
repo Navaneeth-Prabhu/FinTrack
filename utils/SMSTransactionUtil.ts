@@ -3,7 +3,7 @@
 // Uses the 3-tier smsCategorizationService for intelligent categorization.
 
 import { getTransactionsFromSMS, ParsedSMS, readFinancialSMS, extractTransactionFromSMS } from '@/services/smsParser';
-import { classifySMSIntent, SIPConfirmationIntent, EMIDeductionIntent, AccountBalanceIntent, LoanAlertIntent } from '@/services/smsAlertParser';
+import { classifySMSIntent, SIPConfirmationIntent, EMIDeductionIntent, AccountBalanceIntent, LoanAlertIntent, parseNACHMFDebit } from '@/services/smsAlertParser';
 import { smsAlertExistsBySmSId } from '@/db/repository/alertRepository';
 import {
   categorizeWithContext,
@@ -127,7 +127,25 @@ export const convertToAppTransaction = async (
 
   // ── Auto-Link SIP / EMI (Phase 2) ──
   let autoLinkNote: string | null = null;
-  if (parsed.subType === 'sip' && parsed.type === 'expense') {
+
+  // 1. Regular SIP NACH Debit (extracted from generic bank SMS)
+  const nachMFDebit = parseNACHMFDebit(parsed.rawSMS, parsed.sender);
+  if (nachMFDebit && parsed.type === 'expense') {
+    const sipStore = useSIPStore.getState();
+    const existingSIP = sipStore.sips.find(s => s.folioNumber === nachMFDebit.folioNumber) ||
+      sipStore.sips.find(s => s.fundName.toLowerCase().includes(nachMFDebit.amcName.toLowerCase()));
+
+    if (existingSIP) {
+      await sipStore.autoAllocateSIP(existingSIP.id, nachMFDebit.amount);
+      autoLinkNote = `Auto-linked to SIP: ${existingSIP.fundName} (NACH Debit)`;
+
+      // Override category to ensure it shows up nicely in the timeline
+      const investmentCat = categories.find(c => c.type === 'expense' && (c.name.toLowerCase().includes('invest') || c.name.toLowerCase().includes('sip')));
+      if (investmentCat) matchedCategory = investmentCat;
+    }
+  }
+  // 2. Standard SIP Application (if tagged by parser)
+  else if (parsed.subType === 'sip' && parsed.type === 'expense') {
     const sipStore = useSIPStore.getState();
     await sipStore.fetchSIPs(); // Ensure loaded
     // Find active SIP matching the amount (simplistic matcher for MVP)
@@ -627,7 +645,37 @@ export const getNewTransactionsFromSMS = async (
         const parsed = extractTransactionFromSMS(msg.body, msg.address);
         if (!parsed) return null;
         const smsId = msg._id?.toString();
-        const date = msg.date ? new Date(msg.date).toISOString() : new Date().toISOString();
+
+        // ── Industry-standard date resolution (Axio/Walnut pattern) ─────────
+        // Priority 1: Date explicitly mentioned in the SMS body (e.g. "On 05/02/26").
+        //             This is the ACTUAL transaction date, not the delivery date.
+        // Priority 2: Native msg.date (Android ContentResolver delivery timestamp).
+        //             Used only when no date is present in the SMS body.
+        //
+        // Sanity checks (prevents misclassification of marketing/reminder SMS):
+        //   • Reject body dates more than 6 months in the past (likely spam/promo)
+        //   • Reject future body dates  (those are "due date" reminders, not debits)
+        //   → In both cases fall back to the native receive timestamp instead.
+        const receiveTs = msg.date ? new Date(msg.date).toISOString() : new Date().toISOString();
+        let date = receiveTs; // safe default
+
+        if (parsed.date) {
+          const bodyDateMs = new Date(parsed.date).getTime();
+          const now = Date.now();
+          const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+          if (bodyDateMs > now) {
+            // Future date → this is a "due date" alert, not a debit; skip using body date
+            console.log(`[SMS::Date] Body date is in the future (${parsed.date}), using receive date`);
+            date = receiveTs;
+          } else if (now - bodyDateMs > SIX_MONTHS_MS) {
+            // Very old body date → probably a marketing promo; fall back
+            console.log(`[SMS::Date] Body date is >6 months old (${parsed.date}), using receive date`);
+            date = receiveTs;
+          } else {
+            date = parsed.date; // ✅ Valid body date — use it
+          }
+        }
+
         return { ...parsed, smsId, date };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);

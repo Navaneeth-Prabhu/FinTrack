@@ -13,7 +13,7 @@ interface SIPCardProps {
 
 const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
     const { format } = useCurrency();
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
 
     const currentValue = (sip.nav && sip.units && sip.nav > 0 && sip.units > 0)
         ? sip.nav * sip.units
@@ -23,7 +23,7 @@ const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
     const returnsPercentage = sip.totalInvested > 0 ? (returns / sip.totalInvested) * 100 : 0;
 
     const isPositive = returns >= 0;
-    const returnColor = isPositive ? colors.success : '#FF4D4D'; // Red if negative
+    const returnColor = isPositive ? colors.success : colors.error;
 
     // Calculate stale days
     let daysAgoText = '';
@@ -38,22 +38,34 @@ const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
         daysAgoText = 'Needs update';
     }
 
+    const cardBg = isDark ? '#1A1A1A' : colors.card;
+    const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
+    const statBg = isDark ? '#222' : colors.background;
+    const statBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
+    const footerBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
+
     return (
         <Pressable
             onPress={() => onPress?.(sip)}
             style={({ pressed }) => [
                 styles.card,
-                { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 },
+                { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 },
                 pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }
             ]}
         >
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.titleContainer}>
-                    <ThemedText style={styles.fundName} numberOfLines={1}>{sip.fundName}</ThemedText>
+                    <ThemedText style={[styles.fundName, { color: colors.text }]} numberOfLines={1}>{sip.fundName}</ThemedText>
                     {sip.name !== sip.fundName && (
-                        <ThemedText style={styles.customName} numberOfLines={1}>{sip.name}</ThemedText>
+                        <ThemedText style={[styles.customName, { color: colors.subtitle }]} numberOfLines={1}>{sip.name}</ThemedText>
                     )}
+                    {/* Folio Number */}
+                    {sip.folioNumber ? (
+                        <ThemedText style={[styles.folioText, { color: colors.subtitle }]}>
+                            Folio: {sip.folioNumber}
+                        </ThemedText>
+                    ) : null}
                 </View>
 
                 <View style={styles.badgesContainer}>
@@ -85,11 +97,11 @@ const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
                 {/* Row 1 */}
                 <View style={styles.statCell}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Installment</ThemedText>
-                    <ThemedText style={styles.statValue}>{format(sip.amount)}</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>{format(sip.amount)}</ThemedText>
                 </View>
                 <View style={styles.statCell}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Invested</ThemedText>
-                    <ThemedText style={styles.statValue}>{format(sip.totalInvested)}</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>{format(sip.totalInvested)}</ThemedText>
                 </View>
                 <View style={styles.statCell}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Curr. Value</ThemedText>
@@ -99,11 +111,11 @@ const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
                 {/* Row 2 */}
                 <View style={[styles.statCell, styles.row2]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Units</ThemedText>
-                    <ThemedText style={styles.statValue}>{sip.units ? sip.units.toFixed(2) : '--'}</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>{sip.units ? sip.units.toFixed(2) : '--'}</ThemedText>
                 </View>
                 <View style={[styles.statCell, styles.row2]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Avg NAV</ThemedText>
-                    <ThemedText style={styles.statValue}>{sip.nav ? format(sip.nav) : '--'}</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>{sip.nav ? format(sip.nav) : '--'}</ThemedText>
                 </View>
                 <View style={[styles.statCell, styles.row2]}>
                     <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Returns</ThemedText>
@@ -114,7 +126,7 @@ const SIPCard = memo(({ sip, onPress }: SIPCardProps) => {
             </View>
 
             {/* Footer */}
-            <View style={[styles.footer, { borderTopColor: 'rgba(255,255,255,0.05)' }]}>
+            <View style={[styles.footer, { borderTopColor: footerBorder }]}>
                 {sip.status === 'active' ? (
                     <ThemedText style={styles.footerText}>
                         <ThemedText style={{ color: colors.subtitle, fontSize: 13 }}>Next due: </ThemedText>
@@ -155,12 +167,15 @@ const styles = StyleSheet.create({
     fundName: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#FFF',
     },
     customName: {
         fontSize: 13,
-        color: '#888',
         marginTop: 4,
+    },
+    folioText: {
+        fontSize: 11,
+        marginTop: 4,
+        fontFamily: 'monospace',
     },
     badgesContainer: {
         flexDirection: 'row',
@@ -197,7 +212,6 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#FFF',
     },
     footer: {
         paddingHorizontal: 20,

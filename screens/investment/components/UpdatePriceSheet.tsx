@@ -68,11 +68,29 @@ const UpdatePriceSheet = forwardRef<UpdatePriceSheetRef>((props, ref) => {
 
         setIsSaving(true);
         try {
+            const now = new Date().toISOString();
             await updateHolding({
                 ...activeHolding,
                 current_price: parsedPrice,
-                price_updated_at: new Date().toISOString()
+                price_updated_at: now
             });
+
+            // Seed price snapshot for sparkline
+            const { savePriceSnapshotToDB } = require('@/db/repository/priceSnapshotRepository');
+            const snapshotId = `snapshot_${activeHolding.id}_${now.split('T')[0]}_manual`;
+            try {
+                await savePriceSnapshotToDB({
+                    id: snapshotId,
+                    holding_id: activeHolding.id,
+                    price: parsedPrice,
+                    recorded_at: now,
+                    source: 'manual',
+                    created_at: now
+                });
+            } catch (e) {
+                // ignore if duplicate for the same day
+            }
+
             bottomSheetRef.current?.close();
         } catch (error) {
             console.error("Failed to update price", error);

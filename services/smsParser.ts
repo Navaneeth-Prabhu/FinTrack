@@ -9,6 +9,12 @@
 import { PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { readSmsMessages, RawSmsMessage } from './nativeSmsModule';
+import { parseSIPAllotment, parseLoanEMI, parseStockBuy } from './smsAlertParser';
+import {
+    handleSIPAllotmentSMS,
+    handleLoanEMISMS,
+    handleStockBuySMS,
+} from './investmentSmsHandler';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 const LAST_SMS_SCAN_KEY = 'last_sms_scan_timestamp';
@@ -63,6 +69,15 @@ export const requestSMSPermission = async (): Promise<boolean> => {
         return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
         console.error('[SMS::Parser] Permission error:', err);
+        return false;
+    }
+};
+
+export const checkSMSPermission = async (): Promise<boolean> => {
+    try {
+        return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
+    } catch (err) {
+        console.error('[SMS::Parser] Permission check error:', err);
         return false;
     }
 };
@@ -768,8 +783,11 @@ function calculateConfidence(fields: {
 // Passes minDate watermark to the native layer; the native module does the
 // isFinancialSms() filtering for us, so we can safely scan a large window.
 export const readFinancialSMS = async (minDate = 0, limit = 10_000): Promise<RawSmsMessage[]> => {
-    const hasPermission = await requestSMSPermission();
-    if (!hasPermission) return [];
+    const hasPermission = await checkSMSPermission();
+    if (!hasPermission) {
+        console.log('[SMS::Parser] READ_SMS permission not granted. Skipping SMS sync.');
+        return [];
+    }
 
     // Native layer already filters to financial-only messages, so we do NOT
     // re-apply isFinancialSms() here — that would be redundant and wasteful.
@@ -909,6 +927,39 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
 
         for (const message of messages) {
             const smsId = message._id?.toString();
+            const normBody = normaliseSMSBody(message.body);
+
+            // ── Investment SMS routing (BEFORE generic transaction parser) ──────
+            // SIP allotment, Loan EMI, and Stock Buy SMS must be processed here
+            // first. If they fall through to extractTransactionFromSMS() they'll
+            // be misclassified as regular expense transactions.
+
+            const sipAllotment = parseSIPAllotment(normBody);
+            if (sipAllotment && smsId) {
+                handleSIPAllotmentSMS(sipAllotment, smsId).then(r => {
+                    console.log(`[SMS::investmentRouter] SIP allotment → ${r.status}`);
+                }).catch(e => console.warn('[SMS::investmentRouter] SIP error:', e));
+                // Do NOT push to transactions[] — this is handled by investmentSmsHandler
+                continue;
+            }
+
+            const loanEMI = parseLoanEMI(normBody);
+            if (loanEMI && smsId) {
+                handleLoanEMISMS(loanEMI, smsId).then(r => {
+                    console.log(`[SMS::investmentRouter] Loan EMI → ${r.status}`);
+                }).catch(e => console.warn('[SMS::investmentRouter] Loan error:', e));
+                continue;
+            }
+
+            const stockBuy = parseStockBuy(normBody);
+            if (stockBuy && smsId) {
+                handleStockBuySMS(stockBuy, smsId).then(r => {
+                    console.log(`[SMS::investmentRouter] Stock trade → ${r.status}`);
+                }).catch(e => console.warn('[SMS::investmentRouter] Stock error:', e));
+                continue;
+            }
+
+            // ── Generic transaction parser (falls through from investment checks) ──
             const parsed = extractTransactionFromSMS(message.body, message.address);
 
             if (!parsed) {
@@ -929,6 +980,7 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
 
             transactions.push({ ...parsed, smsId, date: transactionDate });
         }
+
 
         console.log(`[SMS::Parser] Extracted ${transactions.length} transactions from SMS`);
         return transactions;

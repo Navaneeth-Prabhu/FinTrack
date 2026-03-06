@@ -223,15 +223,17 @@ Event types: `sip_allotment`, `emi_payment`, `price_update`, `buy`, `sell`, `div
 
 | File | Purpose | Status |
 |---|---|---|
-| `smsParser.ts` | MAIN parser (39KB) — regex extraction from bank SMS | ✅ Built |
+| `smsParser.ts` | MAIN parser (39KB) — regex extraction from bank SMS | ✅ Built; investment SMS routing added; `normaliseSMSBody()` added |
 | `smsCategorizationService.ts` | Maps parsed SMS to expense categories | ✅ Built |
-| `smsAlertParser.ts` | Parses LIC, SIP confirmation, alert-type SMS | ✅ Built |
-| `smsInitService.ts` | First-run SMS import orchestrator | ✅ Built |
+| `smsAlertParser.ts` | Classifies SMS intent; named exports: `parseSIPAllotment()`, `parseLoanEMI()`, `parseStockBuy()`, `parseStockSell()` | ✅ Built + Extended |
+| `investmentSmsHandler.ts` | Translates parsed investment SMS → DB writes; `handleSIPAllotmentSMS()`, `handleLoanEMISMS()`, `handleStockBuySMS()` | ✅ Built — wired in smsParser.ts |
+| `smsInitService.ts` | First-run SMS import orchestrator; calls `showOEMBatteryPromptIfNeeded()` after permissions granted | ✅ Built + OEM prompt wired |
 | `smsHeadlessTask.ts` | Android HeadlessJS task for real-time SMS | ✅ Built |
 | `nativeSmsModule.ts` | Bridge to Android native SMS module | ✅ Built |
 | `emailParser.ts` | Email parsing (bank alerts via email) | ✅ Built |
 | `sync.ts` | Supabase sync logic (last-write-wins) | ✅ Built, extended for v2 tables |
-| `amfiNavService.ts` | Auto-fetch NAV from AMFI API for active SIPs | ✅ Built |
+| `amfiNavService.ts` | Auto-fetch NAV from AMFI API; exports `amfiNavService` singleton + `fetchAndUpdateNAVs()` helper | ✅ Built + `fetchAndUpdateNAVs` added |
+| `oemDetection.ts` | OEM battery prompt (Xiaomi/Samsung/Oppo/Vivo/Huawei/OnePlus + Redmi/Realme/Honor) | ✅ Fully built — 8 OEMs, deep-link intents, step-by-step instructions; called from `smsInitService` |
 | `emiAlertService.ts` | EMI due date alert scheduling | ✅ Built |
 | `insightsEngine.ts` | Rule-based local financial insights generation | ✅ Built |
 | `oemDetection.ts` | Detects Xiaomi/Samsung for battery whitelist prompt | ✅ Built |
@@ -443,7 +445,9 @@ This is the single aggregation point for the Overview tab. It reads from all inv
 | Extended SIPs table (v2 columns) | `db/repository/sipRepository.ts` |
 | `holdingsStore.ts` | Full CRUD + fetch |
 | `investmentTxStore.ts` | Indexed by holdingId |
-| `amfiNavService.ts` | Auto NAV fetch from AMFI API |
+| `amfiNavService.ts` | AMFI NAV fetch + `fetchAndUpdateNAVs()` export |
+| AMFI NAV auto-fetch on app foreground | `app/_layout.tsx` AppState listener → `fetchAndUpdateNAVs()` |
+| Manual Refresh NAV button on Overview tab | `OverviewView.tsx` — live button with loading spinner + status |
 | Investment calculations | `utils/investmentCalculations.ts` |
 | `usePortfolioSummary` hook | `hooks/usePortfolioSummary.ts` |
 | Overview tab wired to live data | `PortfolioSummaryCard`, `AllocationBar` |
@@ -458,30 +462,37 @@ This is the single aggregation point for the Overview tab. It reads from all inv
 | `UpcomingSIPsWidget` | This-month SIPs |
 | Error Boundaries on all tabs | `components/ErrorBoundary.tsx` |
 | Sync extended for v2 tables | `services/sync.ts` |
+| SMS dedup (`findBySmsId`) | `db/repository/investmentTxRepository.ts` |
+| Investment SMS routing before transaction parsing | `services/smsParser.ts` (lines 920–948) |
+| `normaliseSMSBody()` multiline fix | `services/smsParser.ts` (lines 25–32) |
+| `AllotmentRow`, `PaymentRow`, `PriceHistoryRow` components | `components/investments/` |
+| scheme_code field in Add SIP form | `app/(routes)/investment/add-sip.tsx` |
+| SIPsView allocation bar using live data | `SIPsView.tsx` via `usePortfolioSummary()` |
+| Stock buy/sell full handler | `investmentSmsHandler.ts` — find/create Holding by ticker, weighted avg cost basis |
+| CAGR per holding on HoldingCard | `HoldingCard.tsx` via `calculateCAGR()` from investmentCalculations |
+| Bulk "Update All Prices" button on Holdings tab | `HoldingsView.tsx` with RefreshControl + UpdatePriceSheet flow |
+| RefreshControl pull-to-refresh on Holdings tab | `HoldingsView.tsx` |
+| Sender-map registry (15+ bank senders, 80+ sender codes) | `smsParser.ts` — `BANK_SENDER_MAP` + `detectBank()` (HDFC, ICICI, SBI, Axis, Kotak, Yes, IndusInd, IDFC, Federal, RBL, Paytm, PhonePe, GPay, AMC RTAs) |
+| OEM battery prompt (8 OEMs: Xiaomi/Redmi/Samsung/Oppo/Realme/Vivo/Huawei/OnePlus) | `oemDetection.ts` — called from `smsInitService` after SMS permission granted |
+| XIRR per holding (full investment tx history) | `hooks/useHoldingXIRR.ts` — builds cashflow array from `investmentTxStore`, adds notional exit at current value |
+| Price history sparkline chart on HoldingCard | `components/investments/PriceSparkline.tsx` — SVG line + gradient fill, auto green/red, shown when ≥2 snapshots |
+| CAMS/Karvy CAS Import (CSV/JSON) | `camsCasParser.ts` — `expo-document-picker` + `papaparse` directly into stores |
 
 ### ⚠️ Partially Implemented / Known Issues
 
 | Issue | File | Detail |
 |---|---|---|
-| SIPsView allocation bar | `SIPsView.tsx` L87-94 | Hardcoded percentages (58%/28%/14%) — should use `usePortfolioSummary` |
 | TypeScript errors remain | `ts_errors_final.log` | ~136 lines of errors in charts, camera, settings, email parser — not investment-related |
 | `support.screen.tsx` | `screens/settings/support.screen.tsx` | References undefined `isDarkMode`, `themeColor`, `darkThemeColor` variables |
 | `EmailImportScreen.tsx` | `screens/auth/EmailImportScreen.tsx` | References missing style keys and `Transaction.title` property |
 | `camera.screen.tsx` | `screens/transaction/camera.screen.tsx` | Camera API type errors, needs Expo Camera v2 migration |
 | SMS BroadcastReceiver | Android native | Unstable on Xiaomi/Samsung (battery killer) — `oemDetection.ts` handles prompt |
+| Loan SMS matching | `investmentSmsHandler.ts` | Matching by `lender` string similarity only — no account number field on `Loan` type |
 
 ### ❌ Not Yet Implemented (PRD Priorities)
 
 | Feature | Priority | Notes |
 |---|---|---|
-| SMS deduplication bug fix | P0 (PRD 5.1) | Mark as processed only after successful extraction |
-| Multiline SMS normalisation | P0 (PRD 5.1) | Some HDFC UPI SMS spans multiple lines |
-| Sender-map registry (8 banks) | P1 (PRD 5.1) | Bank-specific regex patterns instead of generic |
-| OEM battery prompt validation | P1 (PRD 5.1) | Works on stock Android, needs validation on Xiaomi |
-| Bulk "Update all prices" | P1 (design spec) | Power-user feature on Overview tab |
-| Import from CAMS/Karvy | P2 | Complex, not in scope for v1 |
-| XIRR per holding (Holdings tab) | P2 | Needs full transaction history — infrastructure exists |
-| Value-over-time sparkline charts | P2 | Needs price_snapshots data to accumulate first |
 | AI rate limiting (20/day) | P2 (PRD 5.4) | Gemini calls not rate limited yet |
 | AI response caching | P2 (PRD 5.4) | No caching for identical questions yet |
 | Google Vision OCR | P3 | Replace Tesseract.js with Cloud Vision free tier |

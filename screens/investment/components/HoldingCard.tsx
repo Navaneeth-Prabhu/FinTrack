@@ -6,6 +6,9 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { differenceInDays, parseISO } from 'date-fns';
+import { calculateCAGR } from '@/utils/investmentCalculations';
+import { useHoldingXIRR } from '@/hooks/useHoldingXIRR';
+import PriceSparkline from '@/components/investments/PriceSparkline';
 
 interface HoldingCardProps {
     holding: Holding;
@@ -14,8 +17,11 @@ interface HoldingCardProps {
 }
 
 export default function HoldingCard({ holding, onUpdatePrice, onPress }: HoldingCardProps) {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const { format } = useCurrency();
+
+    const cardBg = isDark ? '#1A1A1A' : colors.card;
+    const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : colors.border;
 
     const isFixedIncome = ['fd', 'bond', 'ppf', 'nps'].includes(holding.type);
 
@@ -28,6 +34,18 @@ export default function HoldingCard({ holding, onUpdatePrice, onPress }: Holding
     const returnsPercentage = invested > 0 ? (profit / invested) * 100 : 0;
     const returnColor = isProfit ? colors.success : '#FF4D4D';
 
+    // CAGR — annualised return since buy_date (null if < 30 days or no buy date)
+    const cagr = (() => {
+        if (!holding.buy_date || invested <= 0 || currentValue <= 0) return null;
+        const daysSinceBuy = differenceInDays(new Date(), parseISO(holding.buy_date));
+        if (daysSinceBuy < 30) return null;
+        const v = calculateCAGR(currentValue, invested, holding.buy_date);
+        return isFinite(v) ? v : null;
+    })();
+
+    // XIRR + price history — fetched once per card
+    const { xirr, priceHistory } = useHoldingXIRR(holding.id, currentValue);
+
     let iconName: keyof typeof Ionicons.glyphMap = 'cash-outline';
     if (holding.type === 'stock') iconName = 'stats-chart';
     if (holding.type === 'fd' || holding.type === 'bond') iconName = 'business';
@@ -39,12 +57,11 @@ export default function HoldingCard({ holding, onUpdatePrice, onPress }: Holding
     if (holding.price_updated_at) {
         staleDays = differenceInDays(new Date(), parseISO(holding.price_updated_at));
     }
-
     const showStaleBadge = staleDays > 2 && !isFixedIncome;
 
     return (
         <TouchableOpacity
-            style={[styles.card, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}
+            style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }]}
             onPress={() => onPress ? onPress(holding) : onUpdatePrice(holding)}
             activeOpacity={0.8}
         >
@@ -58,13 +75,43 @@ export default function HoldingCard({ holding, onUpdatePrice, onPress }: Holding
                     {holding.ticker ? `${holding.ticker} • ` : ''}
                     {!isFixedIncome ? `${holding.quantity} shares` : 'Maturity unknown'}
                 </ThemedText>
+
+                {/* Return rate badges — XIRR preferred, CAGR as fallback */}
+                <View style={styles.badgeRow}>
+                    {xirr !== null && (
+                        <View style={[styles.badge, { backgroundColor: isProfit ? 'rgba(76,217,100,0.12)' : 'rgba(255,77,77,0.12)' }]}>
+                            <ThemedText style={[styles.badgeText, { color: isProfit ? colors.success : '#FF4D4D' }]}>
+                                XIRR {xirr >= 0 ? '+' : ''}{xirr.toFixed(1)}%
+                            </ThemedText>
+                        </View>
+                    )}
+                    {xirr === null && cagr !== null && (
+                        <View style={[styles.badge, { backgroundColor: isProfit ? 'rgba(76,217,100,0.12)' : 'rgba(255,77,77,0.12)' }]}>
+                            <ThemedText style={[styles.badgeText, { color: isProfit ? colors.success : '#FF4D4D' }]}>
+                                CAGR {cagr >= 0 ? '+' : ''}{cagr.toFixed(1)}% p.a.
+                            </ThemedText>
+                        </View>
+                    )}
+                </View>
             </View>
 
             <View style={styles.rightStats}>
+                {/* Sparkline chart — shows price history if available */}
+                {priceHistory.length >= 2 && (
+                    <View style={styles.sparklineContainer}>
+                        <PriceSparkline
+                            snapshots={priceHistory}
+                            width={72}
+                            height={28}
+                            showGradient
+                        />
+                    </View>
+                )}
+
                 <ThemedText style={styles.currentValue}>{format(currentValue)}</ThemedText>
 
                 <View style={styles.returnsRow}>
-                    <ThemedText style={{ color: returnColor, fontSize: 13, fontWeight: '600' }}>
+                    <ThemedText style={{ color: returnColor, fontSize: 12, fontWeight: '600' }}>
                         {isProfit ? '+' : ''}{format(profit)} ({isProfit ? '+' : ''}{returnsPercentage.toFixed(1)}%)
                     </ThemedText>
                 </View>
@@ -85,13 +132,13 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 12,
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
     },
     iconContainer: {
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: 'rgba(96, 165, 250, 0.15)', // Light blue tint
+        backgroundColor: 'rgba(96, 165, 250, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -105,16 +152,33 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 4,
-        color: '#FFF',
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+        marginTop: 6,
+    },
+    badge: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.2,
     },
     rightStats: {
         alignItems: 'flex-end',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
+    },
+    sparklineContainer: {
+        marginBottom: 6,
     },
     currentValue: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#FFF',
         marginBottom: 4,
     },
     returnsRow: {

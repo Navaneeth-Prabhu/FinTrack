@@ -1,3 +1,4 @@
+"use strict";
 // services/smsAlertParser.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // SMS Intelligence Engine — classifies incoming financial SMS into one of 5
@@ -17,13 +18,21 @@
 //   parseStockBuy()      — named export (Day 8, patterns ready)
 //   parseStockSell()     — named export (Day 8, patterns ready)
 // ─────────────────────────────────────────────────────────────────────────────
-
-import { normaliseSMSBody } from './smsParser';
-
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AMC_SENDER_CODES = void 0;
+exports.isAMCSender = isAMCSender;
+exports.parseSIPAllotment = parseSIPAllotment;
+exports.parseLoanEMI = parseLoanEMI;
+exports.parseStockBuy = parseStockBuy;
+exports.parseStockSell = parseStockSell;
+exports.parseNACHMFDebit = parseNACHMFDebit;
+exports.classifySMSIntent = classifySMSIntent;
+exports.parseMonthDayYear = parseMonthDayYear;
+var smsParser_1 = require("./smsParser");
 // ─── AMC Sender Code Map ──────────────────────────────────────────────────────
 // Indian AMCs and RTAs use 6-char SS7 sender codes. We identify them from the
 // abbreviated suffix after the operator prefix (e.g. "VK-SBIMF" → "SBIMF").
-export const AMC_SENDER_CODES: string[] = [
+exports.AMC_SENDER_CODES = [
     // SBI Mutual Fund
     'SBIMF', 'SBIMFU',
     // HDFC Mutual Fund
@@ -65,173 +74,74 @@ export const AMC_SENDER_CODES: string[] = [
     // Angel One
     'ANGMF', 'ANGEL',
 ];
-
 /** Returns true if a sender looks like an AMC / RTA */
-export function isAMCSender(sender: string | undefined): boolean {
-    if (!sender) return false;
-    const parts = sender.toUpperCase().split('-');
-    const code = parts[parts.length - 1];
-    return AMC_SENDER_CODES.some(c => code.includes(c) || c.includes(code));
+function isAMCSender(sender) {
+    if (!sender)
+        return false;
+    var parts = sender.toUpperCase().split('-');
+    var code = parts[parts.length - 1];
+    return exports.AMC_SENDER_CODES.some(function (c) { return code.includes(c) || c.includes(code); });
 }
-
-// ─── Intent type definitions ─────────────────────────────────────────────────
-
-export type SMSIntentKind =
-    | 'sip_confirmation'
-    | 'emi_deduction'
-    | 'account_balance'
-    | 'loan_alert'
-    | 'transaction'
-    | 'unknown';
-
-export interface SIPConfirmationIntent {
-    kind: 'sip_confirmation';
-    amount: number;
-    fundName: string;
-    units?: number;
-    nav?: number;
-    folio?: string;
-    bank: string | null;
-    accountLast4: string | null;
-}
-
-export interface EMIDeductionIntent {
-    kind: 'emi_deduction';
-    emiAmount: number;
-    lenderHint: string;       // e.g. "HDFC Home Loan" or bank name
-    loanAccountHint?: string; // e.g. last 4 of loan a/c
-    bankName: string | null;
-    accountLast4: string | null;
-}
-
-export interface AccountBalanceIntent {
-    kind: 'account_balance';
-    balance: number;
-    bankName: string | null;
-    accountLast4: string | null;
-}
-
-export interface LoanAlertIntent {
-    kind: 'loan_alert';
-    dueAmount?: number;
-    dueDate?: string;         // ISO date string
-    lenderHint: string;
-    bankName: string | null;
-}
-
-export interface PassThroughIntent {
-    kind: 'transaction' | 'unknown';
-}
-
-export type SMSIntent =
-    | SIPConfirmationIntent
-    | EMIDeductionIntent
-    | AccountBalanceIntent
-    | LoanAlertIntent
-    | PassThroughIntent;
-
-// ─── Named structured result types (for investmentSmsHandler.ts) ──────────────
-// These are stricter versions of the intent types, used when calling named
-// parsers directly (bypassing intent routing).
-
-export interface ParsedSIPAllotment {
-    amount: number;        // SIP debit amount
-    fundName: string;      // Fund / scheme name
-    units: number;         // Units allotted
-    nav: number;           // NAV at which units were allotted
-    folioNumber: string;   // Folio number (dedup key linkage)
-    date: string;          // ISO date string (from SMS body or fallback to today)
-    bank: string | null;
-    accountLast4: string | null;
-}
-
-export interface ParsedLoanEMI {
-    emiAmount: number;     // Amount debited
-    lenderHint: string;    // Bank/lender name
-    loanAccountHint?: string; // Last 4 of loan account
-    outstandingAmount?: number; // Remaining balance if mentioned
-    date: string;          // ISO date string
-    bank: string | null;
-    accountLast4: string | null;
-}
-
-export interface ParsedStockTrade {
-    action: 'buy' | 'sell';
-    quantity: number;
-    ticker: string;        // e.g. "INFY", "RELIANCE"
-    price: number;         // per-unit price
-    exchange: string;      // "NSE" | "BSE"
-    total: number;         // quantity * price
-    orderId?: string;
-    date: string;          // ISO date string
-}
-
 // ─── Helper utilities ─────────────────────────────────────────────────────────
-
-function parseAmount(str: string): number {
+function parseAmount(str) {
     return parseFloat(str.replace(/,/g, '').replace(/[^\d.]/g, '')) || 0;
 }
-
-function extractAmountStr(body: string): number {
+function extractAmountStr(body) {
     // Handles ₹, Rs., INR, asterisks masking, and comma-formatted numbers
-    const m = body.match(/(?:₹|Rs\.?|INR)\s*[Xx*]*\s*([\d,]+\.?\d*)/i);
+    var m = body.match(/(?:₹|Rs\.?|INR)\s*[Xx*]*\s*([\d,]+\.?\d*)/i);
     return m ? parseAmount(m[1]) : 0;
 }
-
-function extractAccountLast4(body: string): string | null {
-    const m = body.match(/(?:[Xx*]{2,}|a\/c\s*(?:no\.?)?\s*[Xx*]*)\s*(\d{3,5})\b/i)
+function extractAccountLast4(body) {
+    var _a;
+    var m = body.match(/(?:[Xx*]{2,}|a\/c\s*(?:no\.?)?\s*[Xx*]*)\s*(\d{3,5})\b/i)
         || body.match(/\b[Xx*]{2,}(\d{3,5})\b/);
-    return m?.[1] ?? null;
+    return (_a = m === null || m === void 0 ? void 0 : m[1]) !== null && _a !== void 0 ? _a : null;
 }
-
-function parseMonthDayYear(dateStr: string): string | null {
+function parseMonthDayYear(dateStr) {
+    var _a;
     // Handles "05-Mar-2026", "05/03/2026", "5 Mar 2026", "01-Mar-26"
-    const months: Record<string, number> = {
+    var months = {
         jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
         jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
     };
-
-    let m = dateStr.match(/(\d{1,2})[\/\-\s]([A-Za-z]{3})[\/\-\s](\d{2,4})/);
+    var m = dateStr.match(/(\d{1,2})[\/\-\s]([A-Za-z]{3})[\/\-\s](\d{2,4})/);
     if (m) {
-        const d = m[1].padStart(2, '0');
-        const mo = (months[m[2].toLowerCase()] ?? 1).toString().padStart(2, '0');
-        const y = m[3].length === 2 ? `20${m[3]}` : m[3];
-        return `${y}-${mo}-${d}`;
+        var d = m[1].padStart(2, '0');
+        var mo = ((_a = months[m[2].toLowerCase()]) !== null && _a !== void 0 ? _a : 1).toString().padStart(2, '0');
+        var y = m[3].length === 2 ? "20".concat(m[3]) : m[3];
+        return "".concat(y, "-").concat(mo, "-").concat(d);
     }
-
     m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
     if (m) {
-        const d = m[1].padStart(2, '0');
-        const mo = m[2].padStart(2, '0');
-        const y = m[3].length === 2 ? `20${m[3]}` : m[3];
-        return `${y}-${mo}-${d}`;
+        var d = m[1].padStart(2, '0');
+        var mo = m[2].padStart(2, '0');
+        var y = m[3].length === 2 ? "20".concat(m[3]) : m[3];
+        return "".concat(y, "-").concat(mo, "-").concat(d);
     }
-
     return null;
 }
-
 /** Extract ISO date from SMS body. Falls back to today's date. */
-function extractDateFromBody(body: string): string {
+function extractDateFromBody(body) {
     // Common patterns: "Dt:01-Mar-2026", "on 01-Mar-26", "Date: 05/03/2026"
-    const datePatterns = [
+    var datePatterns = [
         /(?:dt|date)[:\s]+(\d{1,2}[-\/\s][A-Za-z]{3}[-\/\s]\d{2,4})/i,
         /(?:on|dated?)\s+(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})/i,
         /(?:on|dated?)\s+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i,
         /(\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})/,
         /(\d{2}\/\d{2}\/\d{4})/,
     ];
-    for (const p of datePatterns) {
-        const m = body.match(p);
-        if (m?.[1]) {
-            const parsed = parseMonthDayYear(m[1]);
-            if (parsed) return parsed;
+    for (var _i = 0, datePatterns_1 = datePatterns; _i < datePatterns_1.length; _i++) {
+        var p = datePatterns_1[_i];
+        var m = body.match(p);
+        if (m === null || m === void 0 ? void 0 : m[1]) {
+            var parsed = parseMonthDayYear(m[1]);
+            if (parsed)
+                return parsed;
         }
     }
     return new Date().toISOString().split('T')[0];
 }
-
 // ─── Intent classifiers ───────────────────────────────────────────────────────
-
 // 1. SIP Confirmation
 // Real-world examples covered:
 //   SBI MF:   "Units allotted 11.841 for Rs.999 in Valu Fund Folio:1234567 NAV:84.32 Dt:01-Mar-2026"
@@ -239,7 +149,7 @@ function extractDateFromBody(body: string): string {
 //   ICICI Pru:"Dear Investor, Rs.5000 invested in ICICI Pru Bluechip Fund. Units allotted: 89.23, NAV: 56.04, Folio: 2345678"
 //   CAMS RTA: "SIP payment of INR 2500 processed for fund XYZ. NAV: 45.23, Units: 55.27, Folio: 345678. -CAMSCO"
 //   Groww:    "Your SIP of Rs.500 in Mirae Asset Emerging BlueChip Fund (Dir-Growth) is successful. Units:4.321 NAV:115.87"
-const SIP_CONFIRMATION_PATTERNS = [
+var SIP_CONFIRMATION_PATTERNS = [
     /\bSIP\b.*?(?:processed|confirmed|successful|executed|allotted)/i,
     /units?\s+allotted/i,
     /(?:mutual\s+fund|mf)\s+(?:investment|purchase)/i,
@@ -254,67 +164,65 @@ const SIP_CONFIRMATION_PATTERNS = [
     /(?:purchase|subscription)\s+confirmation/i,
     /(?:Rs\.?|INR|₹)[\d,.]+.*?units?\s+[\d,.]+/i,
 ];
-
-function classifySIPConfirmation(body: string, sender?: string): SIPConfirmationIntent | null {
-    const isAMC = isAMCSender(sender);
-    const matched = isAMC || SIP_CONFIRMATION_PATTERNS.some(p => p.test(body));
-    if (!matched) return null;
-
+function classifySIPConfirmation(body, sender) {
+    var isAMC = isAMCSender(sender);
+    var matched = isAMC || SIP_CONFIRMATION_PATTERNS.some(function (p) { return p.test(body); });
+    if (!matched)
+        return null;
     // Extract amount — try multiple patterns in order of specificity
-    const amount = (() => {
-        const patterns = [
+    var amount = (function () {
+        var patterns = [
             /(?:SIP Amount|Investment Amount|Amount|SIP of|invested)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i,
             /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)\s+(?:in|for|invested)/i,
             /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i,
         ];
-        for (const p of patterns) {
-            const m = body.match(p);
-            if (m) return parseAmount(m[1]);
+        for (var _i = 0, patterns_1 = patterns; _i < patterns_1.length; _i++) {
+            var p = patterns_1[_i];
+            var m = body.match(p);
+            if (m)
+                return parseAmount(m[1]);
         }
         return 0;
     })();
-
     // Extract fund name — cover Scheme, Fund, folio...in, quoted name formats
-    let fundName = 'Mutual Fund SIP';
-    const fundPatterns = [
+    var fundName = 'Mutual Fund SIP';
+    var fundPatterns = [
         /(?:Scheme|Fund)[:\s]+([A-Z][A-Za-z0-9\s&\-()]{4,60}?)(?:\s*[-–]\s*(?:Direct|Regular|Growth|Dividend)|Plan|Folio|\.|$)/i,
         /(?:in|for)\s+([A-Z][A-Za-z0-9\s&\-()]{4,60}?)\s+(?:Fund|Plan|Scheme|Dir|Direct|Regular|Growth)/i,
         /(?:invested|investment)\s+in\s+([A-Z][A-Za-z0-9\s&\-()]{4,60}?)(?:\s*\.|,|\s+Folio)/i,
         /([A-Z][A-Za-z0-9\s&\-()]{5,60}?)\s+(?:SIP|Mutual Fund|MF)\b/i,
     ];
-    for (const p of fundPatterns) {
-        const m = body.match(p);
-        if (m?.[1]) { fundName = m[1].trim(); break; }
+    for (var _i = 0, fundPatterns_1 = fundPatterns; _i < fundPatterns_1.length; _i++) {
+        var p = fundPatterns_1[_i];
+        var m = body.match(p);
+        if (m === null || m === void 0 ? void 0 : m[1]) {
+            fundName = m[1].trim();
+            break;
+        }
     }
-
     // Extract units — try "units allotted X", "X units", "Units:X"
-    const unitsMatch =
-        body.match(/(?:Units?|units?\s+allotted)[:\s]*([\d,]+\.?\d+)/i) ||
+    var unitsMatch = body.match(/(?:Units?|units?\s+allotted)[:\s]*([\d,]+\.?\d+)/i) ||
         body.match(/for\s+([\d,]+\.?\d+)\s+units?/i) ||
         body.match(/Units?[:\s]*([\d,]+\.?\d+)/i);
-    const units = unitsMatch ? parseAmount(unitsMatch[1]) : undefined;
-
+    var units = unitsMatch ? parseAmount(unitsMatch[1]) : undefined;
     // Extract NAV
-    const navMatch = body.match(/NAV[:\s]*(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
+    var navMatch = body.match(/NAV[:\s]*(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:NAV|Price)[:\s]*([\d,]+\.?\d+)/i);
-    const nav = navMatch ? parseAmount(navMatch[1]) : undefined;
-
+    var nav = navMatch ? parseAmount(navMatch[1]) : undefined;
     // Extract folio — "Folio:1234567", "Folio No: 1234567", "Folio Number 1234567"
-    const folioMatch = body.match(/Folio\s*(?:No\.?|Number)?[:\s]*(\d+)/i);
-    const folio = folioMatch?.[1];
-
+    var folioMatch = body.match(/Folio\s*(?:No\.?|Number)?[:\s]*(\d+)/i);
+    var folio = folioMatch === null || folioMatch === void 0 ? void 0 : folioMatch[1];
     return {
         kind: 'sip_confirmation',
-        amount,
-        fundName,
-        units,
-        nav,
-        folio,
+        amount: amount,
+        fundName: fundName,
+        units: units,
+        nav: nav,
+        folio: folio,
         bank: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 // 2. EMI Deduction
 // Real-world examples covered:
 //   SBI:  "EMI of Rs.35000 debited from A/C XX4521 for Loan A/C XX9876. Outstanding: Rs.27,20,000. -SBI"
@@ -322,7 +230,7 @@ function classifySIPConfirmation(body: string, sender?: string): SIPConfirmation
 //   ICICI:"Dear Customer, Rs.45000 debited from your account XXXX5678 towards your Car Loan EMI. -ICICIB"
 //   Axis: "EMI of Rs.8500 for Loan A/c XX7890 debited from your Axis Bank a/c. -AXISBK"
 //   Auto-debit: "NACH Debit Rs.5500 towards Home Loan EMI. A/c: XXXX6789. Outstanding: Rs.22,40,000"
-const EMI_DEDUCTION_PATTERNS = [
+var EMI_DEDUCTION_PATTERNS = [
     /EMI\s+(?:of\s+)?(?:Rs\.?|INR|₹)/i,
     /EMI\s+(?:debited|deducted|paid)/i,
     /loan\s+(?:instalment|installment)\s+(?:of|for)/i,
@@ -337,51 +245,49 @@ const EMI_DEDUCTION_PATTERNS = [
     /loan\s+EMI\s+(?:of|for|has been)/i,
     /(?:Rs\.?|INR|₹)\s*[\d,]+\s+debited.*?loan/i,
 ];
-
-function classifyEMIDeduction(body: string): EMIDeductionIntent | null {
-    const matched = EMI_DEDUCTION_PATTERNS.some(p => p.test(body));
-    if (!matched) return null;
-
+function classifyEMIDeduction(body) {
+    var _a;
+    var matched = EMI_DEDUCTION_PATTERNS.some(function (p) { return p.test(body); });
+    if (!matched)
+        return null;
     // Extract EMI amount — more specific patterns first
-    const emiMatch =
-        body.match(/EMI\s+(?:of\s+)?(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i) ||
+    var emiMatch = body.match(/EMI\s+(?:of\s+)?(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)\s+(?:debited|deducted).*?(?:EMI|loan)/i) ||
         body.match(/NACH\s+Debit\s+(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*).*?loan\s+EMI/i);
-    const emiAmount = emiMatch ? parseAmount(emiMatch[1]) : extractAmountStr(body);
-
+    var emiAmount = emiMatch ? parseAmount(emiMatch[1]) : extractAmountStr(body);
     // Outstanding balance (useful for loan progress updates)
-    const outstandingMatch = body.match(/outstanding[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
+    var outstandingMatch = body.match(/outstanding[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
         body.match(/outstanding\s+loan[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i);
-    const outstandingAmount = outstandingMatch ? parseAmount(outstandingMatch[1]) : undefined;
-
+    var outstandingAmount = outstandingMatch ? parseAmount(outstandingMatch[1]) : undefined;
     // Detect lender / loan type
-    const lenderPatterns = [
+    var lenderPatterns = [
         /(?:towards|for)\s+(?:your\s+)?([A-Za-z][A-Za-z0-9\s\-&.]{2,40}?)\s+(?:loan|EMI|account|a\/c)/i,
         /(?:Home|Car|Personal|Education|Business)\s+Loan/i,
         /([A-Z]{4,20})\s+(?:Home|Car|Personal|Education)?Loan/i,
     ];
-    let lenderHint = 'Loan';
-    for (const p of lenderPatterns) {
-        const m = body.match(p);
-        if (m) { lenderHint = (m[1] ?? m[0]).trim(); break; }
+    var lenderHint = 'Loan';
+    for (var _i = 0, lenderPatterns_1 = lenderPatterns; _i < lenderPatterns_1.length; _i++) {
+        var p = lenderPatterns_1[_i];
+        var m = body.match(p);
+        if (m) {
+            lenderHint = ((_a = m[1]) !== null && _a !== void 0 ? _a : m[0]).trim();
+            break;
+        }
     }
-
-    const loanAcMatch = body.match(/loan\s*(?:a\/c|account|no\.?)[:\s]*[Xx*]*(\d{3,6})/i) ||
+    var loanAcMatch = body.match(/loan\s*(?:a\/c|account|no\.?)[:\s]*[Xx*]*(\d{3,6})/i) ||
         body.match(/(?:Loan|loan).*?[Xx*]{2,}(\d{3,6})/);
-
     return {
         kind: 'emi_deduction',
-        emiAmount,
-        lenderHint,
-        loanAccountHint: loanAcMatch?.[1],
+        emiAmount: emiAmount,
+        lenderHint: lenderHint,
+        loanAccountHint: loanAcMatch === null || loanAcMatch === void 0 ? void 0 : loanAcMatch[1],
         bankName: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 // 3. Account Balance
-const ACCOUNT_BALANCE_PATTERNS = [
+var ACCOUNT_BALANCE_PATTERNS = [
     /avail(?:able)?\s*(?:bal(?:ance)?|limit)/i,
     /(?:closing|opening|current)\s+bal(?:ance)?/i,
     /a\/c\s+balance/i,
@@ -389,32 +295,29 @@ const ACCOUNT_BALANCE_PATTERNS = [
     /your\s+(?:account\s+)?balance/i,
     /(?:account|a\/c).*?(?:balance|bal).*?(?:Rs\.?|INR|₹)/i,
 ];
-
-function classifyAccountBalance(body: string): AccountBalanceIntent | null {
-    const matched = ACCOUNT_BALANCE_PATTERNS.some(p => p.test(body));
-    if (!matched) return null;
-
+function classifyAccountBalance(body) {
+    var matched = ACCOUNT_BALANCE_PATTERNS.some(function (p) { return p.test(body); });
+    if (!matched)
+        return null;
     // Skip if it's primarily an expense/income SMS with a trailing balance line
-    const isTransaction = /(?:debited|credited|paid|received|UPI|NEFT|IMPS)\s+(?:Rs\.?|INR|₹)/i.test(body);
-    if (isTransaction) return null;
-
-    const availMatch =
-        body.match(/avail(?:able)?\s*(?:bal(?:ance)?|limit)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
+    var isTransaction = /(?:debited|credited|paid|received|UPI|NEFT|IMPS)\s+(?:Rs\.?|INR|₹)/i.test(body);
+    if (isTransaction)
+        return null;
+    var availMatch = body.match(/avail(?:able)?\s*(?:bal(?:ance)?|limit)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:balance|bal)[:\s]*(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i);
-    const balance = availMatch ? parseAmount(availMatch[1]) : 0;
-    if (!balance) return null;
-
+    var balance = availMatch ? parseAmount(availMatch[1]) : 0;
+    if (!balance)
+        return null;
     return {
         kind: 'account_balance',
-        balance,
+        balance: balance,
         bankName: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 // 4. Loan Alert / Due Reminder / Insurance Premium
-const LOAN_ALERT_PATTERNS = [
+var LOAN_ALERT_PATTERNS = [
     /EMI\s+(?:is\s+)?due/i,
     /payment\s+(?:is\s+)?due/i,
     /(?:loan|EMI)\s+(?:due\s+)?(?:on|before|by)/i,
@@ -426,40 +329,32 @@ const LOAN_ALERT_PATTERNS = [
     /premium.*?(?:due|payable)\s+(?:on|by|before)/i,
     /policy.*?(?:premium|renewal).*?(?:due|payable)/i,
 ];
-
-function classifyLoanAlert(body: string): LoanAlertIntent | null {
-    const matched = LOAN_ALERT_PATTERNS.some(p => p.test(body));
-    if (!matched) return null;
-
-    const amountMatch =
-        body.match(/(?:EMI|due|payment|premium)[:\s]+(?:Rs\.?|INR|₹)\s*[Xx*]*\s*([\d,]+\.?\d*)/i) ||
+function classifyLoanAlert(body) {
+    var _a;
+    var matched = LOAN_ALERT_PATTERNS.some(function (p) { return p.test(body); });
+    if (!matched)
+        return null;
+    var amountMatch = body.match(/(?:EMI|due|payment|premium)[:\s]+(?:Rs\.?|INR|₹)\s*[Xx*]*\s*([\d,]+\.?\d*)/i) ||
         body.match(/(?:Rs\.?|INR|₹)\s*[Xx*]*\s*([\d,]+\.?\d*).*?(?:due|EMI|premium)/i);
-    const dueAmount = amountMatch ? parseAmount(amountMatch[1]) : undefined;
-
-    const dateMatch =
-        body.match(/(?:due\s+(?:on|by|date)|payment\s+date)[:\s]*(\d{1,2}[\/\-\s][A-Za-z0-9]{2,3}[\/\-\s]\d{2,4})/i) ||
+    var dueAmount = amountMatch ? parseAmount(amountMatch[1]) : undefined;
+    var dateMatch = body.match(/(?:due\s+(?:on|by|date)|payment\s+date)[:\s]*(\d{1,2}[\/\-\s][A-Za-z0-9]{2,3}[\/\-\s]\d{2,4})/i) ||
         body.match(/(?:on|by)\s+(\d{1,2}[\/\-][A-Za-z]{3}[\/\-]\d{2,4})/i);
-    const dueDate = dateMatch ? parseMonthDayYear(dateMatch[1]) ?? undefined : undefined;
-
-    const lenderMatch =
-        body.match(/(?:your|for)\s+([A-Za-z][A-Za-z\s\-&.]{3,40}?)\s+(?:loan|EMI|account|policy)/i) ||
+    var dueDate = dateMatch ? (_a = parseMonthDayYear(dateMatch[1])) !== null && _a !== void 0 ? _a : undefined : undefined;
+    var lenderMatch = body.match(/(?:your|for)\s+([A-Za-z][A-Za-z\s\-&.]{3,40}?)\s+(?:loan|EMI|account|policy)/i) ||
         body.match(/^([A-Za-z\s]+?)\s+(?:Premium|Policy|Loan)/i);
-
-    let lenderHint = 'Loan/Premium';
-    if (lenderMatch?.[1]) {
+    var lenderHint = 'Loan/Premium';
+    if (lenderMatch === null || lenderMatch === void 0 ? void 0 : lenderMatch[1]) {
         lenderHint = lenderMatch[1].trim();
-    } else if (body.toLowerCase().includes('lic')) {
+    }
+    else if (body.toLowerCase().includes('lic')) {
         lenderHint = 'LIC';
     }
-
-    return { kind: 'loan_alert', dueAmount, dueDate, lenderHint, bankName: null };
+    return { kind: 'loan_alert', dueAmount: dueAmount, dueDate: dueDate, lenderHint: lenderHint, bankName: null };
 }
-
 // ─── Day 4: Named parsers for investmentSmsHandler.ts ────────────────────────
 // These return strongly-typed results (not SMSIntent) for direct use by the
 // handler layer. They are stricter than the intent classifiers and return null
 // if a required field (units/NAV/folio or emiAmount) cannot be extracted.
-
 /**
  * Parse a SIP allotment SMS and return structured data.
  * Returns null if this SMS is NOT a SIP allotment, or if required fields
@@ -473,89 +368,88 @@ function classifyLoanAlert(body: string): LoanAlertIntent | null {
  *   - "Units allotted 55.271 Folio 345678 NAV Rs.45.23 scheme UTI Nifty 50 Index Fund Dt:01-Mar-26"
  *   - CAMS/KFinTech RTA confirmation format
  */
-export function parseSIPAllotment(rawBody: string, sender?: string): ParsedSIPAllotment | null {
-    const body = normaliseSMSBody(rawBody);
-
+function parseSIPAllotment(rawBody, sender) {
+    var _a;
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
     // Quick gate — must contain allotment/SIP/NAV keywords
-    const isAllotment =
-        /units?\s+allotted/i.test(body) ||
+    var isAllotment = /units?\s+allotted/i.test(body) ||
         /allotment\s+(?:date|confirmation|notice|for)/i.test(body) ||
         (/\bSIP\b.*?(?:processed|successful|confirmed|executed)/i.test(body) && isAMCSender(sender)) ||
         (/(?:purchase|subscription)\s+confirmation/i.test(body));
-
-    if (!isAllotment && !isAMCSender(sender)) return null;
-
+    if (!isAllotment && !isAMCSender(sender))
+        return null;
     // Must be SIP-like (has NAV or units)
-    const hasNAV = /NAV[:\s]*([\d,]+\.?\d+)/i.test(body);
-    const hasUnits = /units?[:\s]*([\d,]+\.?\d+)/i.test(body) || /units?\s+allotted/i.test(body);
-    if (!hasNAV && !hasUnits) return null;
-
+    var hasNAV = /NAV[:\s]*([\d,]+\.?\d+)/i.test(body);
+    var hasUnits = /units?[:\s]*([\d,]+\.?\d+)/i.test(body) || /units?\s+allotted/i.test(body);
+    if (!hasNAV && !hasUnits)
+        return null;
     // Amount
-    const amountPatterns = [
+    var amountPatterns = [
         /(?:SIP Amount|Amount|SIP of|for\s+(?:Rs\.?|INR|₹))[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i,
         /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)\s+(?:in|invested|for)/i,
         /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i,
     ];
-    let amount = 0;
-    for (const p of amountPatterns) {
-        const m = body.match(p);
-        if (m) { amount = parseAmount(m[1]); break; }
+    var amount = 0;
+    for (var _i = 0, amountPatterns_1 = amountPatterns; _i < amountPatterns_1.length; _i++) {
+        var p = amountPatterns_1[_i];
+        var m = body.match(p);
+        if (m) {
+            amount = parseAmount(m[1]);
+            break;
+        }
     }
-
     // Units — "Units allotted 11.841", "Units:12.345", "for 11.841 units", "for 2.098 units has been processed"
-    const unitsPatterns = [
+    var unitsPatterns = [
         /units?\s+allotted\s*([\d,]+\.?\d+)/i,
         /(?:Units?|Qty)[:\s]*([\d,]+\.?\d+)/i,
         /for\s+([\d,]+\.?\d+)\s+units?/i,
         /([\d,]+\.?\d+)\s+units?\s+(?:allotted|credited)/i,
     ];
-    let units = 0;
-    for (const p of unitsPatterns) {
-        const m = body.match(p);
-        if (m) { units = parseAmount(m[1]); break; }
+    var units = 0;
+    for (var _b = 0, unitsPatterns_1 = unitsPatterns; _b < unitsPatterns_1.length; _b++) {
+        var p = unitsPatterns_1[_b];
+        var m = body.match(p);
+        if (m) {
+            units = parseAmount(m[1]);
+            break;
+        }
     }
-
     // NAV — "NAV:84.32", "NAV Rs.84.32", "NAV: 84.32", "NAV of Rs.476.62"
-    const navMatch =
-        body.match(/NAV[:\s]+(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d+)/i) ||
+    var navMatch = body.match(/NAV[:\s]+(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d+)/i) ||
         body.match(/(?:NAV|Price)[:\s]*([\d,]+\.?\d+)/i) ||
         body.match(/NAV\s+(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d+)/i);
-    const nav = navMatch ? parseAmount(navMatch[1]) : 0;
-
+    var nav = navMatch ? parseAmount(navMatch[1]) : 0;
     // Folio — "Folio:1234567", "Folio No: 1234567", "Folio Number: 1234567"
-    const folioMatch = body.match(/Folio\s*(?:No\.?|Number)?[:\s]*(\d{4,12})/i);
-    const folioNumber = folioMatch?.[1] ?? '';
-
+    var folioMatch = body.match(/Folio\s*(?:No\.?|Number)?[:\s]*(\d{4,12})/i);
+    var folioNumber = (_a = folioMatch === null || folioMatch === void 0 ? void 0 : folioMatch[1]) !== null && _a !== void 0 ? _a : '';
     // Fund name
-    let fundName = 'Mutual Fund SIP';
-    const fundPatterns = [
+    var fundName = 'Mutual Fund SIP';
+    var fundPatterns = [
         /(?:scheme|fund)[:\s]+([A-Z][A-Za-z0-9\s&\()\-]{4,60}?)(?:\s*[-–]\s*(?:Direct|Regular|Growth|Dividend)|Plan|Folio|\s*Dt|\.|$)/i,
         /Folio\s*\d+.*?in\s+([A-Z][A-Za-z0-9\s&\()\-]{4,60}?)(?:\s*[-–]\s*(?:Direct|Regular|Growth|Dividend)|Plan|Folio|\s*Dt|\.|$)/i,
         /(?:in|for)\s+([A-Z][A-Za-z0-9\s&\()\-]{4,60}?)\s+(?:Fund|Plan|Scheme|Dir|Direct|Regular|Growth)/i,
         /([A-Z][A-Za-z0-9\s&\()\-]{5,60}?)\s+(?:SIP|Mutual Fund|MF|Index Fund)\b/i,
     ];
-    for (const p of fundPatterns) {
-        const m = body.match(p);
-        if (m?.[1] && !m[1].toLowerCase().includes('folio')) {
+    for (var _c = 0, fundPatterns_2 = fundPatterns; _c < fundPatterns_2.length; _c++) {
+        var p = fundPatterns_2[_c];
+        var m = body.match(p);
+        if ((m === null || m === void 0 ? void 0 : m[1]) && !m[1].toLowerCase().includes('folio')) {
             fundName = m[1].trim();
             break;
         }
     }
-
-    const date = extractDateFromBody(body);
-
+    var date = extractDateFromBody(body);
     return {
-        amount,
-        fundName,
-        units,
-        nav,
-        folioNumber,
-        date,
+        amount: amount,
+        fundName: fundName,
+        units: units,
+        nav: nav,
+        folioNumber: folioNumber,
+        date: date,
         bank: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 /**
  * Parse a loan EMI deduction SMS and return structured data.
  * Returns null if this SMS is NOT an EMI deduction.
@@ -567,63 +461,64 @@ export function parseSIPAllotment(rawBody: string, sender?: string): ParsedSIPAl
  *   - "NACH Debit Rs.8500 towards Home Loan EMI. A/c: XXXX6789. Outstanding: Rs.22,40,000"
  *   - "Dear Customer, Rs.45000 debited from your account XXXX5678 towards Car Loan EMI."
  */
-export function parseLoanEMI(rawBody: string): ParsedLoanEMI | null {
-    const body = normaliseSMSBody(rawBody);
-
-    const matched = EMI_DEDUCTION_PATTERNS.some(p => p.test(body));
-    if (!matched) return null;
-
+function parseLoanEMI(rawBody) {
+    var _a;
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
+    var matched = EMI_DEDUCTION_PATTERNS.some(function (p) { return p.test(body); });
+    if (!matched)
+        return null;
     // EMI amount
-    const emiPatterns = [
+    var emiPatterns = [
         /EMI\s+(?:of\s+)?(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i,
         /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)\s+(?:debited|deducted).*?(?:EMI|loan)/i,
         /NACH\s+Debit\s+(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i,
         /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*).*?loan\s+EMI/i,
         /(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)\s+debited/i,
     ];
-    let emiAmount = 0;
-    for (const p of emiPatterns) {
-        const m = body.match(p);
-        if (m) { emiAmount = parseAmount(m[1]); break; }
+    var emiAmount = 0;
+    for (var _i = 0, emiPatterns_1 = emiPatterns; _i < emiPatterns_1.length; _i++) {
+        var p = emiPatterns_1[_i];
+        var m = body.match(p);
+        if (m) {
+            emiAmount = parseAmount(m[1]);
+            break;
+        }
     }
-    if (!emiAmount) emiAmount = extractAmountStr(body);
-
+    if (!emiAmount)
+        emiAmount = extractAmountStr(body);
     // Outstanding balance
-    const outstandingMatch =
-        body.match(/outstanding[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
+    var outstandingMatch = body.match(/outstanding[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i) ||
         body.match(/outstanding\s+loan[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i);
-    const outstandingAmount = outstandingMatch ? parseAmount(outstandingMatch[1]) : undefined;
-
+    var outstandingAmount = outstandingMatch ? parseAmount(outstandingMatch[1]) : undefined;
     // Lender / loan type
-    const lenderPatterns = [
+    var lenderPatterns = [
         /(?:towards|for)\s+(?:your\s+)?([A-Za-z][A-Za-z0-9\s\-&.]{2,40}?)\s+(?:loan|EMI|account|a\/c)/i,
         /(Home|Car|Personal|Education|Business)\s+Loan/i,
     ];
-    let lenderHint = 'Loan';
-    for (const p of lenderPatterns) {
-        const m = body.match(p);
-        if (m) { lenderHint = (m[1] ?? m[0]).trim(); break; }
+    var lenderHint = 'Loan';
+    for (var _b = 0, lenderPatterns_2 = lenderPatterns; _b < lenderPatterns_2.length; _b++) {
+        var p = lenderPatterns_2[_b];
+        var m = body.match(p);
+        if (m) {
+            lenderHint = ((_a = m[1]) !== null && _a !== void 0 ? _a : m[0]).trim();
+            break;
+        }
     }
-
     // Loan account last 4
-    const loanAcMatch =
-        body.match(/(?:[Ll]oan\s*(?:a\/c|account|ending|no\.?)[:\s]*[Xx*]*)(\d{3,6})/i) ||
+    var loanAcMatch = body.match(/(?:[Ll]oan\s*(?:a\/c|account|ending|no\.?)[:\s]*[Xx*]*)(\d{3,6})/i) ||
         body.match(/(?:[Ll]oan|loan).*?[Xx*]{2,}(\d{3,6})/);
-    const loanAccountHint = loanAcMatch?.[1];
-
-    const date = extractDateFromBody(body);
-
+    var loanAccountHint = loanAcMatch === null || loanAcMatch === void 0 ? void 0 : loanAcMatch[1];
+    var date = extractDateFromBody(body);
     return {
-        emiAmount,
-        lenderHint,
-        loanAccountHint,
-        outstandingAmount,
-        date,
+        emiAmount: emiAmount,
+        lenderHint: lenderHint,
+        loanAccountHint: loanAccountHint,
+        outstandingAmount: outstandingAmount,
+        date: date,
         bank: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 /**
  * Parse a stock buy SMS and return structured trade data.
  * Returns null if this SMS is not a stock buy confirmation.
@@ -634,137 +529,123 @@ export function parseLoanEMI(rawBody: string): ParsedLoanEMI | null {
  *   - Upstox:  "Order confirmed: BUY 15 TATAMOTORS @ 945.50 NSE"
  *   - Angel:   "Your order to BUY 20 HDFCBANK at Rs.1640 on NSE has been executed."
  */
-export function parseStockBuy(rawBody: string): ParsedStockTrade | null {
-    const body = normaliseSMSBody(rawBody);
-
+function parseStockBuy(rawBody) {
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
     // Gate: must look like a buy confirmation
-    const isBuy = /\b(?:bought|buy|purchase[d]?)\b/i.test(body) &&
+    var isBuy = /\b(?:bought|buy|purchase[d]?)\b/i.test(body) &&
         /\b(?:NSE|BSE)\b/.test(body);
-    if (!isBuy) return null;
-
+    if (!isBuy)
+        return null;
     // Zerodha: "Bought 10 INFY @ 1895.00 on NSE"
-    const zerodha = body.match(/[Bb]ought\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+on\s+(NSE|BSE)/i);
+    var zerodha = body.match(/[Bb]ought\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+on\s+(NSE|BSE)/i);
     if (zerodha) {
-        const quantity = parseInt(zerodha[1], 10);
-        const price = parseAmount(zerodha[3]);
+        var quantity = parseInt(zerodha[1], 10);
+        var price = parseAmount(zerodha[3]);
         return {
-            action: 'buy', quantity,
+            action: 'buy',
+            quantity: quantity,
             ticker: zerodha[2].toUpperCase(),
-            price, exchange: zerodha[4].toUpperCase(),
+            price: price,
+            exchange: zerodha[4].toUpperCase(),
             total: quantity * price,
             date: extractDateFromBody(body),
         };
     }
-
     // Groww / general: "Bought 5 RELIANCE at Rs.2850 on NSE"
-    const groww = body.match(/(?:order\s+executed.*?)?[Bb]ought\s+(\d+)\s+([A-Z&]+)\s+at\s+(?:Rs\.?|INR|₹)?\s*([\d,.]+)\s+on\s+(NSE|BSE)/i);
+    var groww = body.match(/(?:order\s+executed.*?)?[Bb]ought\s+(\d+)\s+([A-Z&]+)\s+at\s+(?:Rs\.?|INR|₹)?\s*([\d,.]+)\s+on\s+(NSE|BSE)/i);
     if (groww) {
-        const quantity = parseInt(groww[1], 10);
-        const price = parseAmount(groww[3]);
+        var quantity = parseInt(groww[1], 10);
+        var price = parseAmount(groww[3]);
         return {
-            action: 'buy', quantity,
+            action: 'buy',
+            quantity: quantity,
             ticker: groww[2].toUpperCase(),
-            price, exchange: groww[4].toUpperCase(),
+            price: price,
+            exchange: groww[4].toUpperCase(),
             total: quantity * price,
             date: extractDateFromBody(body),
         };
     }
-
     // Upstox / Angel: "BUY 15 TATAMOTORS @ 945.50 NSE"
-    const upstox = body.match(/\bBUY\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+(NSE|BSE)/i) ||
+    var upstox = body.match(/\bBUY\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+(NSE|BSE)/i) ||
         body.match(/to\s+BUY\s+(\d+)\s+([A-Z&]+)\s+at\s+(?:Rs\.?|INR|₹)?\s*([\d,.]+)\s+on\s+(NSE|BSE)/i);
     if (upstox) {
-        const quantity = parseInt(upstox[1], 10);
-        const price = parseAmount(upstox[3]);
+        var quantity = parseInt(upstox[1], 10);
+        var price = parseAmount(upstox[3]);
         return {
-            action: 'buy', quantity,
+            action: 'buy',
+            quantity: quantity,
             ticker: upstox[2].toUpperCase(),
-            price, exchange: upstox[4].toUpperCase(),
+            price: price,
+            exchange: upstox[4].toUpperCase(),
             total: quantity * price,
             date: extractDateFromBody(body),
         };
     }
-
     return null;
 }
-
 /**
  * Parse a stock sell SMS and return structured trade data.
  * Returns null if not a sell confirmation.
  */
-export function parseStockSell(rawBody: string): ParsedStockTrade | null {
-    const body = normaliseSMSBody(rawBody);
-
-    const isSell = /\b(?:sold|sell)\b/i.test(body) && /\b(?:NSE|BSE)\b/.test(body);
-    if (!isSell) return null;
-
+function parseStockSell(rawBody) {
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
+    var isSell = /\b(?:sold|sell)\b/i.test(body) && /\b(?:NSE|BSE)\b/.test(body);
+    if (!isSell)
+        return null;
     // "Sold 10 INFY @ 1930.00 on NSE"
-    const m =
-        body.match(/[Ss]old\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+on\s+(NSE|BSE)/i) ||
+    var m = body.match(/[Ss]old\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+on\s+(NSE|BSE)/i) ||
         body.match(/[Ss]old\s+(\d+)\s+([A-Z&]+)\s+at\s+(?:Rs\.?|INR|₹)?\s*([\d,.]+)\s+on\s+(NSE|BSE)/i) ||
         body.match(/SELL\s+(\d+)\s+([A-Z&]+)\s+@\s*([\d,.]+)\s+(NSE|BSE)/i);
-
-    if (!m) return null;
-
-    const quantity = parseInt(m[1], 10);
-    const price = parseAmount(m[3]);
+    if (!m)
+        return null;
+    var quantity = parseInt(m[1], 10);
+    var price = parseAmount(m[3]);
     return {
-        action: 'sell', quantity,
+        action: 'sell',
+        quantity: quantity,
         ticker: m[2].toUpperCase(),
-        price, exchange: m[4].toUpperCase(),
+        price: price,
+        exchange: m[4].toUpperCase(),
         total: quantity * price,
         date: extractDateFromBody(body),
     };
 }
-
-export interface ParsedNACHMFDebit {
-    amount: number;
-    amcName: string;
-    folioNumber: string;
-    date: string;
-    bank: string | null;
-    accountLast4: string | null;
-}
-
 /**
  * Parse a bank NACH debit SMS that was made towards a Mutual Fund SIP, but lacks
  * units/NAV. Usually formatted with an Info section.
  * Example: "UPDATE: INR 5,000.00 debited from HDFC Bank XX1088 on 27-FEB-26. Info: NIPPONMUTUALFUND_367624509_162207359"
  */
-export function parseNACHMFDebit(rawBody: string, sender?: string): ParsedNACHMFDebit | null {
-    const body = normaliseSMSBody(rawBody);
-
+function parseNACHMFDebit(rawBody, sender) {
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
     // Look for the "Info: AMCNAME_FOLIONUMBER_TRXID" pattern
-    const infoMatch = body.match(/Info[:\s]*([A-Z0-9]+MUTUALFUND)_(\d+)_/i) ||
+    var infoMatch = body.match(/Info[:\s]*([A-Z0-9]+MUTUALFUND)_(\d+)_/i) ||
         body.match(/Info[:\s]*([A-Z0-9]+MF)_(\d+)_/i);
-    if (!infoMatch) return null;
-
+    if (!infoMatch)
+        return null;
     // Must be a debit/payment
-    if (!/(?:debited|deducted|paid|payment|auto.*debit|NACH)/i.test(body)) return null;
-
+    if (!/(?:debited|deducted|paid|payment|auto.*debit|NACH)/i.test(body))
+        return null;
     // Extract Amount
-    const amountMatch = body.match(/(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i);
-    const amount = amountMatch ? parseAmount(amountMatch[1]) : 0;
-    if (!amount) return null;
-
+    var amountMatch = body.match(/(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)/i);
+    var amount = amountMatch ? parseAmount(amountMatch[1]) : 0;
+    if (!amount)
+        return null;
     // Clean AMC Name
-    let amcName = infoMatch[1].replace(/MUTUALFUND|MF/i, '').trim();
-    if (amcName.toUpperCase() === 'NIPPON') amcName = 'Nippon India';
-
-    const folioNumber = infoMatch[2];
-
+    var amcName = infoMatch[1].replace(/MUTUALFUND|MF/i, '').trim();
+    if (amcName.toUpperCase() === 'NIPPON')
+        amcName = 'Nippon India';
+    var folioNumber = infoMatch[2];
     return {
-        amount,
-        amcName,
-        folioNumber,
+        amount: amount,
+        amcName: amcName,
+        folioNumber: folioNumber,
         date: extractDateFromBody(body),
         bank: null,
         accountLast4: extractAccountLast4(body),
     };
 }
-
 // ─── Main classifier ─────────────────────────────────────────────────────────
-
 /**
  * Classify an SMS body + sender into a structured intent.
  *
@@ -778,26 +659,22 @@ export function parseNACHMFDebit(rawBody: string, sender?: string): ParsedNACHMF
  * Note: normaliseSMSBody is called at this entry point so all sub-classifiers
  * receive a cleaned single-line body (multiline SMS support — Day 1 fix).
  */
-export function classifySMSIntent(rawBody: string, sender?: string): SMSIntent {
-    if (!rawBody?.trim()) return { kind: 'unknown' };
-
+function classifySMSIntent(rawBody, sender) {
+    if (!(rawBody === null || rawBody === void 0 ? void 0 : rawBody.trim()))
+        return { kind: 'unknown' };
     // Normalise multiline SMS before classification
-    const body = normaliseSMSBody(rawBody);
-
-    const sip = classifySIPConfirmation(body, sender);
-    if (sip) return sip;
-
-    const loanAlert = classifyLoanAlert(body);
-    if (loanAlert) return loanAlert;
-
-    const emi = classifyEMIDeduction(body);
-    if (emi) return emi;
-
-    const balance = classifyAccountBalance(body);
-    if (balance) return balance;
-
+    var body = (0, smsParser_1.normaliseSMSBody)(rawBody);
+    var sip = classifySIPConfirmation(body, sender);
+    if (sip)
+        return sip;
+    var loanAlert = classifyLoanAlert(body);
+    if (loanAlert)
+        return loanAlert;
+    var emi = classifyEMIDeduction(body);
+    if (emi)
+        return emi;
+    var balance = classifyAccountBalance(body);
+    if (balance)
+        return balance;
     return { kind: 'transaction' };
 }
-
-// ─── Re-export parseMonthDayYear for use in handlers ─────────────────────────
-export { parseMonthDayYear };

@@ -268,6 +268,7 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN currentValue REAL;`); } catch (e) { }
   try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN schemeCode TEXT;`); } catch (e) { }
   try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN isDeleted INTEGER DEFAULT 0;`); } catch (e) { }
+  try { await db.execAsync(`ALTER TABLE sip_plans ADD COLUMN folioNumber TEXT;`); } catch (e) { }
 
   try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN folio_number TEXT;`); } catch (e) { }
   try { await db.execAsync(`ALTER TABLE holdings ADD COLUMN account_number TEXT;`); } catch (e) { }

@@ -123,3 +123,76 @@ class AmfiNavService {
 }
 
 export const amfiNavService = new AmfiNavService();
+
+/**
+ * Fetches the latest NAV from AMFI for all active SIPs that have a scheme_code
+ * set, then updates each SIP's nav and currentValue in the store.
+ *
+ * The AmfiNavService caches data for 12 hours, so calling this on every
+ * app-foreground event is safe and won't hammer the AMFI server.
+ *
+ * Usage:
+ *   fetchAndUpdateNAVs().catch(console.warn);  // fire-and-forget
+ */
+export const fetchAndUpdateNAVs = async (): Promise<void> => {
+    // Lazy static import — avoids circular deps, loaded only when called
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useSIPStore } = require('@/stores/sipStore') as typeof import('@/stores/sipStore');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { savePriceSnapshotToDB } = require('@/db/repository/priceSnapshotRepository');
+    const store = useSIPStore.getState();
+    const sips = store.sips;
+
+    const activeSipsWithCode = sips.filter(
+        s => s.status === 'active' && s.schemeCode && s.schemeCode.trim() !== ''
+    );
+
+    if (activeSipsWithCode.length === 0) {
+        console.log('[AMFI] No active SIPs with scheme_code — skipping NAV fetch');
+        return;
+    }
+
+    // Fetch AMFI data (respects 12h internal cache)
+    await amfiNavService.fetchLatestNavData();
+
+    const now = new Date().toISOString();
+    for (const sip of activeSipsWithCode) {
+        const navData = await amfiNavService.getNavBySchemeCode(sip.schemeCode!);
+        if (!navData) {
+            console.log(`[AMFI] No NAV data found for scheme ${sip.schemeCode} (${sip.name})`);
+            continue;
+        }
+
+        const newNAV = navData.netAssetValue;
+        // current_value = units × NAV; units field on SIPPlan stores total allotted units
+        const newCurrentValue = (sip.units ?? 0) * newNAV;
+
+        await store.updateSIP({
+            ...sip,
+            nav: newNAV,
+            currentValue: newCurrentValue,
+            priceUpdatedAt: now,
+        });
+
+        // Seed price snapshot for sparklines
+        // Create an ID logic so that we only insert one for today if running multiple times daily.
+        const snapshotId = `snapshot_${sip.id}_${now.split('T')[0]}`;
+        try {
+            await savePriceSnapshotToDB({
+                id: snapshotId,
+                holding_id: sip.id,
+                price: newNAV,
+                recorded_at: now,
+                source: 'amfi_api',
+                created_at: now
+            });
+        } catch (e) {
+            // Unique constraint might trigger if it already exists, which is fine
+            console.log(`[AMFI] Snapshot for ${sip.name} today may already exist.`);
+        }
+
+        console.log(`[AMFI] ${sip.name}: NAV=${newNAV}, value=${newCurrentValue.toFixed(2)}`);
+    }
+};
+
+

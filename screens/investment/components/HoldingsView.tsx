@@ -1,5 +1,5 @@
-import React, { useRef, useState, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useHoldingsStore } from '@/stores/holdingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -7,20 +7,21 @@ import { useTheme } from '@/hooks/useTheme';
 import HoldingCard from './HoldingCard';
 import UpdatePriceSheet, { UpdatePriceSheetRef } from './UpdatePriceSheet';
 import { Holding } from '@/types';
-
 import { useRouter } from 'expo-router';
+import { RefreshCw } from 'lucide-react-native';
 
 type FilterType = 'All' | 'Stocks' | 'FD / Bonds' | 'Gold' | 'Other';
 const FILTERS: FilterType[] = ['All', 'Stocks', 'FD / Bonds', 'Gold', 'Other'];
 
 export default function HoldingsView() {
     const router = useRouter();
-    const { holdings, getTotalInvested, getCurrentValue } = useHoldingsStore();
+    const { holdings, getTotalInvested, getCurrentValue, fetchHoldings } = useHoldingsStore();
     const { format } = useCurrency();
     const { colors } = useTheme();
     const sheetRef = useRef<UpdatePriceSheetRef>(null);
 
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+    const [refreshing, setRefreshing] = useState(false);
 
     const totalInvested = getTotalInvested();
     const currentTotal = getCurrentValue();
@@ -30,6 +31,26 @@ export default function HoldingsView() {
 
     const handleUpdatePrice = (holding: Holding) => {
         sheetRef.current?.present(holding);
+    };
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchHoldings();
+        setRefreshing(false);
+    }, [fetchHoldings]);
+
+    // Bulk update: opens UpdatePriceSheet for each non-fixed-income holding sequentially
+    const stalePriceHoldings = useMemo(
+        () => holdings.filter(h => !['fd', 'bond', 'ppf', 'nps'].includes(h.type)),
+        [holdings]
+    );
+    const onBulkUpdatePrices = () => {
+        if (stalePriceHoldings.length === 0) {
+            Alert.alert('No holdings', 'Add stock or gold holdings first.');
+            return;
+        }
+        // Open the first holding — user can proceed through remaining via the sheet
+        sheetRef.current?.present(stalePriceHoldings[0]);
     };
 
     // Calculate grouped lists
@@ -94,7 +115,12 @@ export default function HoldingsView() {
                 </ScrollView>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+                }
+            >
                 {/* Summary Card */}
                 <View style={[styles.summaryCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}>
                     <View style={styles.summaryCol}>
@@ -112,6 +138,18 @@ export default function HoldingsView() {
                         </ThemedText>
                     </View>
                 </View>
+
+                {/* Bulk Update Prices button */}
+                <TouchableOpacity
+                    style={[styles.bulkUpdateBtn, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.08)' }]}
+                    onPress={onBulkUpdatePrices}
+                    activeOpacity={0.75}
+                >
+                    <RefreshCw size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                    <ThemedText style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
+                        Update All Prices ({stalePriceHoldings.length})
+                    </ThemedText>
+                </TouchableOpacity>
 
                 {/* Grouped Lists */}
                 {Object.entries(groupedHoldings).map(([key, group]) => {
@@ -172,6 +210,16 @@ const styles = StyleSheet.create({
     filterChipActive: {
         borderColor: '#FBBF24',
         backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    },
+    bulkUpdateBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 10,
+        borderWidth: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        marginBottom: 20,
     },
     content: {
         padding: 16,

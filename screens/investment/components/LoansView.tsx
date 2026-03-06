@@ -15,7 +15,11 @@ export default function LoansView() {
     const router = useRouter();
     const { loans, fetchLoans, isLoading } = useLoanStore();
     const { format } = useCurrency();
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
+
+    const cardBg = isDark ? '#1A1A1A' : colors.card;
+    const cardBorder = isDark ? 'rgba(255,255,255,0.05)' : colors.border;
+    const footerBorder = isDark ? 'rgba(255,255,255,0.05)' : colors.border;
 
     useEffect(() => {
         fetchLoans();
@@ -69,7 +73,7 @@ export default function LoansView() {
                 return (
                     <TouchableOpacity
                         key={loan.id}
-                        style={[styles.loanCard, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1 }]}
+                        style={[styles.loanCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }]}
                         onPress={() => router.push(`/investment/loan/${loan.id}`)}
                         activeOpacity={0.8}
                     >
@@ -91,7 +95,7 @@ export default function LoansView() {
                         <View style={styles.progressContainer}>
                             <View style={styles.progressHeader}>
                                 <ThemedText style={[styles.progressText, { color: colors.subtitle }]}>
-                                    Paid <ThemedText style={{ color: '#FFF', fontSize: 12 }}>{format(repaid)}</ThemedText>
+                                    Paid <ThemedText style={{ color: colors.text, fontSize: 12 }}>{format(repaid)}</ThemedText>
                                 </ThemedText>
                                 <ThemedText style={[styles.progressText, { color: colors.subtitle }]}>
                                     Remaining {format(loan.outstanding)}
@@ -112,7 +116,7 @@ export default function LoansView() {
                         <View style={styles.statsGrid}>
                             <View style={styles.statBox}>
                                 <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Principal</ThemedText>
-                                <ThemedText style={styles.statValue}>{format(loan.principal)}</ThemedText>
+                                <ThemedText style={[styles.statValue, { color: colors.text }]}>{format(loan.principal)}</ThemedText>
                             </View>
                             <View style={styles.statBox}>
                                 <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>EMI</ThemedText>
@@ -120,13 +124,13 @@ export default function LoansView() {
                             </View>
                             <View style={styles.statBox}>
                                 <ThemedText style={[styles.statLabel, { color: colors.subtitle }]}>Tenure</ThemedText>
-                                <ThemedText style={styles.statValue}>{tenureLeftStr}</ThemedText>
+                                <ThemedText style={[styles.statValue, { color: colors.text }]}>{tenureLeftStr}</ThemedText>
                             </View>
                         </View>
 
-                        <View style={[styles.footer, { borderTopColor: 'rgba(255,255,255,0.05)' }]}>
+                        <View style={[styles.footer, { borderTopColor: footerBorder }]}>
                             <ThemedText style={{ color: colors.subtitle, fontSize: 13 }}>
-                                Next EMI: <ThemedText style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>{formattedEmiDate}</ThemedText>
+                                Next EMI: <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>{formattedEmiDate}</ThemedText>
                             </ThemedText>
                             <EMICountdown emiDueDay={loan.emiDueDay} />
                         </View>

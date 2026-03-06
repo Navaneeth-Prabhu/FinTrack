@@ -14,6 +14,7 @@ export default function AddSIPScreen() {
 
     const [name, setName] = useState('');
     const [fundName, setFundName] = useState('');
+    const [schemeCode, setSchemeCode] = useState('');
     const [amount, setAmount] = useState('');
     const [sipDay, setSipDay] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +53,7 @@ export default function AddSIPScreen() {
                 id: '', // Will be assigned by store/DB
                 name,
                 fundName,
+                schemeCode: schemeCode.trim() || undefined,
                 amount: sipAmount,
                 frequency: 'monthly', // Default to monthly for Phase 2 MVP
                 startDate: now,
@@ -100,6 +102,21 @@ export default function AddSIPScreen() {
                             placeholder="e.g. Parag Parikh Flexi Cap"
                             placeholderTextColor={colors.mutedForeground}
                         />
+                    </View>
+
+                    <View style={styles.formGroup}>
+                        <ThemedText style={[styles.label, { color: colors.subtitle }]}>AMFI Scheme Code (optional)</ThemedText>
+                        <TextInput
+                            style={[styles.input, { backgroundColor: colors.input, color: colors.inputForeground, borderColor: colors.border }]}
+                            value={schemeCode}
+                            onChangeText={setSchemeCode}
+                            placeholder="e.g. 122639"
+                            placeholderTextColor={colors.mutedForeground}
+                            keyboardType="numeric"
+                        />
+                        <ThemedText style={[styles.helperText, { color: colors.subtitle }]}>
+                            Find your scheme code on your fund house website or CAS statement. Required for automatic NAV updates.
+                        </ThemedText>
                     </View>
 
                     <View style={styles.formGroup}>
@@ -168,6 +185,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         fontSize: 16,
+    },
+    helperText: {
+        fontSize: 12,
+        marginTop: 6,
+        lineHeight: 16,
     },
     saveButton: {
         paddingVertical: 16,

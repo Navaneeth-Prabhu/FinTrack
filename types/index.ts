@@ -129,6 +129,7 @@ export interface SIPPlan {
   priceUpdatedAt?: string; // ISO date when nav/units were last updated
   currentValue?: number; // V2
   schemeCode?: string; // V2
+  folioNumber?: string; // Folio number from CAMS/SMS/RTA
   isDeleted?: boolean; // V2
 }
 

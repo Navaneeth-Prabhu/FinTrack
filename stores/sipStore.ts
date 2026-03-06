@@ -23,6 +23,7 @@ interface SIPStore {
     updateSIP: (sip: SIPPlan) => Promise<SIPPlan>;
     removeSIP: (id: string) => Promise<void>;
     recordAllotment: (sipId: string, amount: number, nav?: number, units?: number) => Promise<void>;
+    autoAllocateSIP: (sipId: string, amount: number) => Promise<void>;
     fetchLatestPrices: () => Promise<void>;
 
     getTotalInvested: () => number;
@@ -107,6 +108,36 @@ export const useSIPStore = create<SIPStore>((set, get) => ({
             nav: nav || sip.nav,
             lastModified: now,
             priceUpdatedAt: nav ? now : sip.priceUpdatedAt,
+        };
+
+        await get().updateSIP(updatedSIP);
+    },
+
+    autoAllocateSIP: async (sipId: string, amount: number) => {
+        const sip = get().sips.find(s => s.id === sipId);
+        if (!sip) throw new Error('SIP not found');
+
+        const now = new Date().toISOString();
+
+        // 1. Create Transaction (without NAV/units)
+        const tx: InvestmentTransaction = {
+            id: generateId(),
+            holding_id: sipId,
+            holding_type: 'sip',
+            event_type: 'allotment',
+            amount: amount,
+            event_date: now,
+            updated_at: now,
+            created_at: now,
+        };
+
+        await useInvestmentTxStore.getState().addTransaction(tx);
+
+        // 2. Update SIP Total Invested only
+        const updatedSIP = {
+            ...sip,
+            totalInvested: sip.totalInvested + amount,
+            lastModified: now,
         };
 
         await get().updateSIP(updatedSIP);
