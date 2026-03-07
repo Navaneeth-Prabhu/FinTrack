@@ -462,9 +462,11 @@ This is the single aggregation point for the Overview tab. It reads from all inv
 | `UpcomingSIPsWidget` | This-month SIPs |
 | Error Boundaries on all tabs | `components/ErrorBoundary.tsx` |
 | Sync extended for v2 tables | `services/sync.ts` |
-| SMS dedup (`findBySmsId`) | `db/repository/investmentTxRepository.ts` |
+| SMS dedup (`findInvestmentTxBySmsId`) | `db/repository/investmentTxRepository.ts` |
 | Investment SMS routing before transaction parsing | `services/smsParser.ts` (lines 920–948) |
 | `normaliseSMSBody()` multiline fix | `services/smsParser.ts` (lines 25–32) |
+| Detail Screens FlashList | `sip/[id]`, `loan/[id]`, `holding/[id]` use `<View>` headers and `keyExtractor` |
+| UI Standardization | Removed `shadow` styling across all Investment Cards & detail screens |
 | `AllotmentRow`, `PaymentRow`, `PriceHistoryRow` components | `components/investments/` |
 | scheme_code field in Add SIP form | `app/(routes)/investment/add-sip.tsx` |
 | SIPsView allocation bar using live data | `SIPsView.tsx` via `usePortfolioSummary()` |
@@ -477,6 +479,7 @@ This is the single aggregation point for the Overview tab. It reads from all inv
 | XIRR per holding (full investment tx history) | `hooks/useHoldingXIRR.ts` — builds cashflow array from `investmentTxStore`, adds notional exit at current value |
 | Price history sparkline chart on HoldingCard | `components/investments/PriceSparkline.tsx` — SVG line + gradient fill, auto green/red, shown when ≥2 snapshots |
 | CAMS/Karvy CAS Import (CSV/JSON) | `camsCasParser.ts` — `expo-document-picker` + `papaparse` directly into stores |
+| Performance Optimizations | Swapped `ScrollView` -> `FlashList`, `TouchableOpacity` -> `Pressable` in all lists |
 
 ### ⚠️ Partially Implemented / Known Issues
 

@@ -10,6 +10,8 @@ import { ArrowLeft, Edit2, Plus, Calendar, Shield } from 'lucide-react-native';
 import { format } from 'date-fns';
 import RecordPaymentSheet from '@/screens/investment/components/RecordPaymentSheet';
 import { calculateOutstandingBalance } from '@/utils/investmentCalculations';
+import { FlashList } from '@shopify/flash-list';
+import PaymentRow from '@/components/investments/PaymentRow';
 
 export default function LoanDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -40,6 +42,66 @@ export default function LoanDetailScreen() {
     const paidAmount = loan.principal - loan.outstanding;
     const progress = loan.principal > 0 ? paidAmount / loan.principal : 0;
 
+    const renderHeader = () => (
+        <View>
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Outstanding Balance</Text>
+                <Text style={[styles.amountText, { color: colors.text }]}>{formatCurrency(loan.outstanding)}</Text>
+
+                {/* Progress Bar */}
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
+                        <View style={[styles.progressBarFill, { backgroundColor: colors.primary, width: `${progress * 100}%` }]} />
+                    </View>
+                    <View style={styles.progressLabels}>
+                        <Text style={[styles.progressLabel, { color: colors.subtitle }]}>{formatCurrency(paidAmount)} Paid</Text>
+                        <Text style={[styles.progressLabel, { color: colors.subtitle }]}>{formatCurrency(loan.principal)} Total</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Details</Text>
+
+                <View style={styles.detailGrid}>
+                    <View style={styles.detailGridItem}>
+                        <Text style={[styles.detailLabel, { color: colors.subtitle }]}>EMI Amount</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{formatCurrency(loan.emiAmount)}</Text>
+                    </View>
+                    <View style={styles.detailGridItem}>
+                        <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Due Day</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{loan.emiDueDay}th of month</Text>
+                    </View>
+                    <View style={[styles.detailGridItem, { marginTop: 16 }]}>
+                        <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Tenure</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{loan.tenureMonths} Months</Text>
+                    </View>
+                    <View style={[styles.detailGridItem, { marginTop: 16 }]}>
+                        <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Status</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{loan.status.toUpperCase()}</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.historyHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment History</Text>
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: colors.primary + '20' }]}
+                    onPress={() => setIsPaymentSheetOpen(true)}
+                >
+                    <Plus size={16} color={colors.primary} />
+                    <Text style={[styles.addButtonText, { color: colors.primary }]}>Pay</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const renderEmpty = () => (
+        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+            <Text style={[styles.emptyStateText, { color: colors.subtitle }]}>No payments recorded yet.</Text>
+        </View>
+    );
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -55,77 +117,17 @@ export default function LoanDetailScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Outstanding Balance</Text>
-                    <Text style={[styles.amountText, { color: colors.text }]}>{formatCurrency(loan.outstanding)}</Text>
-
-                    {/* Progress Bar */}
-                    <View style={styles.progressContainer}>
-                        <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
-                            <View style={[styles.progressBarFill, { backgroundColor: colors.primary, width: `${progress * 100}%` }]} />
-                        </View>
-                        <View style={styles.progressLabels}>
-                            <Text style={[styles.progressLabel, { color: colors.subtitle }]}>{formatCurrency(paidAmount)} Paid</Text>
-                            <Text style={[styles.progressLabel, { color: colors.subtitle }]}>{formatCurrency(loan.principal)} Total</Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Details</Text>
-
-                    <View style={styles.detailGrid}>
-                        <View style={styles.detailGridItem}>
-                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>EMI Amount</Text>
-                            <Text style={[styles.detailValue, { color: colors.text }]}>{formatCurrency(loan.emiAmount)}</Text>
-                        </View>
-                        <View style={styles.detailGridItem}>
-                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Due Day</Text>
-                            <Text style={[styles.detailValue, { color: colors.text }]}>{loan.emiDueDay}th of month</Text>
-                        </View>
-                        <View style={[styles.detailGridItem, { marginTop: 16 }]}>
-                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Tenure</Text>
-                            <Text style={[styles.detailValue, { color: colors.text }]}>{loan.tenureMonths} Months</Text>
-                        </View>
-                        <View style={[styles.detailGridItem, { marginTop: 16 }]}>
-                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Status</Text>
-                            <Text style={[styles.detailValue, { color: colors.text }]}>{loan.status.toUpperCase()}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.historySection}>
-                    <View style={styles.historyHeader}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment History</Text>
-                        <TouchableOpacity
-                            style={[styles.addButton, { backgroundColor: colors.primary + '20' }]}
-                            onPress={() => setIsPaymentSheetOpen(true)}
-                        >
-                            <Plus size={16} color={colors.primary} />
-                            <Text style={[styles.addButtonText, { color: colors.primary }]}>Pay</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {transactions.length === 0 ? (
-                        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
-                            <Text style={[styles.emptyStateText, { color: colors.subtitle }]}>No payments recorded yet.</Text>
-                        </View>
-                    ) : (
-                        transactions.map(tx => (
-                            <View key={tx.id} style={[styles.txItem, { backgroundColor: colors.card }]}>
-                                <View>
-                                    <Text style={[styles.txDate, { color: colors.text }]}>{format(new Date(tx.event_date), 'dd MMM yyyy')}</Text>
-                                    <Text style={[styles.txLabel, { color: colors.subtitle }]}>EMI Payment</Text>
-                                </View>
-                                <View style={styles.txAmountContainer}>
-                                    <Text style={[styles.txAmount, { color: colors.text }]}>{formatCurrency(tx.amount)}</Text>
-                                </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-            </ScrollView>
+            <View style={styles.listContainer}>
+                <FlashList
+                    data={transactions}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <PaymentRow tx={item} />}
+                    ListHeaderComponent={renderHeader()}
+                    ListEmptyComponent={renderEmpty()}
+                    estimatedItemSize={80}
+                    contentContainerStyle={styles.scrollContent}
+                />
+            </View>
 
             <RecordPaymentSheet
                 isOpen={isPaymentSheetOpen}
@@ -139,13 +141,14 @@ export default function LoanDetailScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+    listContainer: { flex: 1 },
     backButton: { padding: 8, marginRight: 8 },
     headerTitleContainer: { flex: 1 },
     headerTitle: { fontFamily: 'Urbanist-Bold', fontSize: 20 },
     headerSubtitle: { fontFamily: 'Urbanist-Medium', fontSize: 14, marginTop: 2, textTransform: 'capitalize' },
     editButton: { padding: 8 },
     scrollContent: { padding: 16, paddingBottom: 40 },
-    card: { borderRadius: 16, padding: 20, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+    card: { borderRadius: 16, padding: 20, marginBottom: 16 },
     cardTitle: { fontFamily: 'Urbanist-SemiBold', fontSize: 14, marginBottom: 8 },
     amountText: { fontFamily: 'Urbanist-Bold', fontSize: 32, marginBottom: 20 },
 

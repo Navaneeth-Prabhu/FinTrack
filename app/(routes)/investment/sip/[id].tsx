@@ -9,6 +9,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { ArrowLeft, Edit2, Plus, Calendar, TrendingUp } from 'lucide-react-native';
 import { format } from 'date-fns';
 import RecordAllotmentSheet from '@/screens/investment/components/RecordAllotmentSheet';
+import { FlashList } from '@shopify/flash-list';
+import AllotmentRow from '@/components/investments/AllotmentRow';
 
 export default function SIPDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -38,6 +40,63 @@ export default function SIPDetailScreen() {
 
     const totalTarget = sip.amount * 12; // Example simplified calculation
 
+    const renderHeader = () => (
+        <View>
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Monthly Investment</Text>
+                <Text style={[styles.amountText, { color: colors.text }]}>{formatCurrency(sip.amount)}</Text>
+
+                <View style={styles.statsRow}>
+                    <View style={styles.statBox}>
+                        <Text style={[styles.statLabel, { color: colors.subtitle }]}>Total Invested</Text>
+                        <Text style={[styles.statValue, { color: colors.text }]}>{formatCurrency(sip.totalInvested)}</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                        <Text style={[styles.statLabel, { color: colors.subtitle }]}>Current Value</Text>
+                        <Text style={[styles.statValue, { color: colors.text }]}>
+                            {sip.currentValue ? formatCurrency(sip.currentValue) : '---'}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Details</Text>
+
+                <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                        <Calendar size={18} color={colors.subtitle} />
+                        <View style={styles.detailTextContainer}>
+                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Next Due Date</Text>
+                            <Text style={[styles.detailValue, { color: colors.text }]}>{format(new Date(sip.nextDueDate), 'dd MMM, yyyy')}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.detailItem}>
+                        <TrendingUp size={18} color={colors.subtitle} />
+                        <View style={styles.detailTextContainer}>
+                            <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Current NAV</Text>
+                            <Text style={[styles.detailValue, { color: colors.text }]}>{sip.nav ? formatCurrency(sip.nav) : 'Not updated'}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.historyHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Allotment History</Text>
+                <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary + '20' }]} onPress={() => setIsAllotmentSheetOpen(true)}>
+                    <Plus size={16} color={colors.primary} />
+                    <Text style={[styles.addButtonText, { color: colors.primary }]}>Add</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const renderEmpty = () => (
+        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+            <Text style={[styles.emptyStateText, { color: colors.subtitle }]}>No transactions recorded yet.</Text>
+        </View>
+    );
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -53,75 +112,17 @@ export default function SIPDetailScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Monthly Investment</Text>
-                    <Text style={[styles.amountText, { color: colors.text }]}>{formatCurrency(sip.amount)}</Text>
-
-                    <View style={styles.statsRow}>
-                        <View style={styles.statBox}>
-                            <Text style={[styles.statLabel, { color: colors.subtitle }]}>Total Invested</Text>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{formatCurrency(sip.totalInvested)}</Text>
-                        </View>
-                        <View style={styles.statBox}>
-                            <Text style={[styles.statLabel, { color: colors.subtitle }]}>Current Value</Text>
-                            <Text style={[styles.statValue, { color: colors.text }]}>
-                                {sip.currentValue ? formatCurrency(sip.currentValue) : '---'}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.cardTitle, { color: colors.subtitle }]}>Details</Text>
-
-                    <View style={styles.detailRow}>
-                        <View style={styles.detailItem}>
-                            <Calendar size={18} color={colors.subtitle} />
-                            <View style={styles.detailTextContainer}>
-                                <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Next Due Date</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]}>{format(new Date(sip.nextDueDate), 'dd MMM, yyyy')}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.detailItem}>
-                            <TrendingUp size={18} color={colors.subtitle} />
-                            <View style={styles.detailTextContainer}>
-                                <Text style={[styles.detailLabel, { color: colors.subtitle }]}>Current NAV</Text>
-                                <Text style={[styles.detailValue, { color: colors.text }]}>{sip.nav ? formatCurrency(sip.nav) : 'Not updated'}</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.historySection}>
-                    <View style={styles.historyHeader}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Allotment History</Text>
-                        <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary + '20' }]} onPress={() => setIsAllotmentSheetOpen(true)}>
-                            <Plus size={16} color={colors.primary} />
-                            <Text style={[styles.addButtonText, { color: colors.primary }]}>Add</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {transactions.length === 0 ? (
-                        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
-                            <Text style={[styles.emptyStateText, { color: colors.subtitle }]}>No transactions recorded yet.</Text>
-                        </View>
-                    ) : (
-                        transactions.map(tx => (
-                            <View key={tx.id} style={[styles.txItem, { backgroundColor: colors.card }]}>
-                                <View>
-                                    <Text style={[styles.txDate, { color: colors.text }]}>{format(new Date(tx.event_date), 'dd MMM yyyy')}</Text>
-                                    <Text style={[styles.txUnits, { color: colors.subtitle }]}>{tx.units ? `${tx.units} Units allotted` : 'Amount deducted'}</Text>
-                                </View>
-                                <View style={styles.txAmountContainer}>
-                                    <Text style={[styles.txAmount, { color: colors.success }]}>+{formatCurrency(tx.amount)}</Text>
-                                    {tx.nav && <Text style={[styles.txNav, { color: colors.subtitle }]}>@ NAV {tx.nav}</Text>}
-                                </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-            </ScrollView>
+            <View style={styles.listContainer}>
+                <FlashList
+                    data={transactions}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <AllotmentRow tx={item} />}
+                    ListHeaderComponent={renderHeader()}
+                    ListEmptyComponent={renderEmpty()}
+                    estimatedItemSize={80}
+                    contentContainerStyle={styles.scrollContent}
+                />
+            </View>
 
             <RecordAllotmentSheet
                 isOpen={isAllotmentSheetOpen}
@@ -142,6 +143,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
+    },
+    listContainer: {
+        flex: 1,
     },
     backButton: {
         padding: 8,
@@ -170,11 +174,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
     },
     cardTitle: {
         fontFamily: 'Urbanist-SemiBold',

@@ -76,19 +76,7 @@ const CategoryRecordScreen = () => {
             (budget ? budgetCats : noBudgetCats).push(category);
         });
 
-        // Add budgets with no transactions
-        budgetMap.forEach((budget, id) => {
-            if (!transactionMap.has(id)) {
-                budgetCats.push({
-                    ...budget.category,
-                    id,
-                    totalSpent: 0,
-                    count: 0,
-                    allocatedBudget: budget.limit,
-                    isBudget: true
-                });
-            }
-        });
+        // Removed: Adding budgets with no transactions as requested
 
         // Calculate progress data
         const expenseTransactions = filtered.filter(t => t.type === "expense");
@@ -187,9 +175,11 @@ const CategoryRecordScreen = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Animated.View style={[styles.chartContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <CategoryBar data={progressData} />
-            </Animated.View>
+            {progressData.length > 0 && (
+                <Animated.View style={[styles.chartContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <CategoryBar data={progressData} />
+                </Animated.View>
+            )}
             <FlatList
                 data={[...budgetCategories, ...noBudgetCategories]}
                 renderItem={renderCategoryCard}
@@ -197,6 +187,11 @@ const CategoryRecordScreen = () => {
                 numColumns={2}
                 showsVerticalScrollIndicator={false}
                 columnWrapperStyle={styles.columnWrapper}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <ThemedText style={styles.emptyText}>No data</ThemedText>
+                    </View>
+                }
             />
             <View style={styles.monthNavigation}>
                 <Pressable onPress={() => handleMonthChange(-1)}>
@@ -284,6 +279,16 @@ const styles = StyleSheet.create({
     monthText: {
         flex: 1,
         textAlign: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 50,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: '#888',
     },
 });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useSIPStore } from '@/stores/sipStore';
 import { useHoldingsStore } from '@/stores/holdingsStore';
 import PortfolioSummaryCard from './PortfolioSummaryCard';
@@ -62,11 +62,14 @@ export default function OverviewView() {
                 <ThemedText style={{ color: colors.subtitle, marginBottom: 8, paddingHorizontal: 4 }}>Quick Actions</ThemedText>
 
                 {/* Refresh NAV button — calls AMFI API for all SIPs with scheme_code set */}
-                <TouchableOpacity
-                    style={[styles.refreshNavBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.refreshNavBtn,
+                        { backgroundColor: colors.card, borderColor: colors.border },
+                        pressed && { opacity: 0.75 }
+                    ]}
                     onPress={onRefreshNAV}
                     disabled={navRefreshing}
-                    activeOpacity={0.75}
                 >
                     {navRefreshing ? (
                         <ActivityIndicator size="small" color={colors.primary} style={styles.btnIcon} />
@@ -76,7 +79,7 @@ export default function OverviewView() {
                     <ThemedText style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>
                         {navRefreshing ? 'Fetching NAVs…' : 'Refresh NAV (AMFI)'}
                     </ThemedText>
-                </TouchableOpacity>
+                </Pressable>
 
                 {navStatus && (
                     <ThemedText style={[styles.statusText, {

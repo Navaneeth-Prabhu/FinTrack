@@ -4,13 +4,14 @@ import { BottomSheetModal, BottomSheetFooter, BottomSheetFooterProps, BottomShee
 import { ThemedText } from '../common/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import FilterChip from '../FilterChip';
-import { Category, TimeView } from '@/types';
+import { Category } from '@/types';
+import { TimePreset } from '../transactions/MonthNavigator';
 import { useTheme } from '@/hooks/useTheme';
 
 interface FilterBottomSheetProps {
     bottomSheetRef: React.RefObject<BottomSheetModal>;
-    selectedView: TimeView;
-    onViewSelect: (view: TimeView) => void;
+    timePreset: TimePreset | null;
+    onPresetSelect: (preset: TimePreset) => void;
     filterState: any;
     onFilterChange: (filterType: string, value: string) => void;
     onClearFilters: () => void;
@@ -22,12 +23,17 @@ interface FilterBottomSheetProps {
     };
 }
 
-const TIME_PERIOD_OPTIONS = ['Day', 'Week', 'Month', 'Year', 'Custom'] as TimeView[];
+const TIME_PRESET_OPTIONS = ['3M', '6M', 'All'] as TimePreset[];
+const PRESET_LABELS: Record<string, string> = {
+    '3M': 'Last 3 Months',
+    '6M': 'Last 6 Months',
+    'All': 'All Time',
+};
 
 export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
     bottomSheetRef,
-    selectedView,
-    onViewSelect,
+    timePreset,
+    onPresetSelect,
     filterState,
     onFilterChange,
     onClearFilters,
@@ -89,12 +95,12 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                 <View>
                     <ThemedText variant='body1' style={{ marginBottom: 14 }}>Time Period</ThemedText>
                     <View style={styles.optionsRow}>
-                        {TIME_PERIOD_OPTIONS.map((view) => (
+                        {TIME_PRESET_OPTIONS.map((preset) => (
                             <FilterChip
-                                key={view}
-                                label={view}
-                                selected={selectedView === view}
-                                onPress={() => onViewSelect(view)}
+                                key={preset}
+                                label={PRESET_LABELS[preset]}
+                                selected={timePreset === preset}
+                                onPress={() => onPresetSelect(preset)}
                                 selectedColor={colors.primary}
                             />
                         ))}

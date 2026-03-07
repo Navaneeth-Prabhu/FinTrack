@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
@@ -71,11 +71,14 @@ export default function LoansView() {
                 const typeColor = loan.loanType === 'home' ? '#3B82F6' : loan.loanType === 'personal' ? '#A855F7' : colors.primary;
 
                 return (
-                    <TouchableOpacity
+                    <Pressable
                         key={loan.id}
-                        style={[styles.loanCard, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }]}
+                        style={({ pressed }) => [
+                            styles.loanCard,
+                            { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 },
+                            pressed && { opacity: 0.8 }
+                        ]}
                         onPress={() => router.push(`/investment/loan/${loan.id}`)}
-                        activeOpacity={0.8}
                     >
                         <View style={styles.cardHeader}>
                             <View style={{ flex: 1, marginRight: 16 }}>
@@ -134,10 +137,10 @@ export default function LoansView() {
                             </ThemedText>
                             <EMICountdown emiDueDay={loan.emiDueDay} />
                         </View>
-                    </TouchableOpacity>
+                    </Pressable>
                 );
             })}
-        </ScrollView>
+        </ScrollView >
     );
 }
 

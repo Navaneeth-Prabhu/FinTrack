@@ -17,12 +17,9 @@ interface MonthNavigatorProps {
     timePreset: TimePreset | null;
     onPrevMonth: () => void;
     onNextMonth: () => void;
-    /** Selecting an already-active preset deactivates it and returns to monthly mode */
-    onPresetSelect: (preset: TimePreset) => void;
 }
 
 // ─── Constants (hoisted to module scope — rule: no inline objects) ─────────────
-const PRESETS: TimePreset[] = ['3M', '6M', 'All'];
 
 const PRESET_LABELS: Record<TimePreset, string> = {
     '3M': 'Last 3 Months',
@@ -36,7 +33,6 @@ export const MonthNavigator: React.FC<MonthNavigatorProps> = memo(({
     timePreset,
     onPrevMonth,
     onNextMonth,
-    onPresetSelect,
 }) => {
     const { colors } = useTheme();
     const { theme } = usePreferenceStore();
@@ -45,18 +41,8 @@ export const MonthNavigator: React.FC<MonthNavigatorProps> = memo(({
     // Next-month arrow is disabled when we are already on the current month
     const isCurrentMonth = isSameMonth(selectedMonth, new Date());
 
-    // Formatted label e.g. "February 2026"
+    // ── Formatted label e.g. "February 2026" ──────────────────────────────────
     const monthLabel = format(selectedMonth, 'MMMM yyyy');
-
-    // ── Stable press handlers ─────────────────────────────────────────────────
-    const handlePreset3M = useCallback(() => onPresetSelect('3M'), [onPresetSelect]);
-    const handlePreset6M = useCallback(() => onPresetSelect('6M'), [onPresetSelect]);
-    const handlePresetAll = useCallback(() => onPresetSelect('All'), [onPresetSelect]);
-    const presetHandlers: Record<TimePreset, () => void> = {
-        '3M': handlePreset3M,
-        '6M': handlePreset6M,
-        'All': handlePresetAll,
-    };
 
     // ── Derived colours ───────────────────────────────────────────────────────
     const chipBg = isDark ? darkTheme.card : lightTheme.card;
@@ -105,32 +91,6 @@ export const MonthNavigator: React.FC<MonthNavigatorProps> = memo(({
                     </ThemedText>
                 </View>
             )}
-
-            {/* ── Preset chips ──────────────────────────────────────────────── */}
-            <View style={styles.chipsRow}>
-                {PRESETS.map((preset) => {
-                    const isActive = timePreset === preset;
-                    return (
-                        <Pressable
-                            key={preset}
-                            onPress={presetHandlers[preset]}
-                            style={[
-                                styles.chip,
-                                { backgroundColor: isActive ? activeChipBg : chipBg },
-                            ]}
-                        >
-                            <ThemedText
-                                style={[
-                                    styles.chipText,
-                                    { color: isActive ? '#fff' : colors.subtitle },
-                                ]}
-                            >
-                                {preset}
-                            </ThemedText>
-                        </Pressable>
-                    );
-                })}
-            </View>
         </View>
     );
 });
@@ -165,20 +125,6 @@ const styles = StyleSheet.create({
     },
     presetActiveLabel: {
         fontSize: 15,
-        fontWeight: '500',
-    },
-    chipsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 4,
-    },
-    chip: {
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 20,
-    },
-    chipText: {
-        fontSize: 13,
         fontWeight: '500',
     },
 });

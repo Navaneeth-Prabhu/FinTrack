@@ -551,7 +551,7 @@ export const getNewTransactionsFromSMS = async (
   userId: string | null,
   isOnline: boolean,
   force = false,
-): Promise<Transaction[]> => {
+): Promise<(Transaction & { smsId?: string, rawDateMs?: number })[]> => {
   try {
     const aiEnabled = await getSMSAIPreference();
     const options: CategorizationOptions = { aiEnabled, isOnline, userId };
@@ -696,9 +696,7 @@ export const getNewTransactionsFromSMS = async (
 
     // STEP 6: Convert to app transactions sequentially to prevent DB race conditions
     // (e.g., auto-creating duplicate accounts)
-    const appTransactions: Transaction[] = [];
-    const newlyProcessedIds: string[] = [];
-    let maxDateProcessed = watermark;
+    const appTransactions: (Transaction & { smsId?: string, rawDateMs?: number })[] = [];
 
     let processedCount = 0;
     for (const t of highConfidenceTransactions) {
@@ -710,23 +708,11 @@ export const getNewTransactionsFromSMS = async (
 
       const tx = await convertToAppTransaction(t, categories, options);
 
-      appTransactions.push(tx);
-      if (t.smsId) newlyProcessedIds.push(t.smsId);
-
-      const txDateTs = new Date(t.date).getTime();
-      if (txDateTs > maxDateProcessed) {
-        maxDateProcessed = txDateTs;
-      }
-    }
-
-    // Update watermark to the newest SMS we just processed
-    if (maxDateProcessed > watermark) {
-      await updateSmsWatermark(maxDateProcessed);
-    }
-
-    // Permanently save the individual IDs to SQLite as an extra layer of protection
-    if (newlyProcessedIds.length > 0) {
-      await saveProcessedSmsIdsToDb(newlyProcessedIds);
+      appTransactions.push({
+        ...tx,
+        smsId: t.smsId,
+        rawDateMs: new Date(t.date).getTime()
+      });
     }
 
     return appTransactions;
@@ -752,14 +738,36 @@ export const importSMSTransactionsToStore = async (
     }
 
     let savedCount = 0;
+    const successfullySavedSmsIds: string[] = [];
+    let maxDateProcessed = 0;
+
     for (const tx of transactions) {
       try {
         await saveTransactionFn(tx);
         savedCount++;
+
+        if (tx.smsId) {
+          successfullySavedSmsIds.push(tx.smsId);
+        }
+        if (tx.rawDateMs && tx.rawDateMs > maxDateProcessed) {
+          maxDateProcessed = tx.rawDateMs;
+        }
+
         useSmsSyncStore.getState().updateProgress(savedCount, `Saving transaction ${savedCount} of ${transactions.length}...`);
       } catch (err) {
         console.error('[SMS::Util] Save error for tx:', tx.id, err);
       }
+    }
+
+    // Permanently save the IDs and watermark to SQLite AFTER successful inserts
+    if (successfullySavedSmsIds.length > 0) {
+      await saveProcessedSmsIdsToDb(successfullySavedSmsIds);
+      console.log(`[SMS::Util] Flushed ${successfullySavedSmsIds.length} successfully saved transaction SMS IDs to SQLite`);
+    }
+
+    const currentWatermark = await getSmsWatermarkFromDb();
+    if (maxDateProcessed > currentWatermark) {
+      await updateSmsWatermark(maxDateProcessed);
     }
 
     console.log(`[SMS::Util] Saved ${savedCount}/${transactions.length} transactions`);

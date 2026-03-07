@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { ThemedText } from '@/components/common/ThemedText';
 import { Holding } from '@/types';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -60,10 +60,13 @@ export default function HoldingCard({ holding, onUpdatePrice, onPress }: Holding
     const showStaleBadge = staleDays > 2 && !isFixedIncome;
 
     return (
-        <TouchableOpacity
-            style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }]}
+        <Pressable
+            style={({ pressed }) => [
+                styles.card,
+                { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 },
+                pressed && { opacity: 0.8 }
+            ]}
             onPress={() => onPress ? onPress(holding) : onUpdatePrice(holding)}
-            activeOpacity={0.8}
         >
             <View style={styles.iconContainer}>
                 <Ionicons name={iconName} size={20} color="#60A5FA" />
@@ -122,7 +125,7 @@ export default function HoldingCard({ holding, onUpdatePrice, onPress }: Holding
                     </View>
                 )}
             </View>
-        </TouchableOpacity>
+        </Pressable>
     );
 }
 

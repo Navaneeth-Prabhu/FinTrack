@@ -55,8 +55,6 @@ export default function TimeLineScreen() {
     // Counter to force the bottom sheet to re-read ref values when opened
     const [sheetRevision, setSheetRevision] = useState(0);
 
-    const [selectedView, setSelectedView] = useState<TimeView>('Month');
-
     // ── Time scope state ──────────────────────────────────────────────────────
     const [selectedMonth, setSelectedMonth] = useState<Date>(() => startOfMonth(new Date()));
     const [timePreset, setTimePreset] = useState<TimePreset | null>(null);
@@ -214,7 +212,6 @@ export default function TimeLineScreen() {
                 timePreset={timePreset}
                 onPrevMonth={handlePrevMonth}
                 onNextMonth={handleNextMonth}
-                onPresetSelect={handlePresetSelect}
             />
 
             {/* ── Active type/category filter chips ─────────────────────────── */}
@@ -255,8 +252,8 @@ export default function TimeLineScreen() {
             {/* ── Filter bottom sheet ───────────────────────────────────────── */}
             <FilterBottomSheet
                 bottomSheetRef={bottomSheetRef}
-                selectedView={selectedView}
-                onViewSelect={setSelectedView}
+                timePreset={timePreset}
+                onPresetSelect={handlePresetSelect}
                 filterState={tempFilterState}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}

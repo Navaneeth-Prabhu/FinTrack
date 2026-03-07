@@ -155,13 +155,13 @@ export default function SIPsView() {
         );
     }
 
-    const renderEmpty = () => (
+    const renderEmpty = useCallback(() => (
         <View style={styles.emptyContainer}>
             <ThemedText style={[styles.emptyText, { color: colors.subtitle }]}>
                 No active SIPs found. Tap '+ Add' to track your mutual funds or recurring investments.
             </ThemedText>
         </View>
-    );
+    ), [colors.subtitle]);
 
     return (
         <View style={styles.container}>

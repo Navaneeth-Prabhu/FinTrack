@@ -1,5 +1,6 @@
 import React, { useRef, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, RefreshControl, Alert } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { ThemedText } from '@/components/common/ThemedText';
 import { useHoldingsStore } from '@/stores/holdingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -17,7 +18,7 @@ export default function HoldingsView() {
     const router = useRouter();
     const { holdings, getTotalInvested, getCurrentValue, fetchHoldings } = useHoldingsStore();
     const { format } = useCurrency();
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const sheetRef = useRef<UpdatePriceSheetRef>(null);
 
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
@@ -98,18 +99,19 @@ export default function HoldingsView() {
                     {FILTERS.map(filter => {
                         const isActive = activeFilter === filter;
                         return (
-                            <TouchableOpacity
+                            <Pressable
                                 key={filter}
-                                style={[
+                                style={({ pressed }) => [
                                     styles.filterChip,
-                                    isActive ? styles.filterChipActive : { borderColor: 'rgba(255,255,255,0.1)' } // Dark theme border
+                                    isActive ? styles.filterChipActive : { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+                                    pressed && { opacity: 0.7 }
                                 ]}
                                 onPress={() => setActiveFilter(filter)}
                             >
                                 <ThemedText style={{ color: isActive ? '#FBBF24' : '#8E8E93', fontSize: 13, fontWeight: '600' }}>
                                     {filter}
                                 </ThemedText>
-                            </TouchableOpacity>
+                            </Pressable>
                         );
                     })}
                 </ScrollView>
@@ -140,16 +142,19 @@ export default function HoldingsView() {
                 </View>
 
                 {/* Bulk Update Prices button */}
-                <TouchableOpacity
-                    style={[styles.bulkUpdateBtn, { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.08)' }]}
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.bulkUpdateBtn,
+                        { backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.08)' },
+                        pressed && { opacity: 0.75 }
+                    ]}
                     onPress={onBulkUpdatePrices}
-                    activeOpacity={0.75}
                 >
                     <RefreshCw size={14} color={colors.primary} style={{ marginRight: 6 }} />
                     <ThemedText style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
                         Update All Prices ({stalePriceHoldings.length})
                     </ThemedText>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* Grouped Lists */}
                 {Object.entries(groupedHoldings).map(([key, group]) => {
@@ -169,14 +174,17 @@ export default function HoldingsView() {
                                 </ThemedText>
                             </View>
 
-                            {group.data.map((holding) => (
-                                <HoldingCard
-                                    key={holding.id}
-                                    holding={holding}
-                                    onPress={(h) => router.push(`/investment/holding/${h.id}`)}
-                                    onUpdatePrice={handleUpdatePrice}
-                                />
-                            ))}
+                            <FlashList
+                                data={group.data}
+                                renderItem={({ item }) => (
+                                    <HoldingCard
+                                        holding={item}
+                                        onPress={(h) => router.push(`/investment/holding/${h.id}`)}
+                                        onUpdatePrice={handleUpdatePrice}
+                                    />
+                                )}
+                                estimatedItemSize={100}
+                            />
                         </View>
                     );
                 })}
