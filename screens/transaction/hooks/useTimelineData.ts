@@ -29,8 +29,8 @@ let globalCache: CacheState = {
 const inFlightPrefetches = new Set<string>();
 
 const getCacheKey = (dateRange: DateRange | null, filters: TimelineFilters) => {
-    if (!dateRange) return 'all_time';
-    return `${dateRange.start}_${dateRange.end}_${filters.transactionType.join(',')}_${filters.categories.join(',')}`;
+    const rangeKey = dateRange ? `${dateRange.start}_${dateRange.end}` : 'all_time';
+    return `${rangeKey}_${filters.transactionType.join(',')}_${filters.categories.join(',')}`;
 };
 
 // ── Synchronous helper: read straight from cache ───────────────
@@ -68,18 +68,18 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
 
     // 2. We only need React state to force a re-render when an async fetch finishes.
     const [, forceRender] = useState({});
+    const [fetchTrigger, setFetchTrigger] = useState(0);
     const [error, setError] = useState<string | null>(null);
 
     const storeTransactions = useTransactionStore(s => s.transactions);
-    const storeRefreshTrigger = storeTransactions.length;
 
-    // Clear cache when a transaction is saved/deleted anywhere in the app
+    // Clear cache when ANY transaction is added, updated, or deleted
     useEffect(() => {
         globalCache.transactions = {};
         globalCache.totals = {};
         inFlightPrefetches.clear();
-        forceRender({}); // Force UI to clear
-    }, [storeRefreshTrigger]);
+        setFetchTrigger(t => t + 1); // Triggers main effect to fetch with current closures!
+    }, [storeTransactions]);
 
     // ── Core fetch ────────────────────────────────────────────────────────────
     const performFetch = async (
@@ -166,7 +166,12 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
             })
             .catch(err => {
                 console.error('[Timeline] Failed to fetch:', err);
-                if (isMounted) setError(err instanceof Error ? err.message : 'Unknown error');
+                if (isMounted) {
+                    setError(err instanceof Error ? err.message : 'Unknown error');
+                    // Prevent infinite loading state by setting the cache to an empty result
+                    globalCache.transactions[cacheKey] = [];
+                    forceRender({});
+                }
             });
 
         return () => {
@@ -177,8 +182,7 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
         dateRange?.end,
         filters.transactionType.join(','),
         filters.categories.join(','),
-        // By intentionally NOT putting `currentState.data` in the array, we prevent
-        // the effect from re-firing immediately after `forceRender` populates the cache
+        fetchTrigger // <-- Dependency on cache wipes guarantees fresh closures
     ]);
 
     // Manual refetch trigger

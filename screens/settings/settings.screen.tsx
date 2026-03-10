@@ -83,8 +83,8 @@ const MoreScreen = () => {
                     onPress: async () => {
                         await resetSmsProcessedIds();
                         const categories = useCategoryStore.getState().categories;
-                        const saveTransaction = useTransactionStore.getState().saveTransaction;
-                        await importSMSTransactionsToStore(categories, saveTransaction);
+                        const saveBulkTransactions = useTransactionStore.getState().saveBulkTransactions;
+                        await importSMSTransactionsToStore(categories, saveBulkTransactions);
                     },
                 },
             ]

@@ -10,7 +10,7 @@ import { showOEMBatteryPromptIfNeeded } from './oemDetection';
 
 export interface SMSInitOptions {
   categories: Category[];
-  saveTransactionFn: (t: Transaction) => Promise<Transaction>;
+  saveBulkTransactionsFn: (txs: Transaction[]) => Promise<Transaction[]>;
 }
 
 /** Resolve current user ID from Supabase session (null if not logged in / offline) */
@@ -62,7 +62,7 @@ export const initializeSMSFeatures = async (opts: SMSInitOptions): Promise<void>
 
     const count = await importSMSTransactionsToStore(
       opts.categories,
-      opts.saveTransactionFn,
+      opts.saveBulkTransactionsFn,
       userId,
       isOnline,
     );

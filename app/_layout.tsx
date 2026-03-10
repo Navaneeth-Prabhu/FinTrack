@@ -46,7 +46,7 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
   const { biometrics } = usePreferenceStore();
   const { categories, fetchCategories } = useCategoryStore();
-  const { saveTransaction } = useTransactionStore();
+  const { saveBulkTransactions } = useTransactionStore();
   const { initialize: initAuth } = useSupabaseAuthStore();
 
   // Start the real-time SMS ContentObserver (while app is alive)
@@ -107,7 +107,7 @@ export default function RootLayout() {
                 // Run SMS initialization in background without blocking startup
                 initializeSMSFeatures({
                   categories: currentCategories,
-                  saveTransactionFn: saveTransaction,
+                  saveBulkTransactionsFn: saveBulkTransactions,
                 }).catch(err => console.error('[SMS::Init] Background init failed:', err));
               }
             });
@@ -141,7 +141,7 @@ export default function RootLayout() {
 
       initializeApp();
     }
-  }, [loaded, isBiometricSupported, biometrics, saveTransaction]);
+  }, [loaded, isBiometricSupported, biometrics, saveBulkTransactions]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2000);

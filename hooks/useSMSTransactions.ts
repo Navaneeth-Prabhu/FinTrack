@@ -16,7 +16,7 @@ export const useSMSTransactions = (): UseSMSTransactionsResult => {
   const [scanning, setScanning] = useState<boolean>(false);
   const [lastScanDate, setLastScanDate] = useState<Date | null>(null);
 
-  const saveTransaction = useTransactionStore(state => state.saveTransaction);
+  const saveBulkTransactions = useTransactionStore(state => state.saveBulkTransactions);
   const categories = useCategoryStore(state => state.categories);
 
   const autoScanSMS = useCallback(async (): Promise<number> => {
@@ -28,7 +28,7 @@ export const useSMSTransactions = (): UseSMSTransactionsResult => {
       const { data } = await supabase.auth.getSession();
       const userId = data?.session?.user?.id ?? null;
 
-      const count = await importSMSTransactionsToStore(categories, saveTransaction, userId, true);
+      const count = await importSMSTransactionsToStore(categories, saveBulkTransactions, userId, true);
       if (count > 0) setLastScanDate(new Date());
       return count;
     } catch (err) {
@@ -37,7 +37,7 @@ export const useSMSTransactions = (): UseSMSTransactionsResult => {
     } finally {
       setScanning(false);
     }
-  }, [categories, saveTransaction, scanning]);
+  }, [categories, saveBulkTransactions, scanning]);
 
   return { scanning, autoScanSMS, lastScanDate };
 };

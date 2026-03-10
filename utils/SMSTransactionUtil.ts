@@ -725,7 +725,7 @@ export const getNewTransactionsFromSMS = async (
 // ─── Import to store ───────────────────────────────────────────────────────────
 export const importSMSTransactionsToStore = async (
   categories: Category[],
-  saveTransactionFn: (t: Transaction) => Promise<Transaction>,
+  saveBulkTransactionsFn: (txs: Transaction[]) => Promise<Transaction[]>,
   userId: string | null = null,
   isOnline = true,
   force = false,
@@ -741,21 +741,27 @@ export const importSMSTransactionsToStore = async (
     const successfullySavedSmsIds: string[] = [];
     let maxDateProcessed = 0;
 
-    for (const tx of transactions) {
+    const validTransactionsToSave: Transaction[] = [];
+
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+      validTransactionsToSave.push(tx);
+      if (tx.smsId) {
+        successfullySavedSmsIds.push(tx.smsId);
+      }
+      if (tx.rawDateMs && tx.rawDateMs > maxDateProcessed) {
+        maxDateProcessed = tx.rawDateMs;
+      }
+      useSmsSyncStore.getState().updateProgress(i + 1, `Preparing transaction ${i + 1} of ${transactions.length}...`);
+    }
+
+    if (validTransactionsToSave.length > 0) {
       try {
-        await saveTransactionFn(tx);
-        savedCount++;
-
-        if (tx.smsId) {
-          successfullySavedSmsIds.push(tx.smsId);
-        }
-        if (tx.rawDateMs && tx.rawDateMs > maxDateProcessed) {
-          maxDateProcessed = tx.rawDateMs;
-        }
-
-        useSmsSyncStore.getState().updateProgress(savedCount, `Saving transaction ${savedCount} of ${transactions.length}...`);
+        useSmsSyncStore.getState().updateProgress(transactions.length, `Saving ${validTransactionsToSave.length} transactions to database...`);
+        await saveBulkTransactionsFn(validTransactionsToSave);
+        savedCount = validTransactionsToSave.length;
       } catch (err) {
-        console.error('[SMS::Util] Save error for tx:', tx.id, err);
+        console.error('[SMS::Util] Bulk save error:', err);
       }
     }
 

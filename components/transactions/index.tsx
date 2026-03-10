@@ -77,7 +77,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     const { sections, totals } = useTransactionSections(transactions, recurringTransactions);
 
     const categories = useCategoryStore(state => state.categories);
-    const { saveTransaction, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
+    const { saveBulkTransactions, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
     const [loading, setLoading] = React.useState(false);
 
     // Derived once, not recalculated in every renderItem call
@@ -187,7 +187,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         if (loading) return;
         setLoading(true);
         try {
-            const importCount = await importSMSTransactionsToStore(categories, saveTransaction);
+            const importCount = await importSMSTransactionsToStore(categories, saveBulkTransactions);
             if (importCount > 0) {
                 Alert.alert('Import Successful', `Successfully imported ${importCount} transactions from your SMS messages.`);
             } else {
@@ -199,7 +199,7 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
         } finally {
             setLoading(false);
         }
-    }, [loading, categories, saveTransaction]);
+    }, [loading, categories, saveBulkTransactions]);
 
     // ── Refresh Handler ───────────────────────────────────────────────────────
     const handleRefresh = useCallback(async () => {
@@ -211,14 +211,14 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 
             // 2. Import new SMS transactions if on Android
             if (Platform.OS === 'android') {
-                await importSMSTransactionsToStore(categories, saveTransaction);
+                await importSMSTransactionsToStore(categories, saveBulkTransactions);
             }
         } catch (error) {
             console.error('[TransactionList] Refresh failed:', error);
         } finally {
             setLoading(false);
         }
-    }, [loading, categories, saveTransaction]);
+    }, [loading, categories, saveBulkTransactions]);
 
     // ── Pagination Handler ────────────────────────────────────────────────────
     const handleEndReached = useCallback(() => {

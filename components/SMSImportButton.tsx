@@ -5,33 +5,33 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { importSMSTransactionsToStore } from '@/utils/SMSTransactionUtil';
 
-const SMSImportButton = ({ style }) => {
+const SMSImportButton = ({ style }: { style?: any }) => {
   const [loading, setLoading] = useState(false);
-  
+
   // Get the category and transaction store functions
   const categories = useCategoryStore(state => state.categories);
-  const saveTransaction = useTransactionStore(state => state.saveTransaction);
-  
+  const saveBulkTransactions = useTransactionStore(state => state.saveBulkTransactions);
+
   const handleImport = async () => {
     if (Platform.OS !== 'android') {
       Alert.alert('Not Available', 'SMS import is only available on Android devices');
       return;
     }
-    
+
     if (loading) return;
     setLoading(true);
-    
+
     try {
-      const importCount = await importSMSTransactionsToStore(categories, saveTransaction);
-      
+      const importCount = await importSMSTransactionsToStore(categories, saveBulkTransactions);
+
       if (importCount > 0) {
         Alert.alert(
-          'Import Successful', 
+          'Import Successful',
           `Successfully imported ${importCount} transactions from your SMS messages.`
         );
       } else {
         Alert.alert(
-          'No Transactions Found', 
+          'No Transactions Found',
           'No new financial transactions were found in your SMS messages.'
         );
       }
@@ -42,14 +42,14 @@ const SMSImportButton = ({ style }) => {
       setLoading(false);
     }
   };
-  
+
   if (Platform.OS !== 'android') {
     return null;
   }
-  
+
   return (
-    <TouchableOpacity 
-      style={[styles.button, style]} 
+    <TouchableOpacity
+      style={[styles.button, style]}
       onPress={handleImport}
       disabled={loading}
     >
