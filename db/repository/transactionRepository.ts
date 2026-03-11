@@ -150,8 +150,8 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
         await db.withTransactionAsync(async () => {
             const insertPromises = transactions.map(transaction =>
                 db.runAsync(
-                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, fromAccountId, toAccountId, refNumber)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                    `INSERT INTO transactions (id, amount, type, date, paidTo, paidBy, createdAt, lastModified, categoryId, mode, sourceType, fromAccountId, toAccountId, refNumber, sourceRawData)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
                     transaction.id,
                     transaction.amount,
                     transaction.type,
@@ -165,7 +165,8 @@ export const saveBulkTransactionsToDB = async (transactions: Transaction[]): Pro
                     transaction.source.type,
                     transaction.fromAccount?.id ?? null,
                     transaction.toAccount?.id ?? null,
-                    transaction.refNumber ?? null
+                    transaction.refNumber ?? null,
+                    transaction.source.rawData ?? null
                 )
             );
             await Promise.all(insertPromises);
@@ -192,7 +193,8 @@ export const updateBulkTransactionsInDB = async (transactions: Transaction[]): P
                          categoryId = ?, 
                          sourceType = ?,
                          fromAccountId = ?,
-                         toAccountId = ?
+                         toAccountId = ?,
+                         sourceRawData = ?
                      WHERE id = ?`,
                     transaction.amount,
                     transaction.type,
@@ -204,6 +206,7 @@ export const updateBulkTransactionsInDB = async (transactions: Transaction[]): P
                     transaction.source.type,
                     transaction.fromAccount?.id ?? null,
                     transaction.toAccount?.id ?? null,
+                    transaction.source.rawData ?? null,
                     transaction.id
                 )
             );

@@ -934,62 +934,93 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
             const normBody = normaliseSMSBody(message.body);
 
             // ── Investment SMS routing (BEFORE generic transaction parser) ──────
-            // SIP allotment, Loan EMI, and Stock Buy SMS must be processed here
-            // first. If they fall through to extractTransactionFromSMS() they'll
-            // be misclassified as regular expense transactions.
-
             const sipAllotment = parseSIPAllotment(normBody);
-            if (sipAllotment && smsId) {
-                handleSIPAllotmentSMS(sipAllotment, smsId).then(r => {
-                    console.log(`[SMS::investmentRouter] SIP allotment → ${r.status}`);
-                }).catch(e => console.warn('[SMS::investmentRouter] SIP error:', e));
-                // Do NOT push to transactions[] — this is handled by investmentSmsHandler
+            if (sipAllotment) {
+                try {
+                    await handleSIPAllotmentSMS(sipAllotment, smsId);
+                    // ✅ CORRECT: mark AFTER successful write
+                    if (smsId) await markSMSProcessed(smsId);
+                } catch (err) {
+                    // SMS stays unprocessed — will retry on next app open
+                    console.warn('[SMS::Pipeline] SIP allotment insert failed, will retry:', smsId, err);
+                }
                 continue;
             }
 
             const loanEMI = parseLoanEMI(normBody);
-            if (loanEMI && smsId) {
-                handleLoanEMISMS(loanEMI, smsId).then(r => {
-                    console.log(`[SMS::investmentRouter] Loan EMI → ${r.status}`);
-                }).catch(e => console.warn('[SMS::investmentRouter] Loan error:', e));
+            if (loanEMI) {
+                try {
+                    await handleLoanEMISMS(loanEMI, smsId);
+                    if (smsId) await markSMSProcessed(smsId);
+                } catch (err) {
+                    console.warn('[SMS::Pipeline] Loan EMI insert failed, will retry:', smsId, err);
+                }
                 continue;
             }
 
             const stockBuy = parseStockBuy(normBody);
-            if (stockBuy && smsId) {
-                handleStockBuySMS(stockBuy, smsId).then(r => {
-                    console.log(`[SMS::investmentRouter] Stock trade → ${r.status}`);
-                }).catch(e => console.warn('[SMS::investmentRouter] Stock error:', e));
+            if (stockBuy) {
+                try {
+                    await handleStockBuySMS(stockBuy, smsId);
+                    if (smsId) await markSMSProcessed(smsId);
+                } catch (err) {
+                    console.warn('[SMS::Pipeline] Stock buy insert failed, will retry:', smsId, err);
+                }
                 continue;
             }
 
-            // ── Generic transaction parser (falls through from investment checks) ──
-            const parsed = extractTransactionFromSMS(message.body, message.address);
+            // ── Generic transaction parsing ───────────────────────────────────
+            const parsed = extractTransactionFromSMS(normBody, message.address);
+            if (!parsed || parsed.amount <= 0) continue;
 
-            if (!parsed) {
-                // We keep this log silent to avoid spam during bulk scans
-                continue;
-            }
+            // Combine date from SMS body with the time from SMS metadata
+            const transactionDate = parsed.date
+                ? combineDateWithTime(parsed.date, message.date).toISOString()
+                : new Date(message.date).toISOString();
 
-            let transactionDate: string;
-            if (parsed.date && message.date) {
-                transactionDate = combineDateWithTime(parsed.date, message.date).toISOString();
-            } else if (parsed.date) {
-                transactionDate = parsed.date;
-            } else if (message.date) {
-                transactionDate = new Date(message.date).toISOString();
-            } else {
-                transactionDate = new Date().toISOString();
-            }
-
-            transactions.push({ ...parsed, smsId, date: transactionDate });
+            transactions.push({
+                ...parsed,
+                smsId,
+                date: transactionDate,
+            });
+            // NOTE: For regular transactions, markSMSProcessed is called by the
+            // caller (smsInitService / useSMSObserver) AFTER saveTransaction succeeds.
+            // Do NOT mark here — we return the list and let the caller decide.
         }
 
-
-        console.log(`[SMS::Parser] Extracted ${transactions.length} transactions from SMS`);
         return transactions;
     } catch (err) {
-        console.error('[SMS::Parser] Pipeline error:', err);
+        console.error('[SMS::Pipeline] Fatal error in getTransactionsFromSMS:', err);
         return [];
     }
 };
+
+// ─── Helper: mark SMS as processed in AsyncStorage ───────────────────────────
+const PROCESSED_SMS_KEY = 'processed_sms_ids';
+
+async function markSMSProcessed(smsId: string): Promise<void> {
+    try {
+        const raw = await AsyncStorage.getItem(PROCESSED_SMS_KEY);
+        const ids: string[] = raw ? JSON.parse(raw) : [];
+        if (!ids.includes(smsId)) {
+            ids.push(smsId);
+            // Keep only the last 2000 IDs to prevent unbounded storage growth
+            const trimmed = ids.slice(-2000);
+            await AsyncStorage.setItem(PROCESSED_SMS_KEY, JSON.stringify(trimmed));
+        }
+    } catch (err) {
+        console.warn('[SMS::Pipeline] Failed to mark SMS processed:', smsId, err);
+        // Non-fatal — worst case the SMS gets re-processed (idempotent inserts handle this)
+    }
+}
+
+export async function isSMSProcessed(smsId: string): Promise<boolean> {
+    try {
+        const raw = await AsyncStorage.getItem(PROCESSED_SMS_KEY);
+        if (!raw) return false;
+        const ids: string[] = JSON.parse(raw);
+        return ids.includes(smsId);
+    } catch {
+        return false;
+    }
+}

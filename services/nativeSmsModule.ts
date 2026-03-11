@@ -1,6 +1,8 @@
-// services/nativeSmsModule.ts
-// Typed TypeScript bridge for the custom SmsModule native module.
-// This is the ONLY file that touches NativeModules — all other SMS code imports from here.
+// services/nativeSmsModule.ts — ADD this diagnostic block near the top,
+// just after the NativeModules destructuring.
+//
+// This surfaces "SmsModule not found" as a visible warning in release
+// instead of silently returning [] on every SMS read attempt.
 
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
@@ -8,35 +10,34 @@ export interface RawSmsMessage {
     _id: string;
     address: string;
     body: string;
-    date: number; // Unix timestamp in milliseconds
+    date: number;
 }
 
 interface SmsModuleInterface {
-    /**
-     * Read SMS inbox messages.
-     * @param maxCount  Max messages to return (sorted newest first)
-     * @param minDate   Unix timestamp (ms). 0 = no filter.
-     * @returns JSON string of RawSmsMessage[]
-     */
     getTransactionSms(maxCount: number, minDate: number): Promise<string>;
-
-    /** Start the ContentObserver that watches content://sms/inbox for new messages. */
     startSmsObserver(): void;
-
-    /** Stop the ContentObserver. Call on app unmount / cleanup. */
     stopSmsObserver(): void;
-
-    /** Required by React Native for NativeEventEmitter */
     addListener(eventName: string): void;
     removeListeners(count: number): void;
 }
 
 const { SmsModule: _SmsModule } = NativeModules as { SmsModule: SmsModuleInterface | undefined };
 
-/**
- * Read financial SMS messages from the inbox.
- * Returns an empty array on iOS or if the native module is unavailable.
- */
+// ─── DIAGNOSTIC: Warn loudly if module is missing in release ─────────────────
+// If you see this warning, your proguard-rules.pro is missing the SMS keep rules.
+if (Platform.OS === 'android') {
+    if (!_SmsModule) {
+        console.error(
+            '[SmsModule] ❌ CRITICAL: NativeModules.SmsModule is undefined!\n' +
+            'This means the native module was stripped by R8/ProGuard in release build.\n' +
+            'Fix: Add -keep class com.fintrack.FinTrack.SmsModule { *; } to proguard-rules.pro\n' +
+            'All SMS parsing will be skipped until this is fixed.'
+        );
+    } else {
+        console.log('[SmsModule] ✅ Native module loaded successfully');
+    }
+}
+
 export async function readSmsMessages(
     maxCount = 300,
     minDate = 0,
@@ -47,32 +48,27 @@ export async function readSmsMessages(
 
     try {
         const raw = await _SmsModule.getTransactionSms(maxCount, minDate);
-        return JSON.parse(raw) as RawSmsMessage[];
+        const parsed = JSON.parse(raw) as RawSmsMessage[];
+        console.log(`[SmsModule] ✅ Read ${parsed.length} financial SMS messages`);
+        return parsed;
     } catch (error) {
-        console.error('[SmsModule] Failed to read SMS:', error);
+        console.error('[SmsModule] ❌ Failed to read SMS:', error);
         return [];
     }
 }
 
-/** Start the native ContentObserver. No-op on iOS. */
 export function startNativeSmsObserver(): void {
     if (Platform.OS === 'android' && _SmsModule) {
         _SmsModule.startSmsObserver();
     }
 }
 
-/** Stop the native ContentObserver. No-op on iOS. */
 export function stopNativeSmsObserver(): void {
     if (Platform.OS === 'android' && _SmsModule) {
         _SmsModule.stopSmsObserver();
     }
 }
 
-/**
- * The NativeEventEmitter for the SmsModule.
- * Emits 'SmsReceived' events with a JSON string payload: RawSmsMessage.
- * Use this in useSMSObserver to listen for real-time incoming SMS.
- */
 export const SmsModuleEmitter = Platform.OS === 'android' && _SmsModule
     ? new NativeEventEmitter(_SmsModule as any)
     : null;
