@@ -1,8 +1,6 @@
-// services/nativeSmsModule.ts — ADD this diagnostic block near the top,
-// just after the NativeModules destructuring.
-//
-// This surfaces "SmsModule not found" as a visible warning in release
-// instead of silently returning [] on every SMS read attempt.
+// services/nativeSmsModule.ts
+// Typed TypeScript bridge for the custom SmsModule native module.
+// This is the ONLY file that touches NativeModules — all other SMS code imports from here.
 
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
@@ -10,7 +8,7 @@ export interface RawSmsMessage {
     _id: string;
     address: string;
     body: string;
-    date: number;
+    date: number; // Unix timestamp in milliseconds
 }
 
 interface SmsModuleInterface {
@@ -23,21 +21,38 @@ interface SmsModuleInterface {
 
 const { SmsModule: _SmsModule } = NativeModules as { SmsModule: SmsModuleInterface | undefined };
 
-// ─── DIAGNOSTIC: Warn loudly if module is missing in release ─────────────────
-// If you see this warning, your proguard-rules.pro is missing the SMS keep rules.
-if (Platform.OS === 'android' && !_SmsModule) {
-    console.error(
-        '[SmsModule] ❌ NativeModules.SmsModule is undefined! ' +
-        'R8/ProGuard stripped it in this release build. ' +
-        'Fix: proguard-rules.pro is missing -keep class com.fintrack.FinTrack.** { *; }'
-    );
+// ─── DIAGNOSTIC: Catch R8/ProGuard stripping or New Arch registration failure ─
+// In release builds, if SmsModule is undefined it means either:
+//   1. proguard-rules.pro is missing -keep class com.fintrack.FinTrack.** { *; }
+//   2. newArchEnabled=true in gradle.properties (breaks old-style ReactContextBaseJavaModule)
+// Run: adb logcat | grep "\[SmsModule\]" to see this on device
+if (Platform.OS === 'android') {
+    if (!_SmsModule) {
+        console.error(
+            '[SmsModule] ❌ CRITICAL: NativeModules.SmsModule is undefined!\n' +
+            'Checklist:\n' +
+            '  1. proguard-rules.pro must have: -keep class com.fintrack.FinTrack.** { *; }\n' +
+            '  2. gradle.properties must have: newArchEnabled=false\n' +
+            '  3. Run a clean release build after fixing: cd android && ./gradlew clean assembleRelease\n' +
+            'All SMS parsing is silently disabled until this is resolved.'
+        );
+    } else {
+        console.log('[SmsModule] ✅ Native module registered successfully');
+    }
 }
 
+/**
+ * Read financial SMS messages from the inbox.
+ * Returns an empty array on iOS or if the native module is unavailable.
+ */
 export async function readSmsMessages(
     maxCount = 300,
     minDate = 0,
 ): Promise<RawSmsMessage[]> {
     if (Platform.OS !== 'android' || !_SmsModule) {
+        if (Platform.OS === 'android') {
+            console.warn('[SmsModule] readSmsMessages called but module is unavailable — returning []');
+        }
         return [];
     }
 
@@ -47,23 +62,29 @@ export async function readSmsMessages(
         console.log(`[SmsModule] ✅ Read ${parsed.length} financial SMS messages`);
         return parsed;
     } catch (error) {
-        console.error('[SmsModule] ❌ Failed to read SMS:', error);
+        console.error('[SmsModule] ❌ getTransactionSms failed:', error);
         return [];
     }
 }
 
+/** Start the native ContentObserver. No-op on iOS. */
 export function startNativeSmsObserver(): void {
     if (Platform.OS === 'android' && _SmsModule) {
         _SmsModule.startSmsObserver();
     }
 }
 
+/** Stop the native ContentObserver. No-op on iOS. */
 export function stopNativeSmsObserver(): void {
     if (Platform.OS === 'android' && _SmsModule) {
         _SmsModule.stopSmsObserver();
     }
 }
 
+/**
+ * The NativeEventEmitter for the SmsModule.
+ * Emits 'SmsReceived' events with a JSON string payload: RawSmsMessage.
+ */
 export const SmsModuleEmitter = Platform.OS === 'android' && _SmsModule
     ? new NativeEventEmitter(_SmsModule as any)
     : null;
