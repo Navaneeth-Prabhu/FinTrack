@@ -56,7 +56,12 @@ class SmsReceiver : BroadcastReceiver() {
                         putExtra("sender", sender)
                         putExtra("timestamp", timestamp.toDouble()) // React Native handles doubles better than longs
                     }
-                    context.startService(serviceIntent)
+                    try {
+                        context.startService(serviceIntent)
+                    } catch (ex: IllegalStateException) {
+                        Log.e(TAG, "Failed to start Headless JS Service from background. Android >8 background limits?", ex)
+                        // Ignore the crash. The SMS will be picked up on next app startup
+                    }
                     
                     // We only process one message per broadcast, typically an SMS fits in one.
                     // If it's a multipart SMS, getMessagesFromIntent combines them usually, 

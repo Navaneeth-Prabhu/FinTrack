@@ -551,7 +551,10 @@ export const getNewTransactionsFromSMS = async (
   userId: string | null,
   isOnline: boolean,
   force = false,
-): Promise<(Transaction & { smsId?: string, rawDateMs?: number })[]> => {
+): Promise<{
+  transactions: (Transaction & { smsId?: string, rawDateMs?: number, nativeReceiveMs?: number })[];
+  maxProcessedDateMs: number;
+}> => {
   try {
     const aiEnabled = await getSMSAIPreference();
     const options: CategorizationOptions = { aiEnabled, isOnline, userId };
@@ -569,7 +572,7 @@ export const getNewTransactionsFromSMS = async (
 
     if (rawMessages.length === 0) {
       console.log('[SMS::Util] No new SMS messages.');
-      return [];
+      return { transactions: [], maxProcessedDateMs: 0 };
     }
 
     // Start global progress UI if processing a bulk batch
@@ -587,7 +590,12 @@ export const getNewTransactionsFromSMS = async (
     // processedIds array and never persisted — causing re-processing on restart.
     const intentHandledIds: string[] = [];
 
+    let maxDateExperienced = 0;
+
     await Promise.allSettled(rawMessages.map(async (msg) => {
+      const msgDate = msg.date || 0;
+      if (msgDate > maxDateExperienced) maxDateExperienced = msgDate;
+
       const smsId = msg._id?.toString();
       if (!force && smsId && processedIds.includes(smsId)) return; // already processed
 
@@ -676,13 +684,13 @@ export const getNewTransactionsFromSMS = async (
           }
         }
 
-        return { ...parsed, smsId, date };
+        return { ...parsed, smsId, date, nativeReceiveMs: msg.date };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
     if (smsTransactions.length === 0) {
       console.log('[SMS::Util] No new SMS transactions.');
-      return [];
+      return { transactions: [], maxProcessedDateMs: maxDateExperienced };
     }
 
     // STEP 5: Dedup and filter by confidence
@@ -696,7 +704,7 @@ export const getNewTransactionsFromSMS = async (
 
     // STEP 6: Convert to app transactions sequentially to prevent DB race conditions
     // (e.g., auto-creating duplicate accounts)
-    const appTransactions: (Transaction & { smsId?: string, rawDateMs?: number })[] = [];
+    const appTransactions: (Transaction & { smsId?: string, rawDateMs?: number, nativeReceiveMs?: number })[] = [];
 
     let processedCount = 0;
     for (const t of highConfidenceTransactions) {
@@ -711,14 +719,15 @@ export const getNewTransactionsFromSMS = async (
       appTransactions.push({
         ...tx,
         smsId: t.smsId,
-        rawDateMs: new Date(t.date).getTime()
+        rawDateMs: new Date(t.date).getTime(),
+        nativeReceiveMs: t.nativeReceiveMs
       });
     }
 
-    return appTransactions;
+    return { transactions: appTransactions, maxProcessedDateMs: maxDateExperienced };
   } catch (err) {
     console.error('[SMS::Util] Error getting transactions:', err);
-    return [];
+    return { transactions: [], maxProcessedDateMs: 0 };
   }
 };
 
@@ -731,7 +740,7 @@ export const importSMSTransactionsToStore = async (
   force = false,
 ): Promise<number> => {
   try {
-    const transactions = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
+    const { transactions, maxProcessedDateMs } = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
 
     if (transactions.length > 0) {
       useSmsSyncStore.getState().startSync(transactions.length, 'Saving to Database...');
@@ -739,7 +748,6 @@ export const importSMSTransactionsToStore = async (
 
     let savedCount = 0;
     const successfullySavedSmsIds: string[] = [];
-    let maxDateProcessed = 0;
 
     const validTransactionsToSave: Transaction[] = [];
 
@@ -748,9 +756,6 @@ export const importSMSTransactionsToStore = async (
       validTransactionsToSave.push(tx);
       if (tx.smsId) {
         successfullySavedSmsIds.push(tx.smsId);
-      }
-      if (tx.rawDateMs && tx.rawDateMs > maxDateProcessed) {
-        maxDateProcessed = tx.rawDateMs;
       }
       useSmsSyncStore.getState().updateProgress(i + 1, `Preparing transaction ${i + 1} of ${transactions.length}...`);
     }
@@ -762,6 +767,8 @@ export const importSMSTransactionsToStore = async (
         savedCount = validTransactionsToSave.length;
       } catch (err) {
         console.error('[SMS::Util] Bulk save error:', err);
+        // Abort saving watermark if transactions fail to commit
+        return 0;
       }
     }
 
@@ -772,8 +779,8 @@ export const importSMSTransactionsToStore = async (
     }
 
     const currentWatermark = await getSmsWatermarkFromDb();
-    if (maxDateProcessed > currentWatermark) {
-      await updateSmsWatermark(maxDateProcessed);
+    if (maxProcessedDateMs > currentWatermark) {
+      await updateSmsWatermark(maxProcessedDateMs);
     }
 
     console.log(`[SMS::Util] Saved ${savedCount}/${transactions.length} transactions`);

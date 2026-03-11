@@ -175,11 +175,13 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
             /to\s+VPA\s+[\w@.\-]+\s+\(([^)]+)\)/i,
             /at\s+([A-Z][A-Z0-9\s\-\.&,']{2,40}?)(?:\s+on|\s+dated|\.|,|$)/i,
             /NACH.*?(?:to|for)\s+([A-Z][A-Za-z0-9\s\-\.&]{2,40}?)(?:\s+on|\s+dated|\.|$)/i,
+            // New explicit To MERCHANT format
+            /to\s+([A-Z0-9][A-Za-z0-9\s&.\-']{2,40}?)(?:\s+on|\s+ref|\s+dated|\.|,|$)/i,
             // VPA handle fallback
             /(?:to|by)\s+VPA\s+([\w.\-]+)@/i,
         ],
         date: [
-            /on\s+(\d{2}-(?:[A-Za-z]{3}|\d{2})-\d{2,4})/i,
+            /on\s+(\d{2}[-\/](?:[A-Za-z]{3}|\d{2})[-\/]\d{2,4})/i,
             /dated?\s+(\d{2}[-\/]\d{2}[-\/]\d{2,4})/i,
         ],
         account: [
@@ -613,6 +615,8 @@ function extractMerchant(body: string, bankKey: string | null, type: TxType): st
         /towards\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)\s+(?:bill|emi|loan|due)/i,
         /credited\s+by\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+via|\.|\s*$)/i,
         /received\s+from\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+via|\.|\s*$)/i,
+        // Generic from ... to Merchant ... on ... pattern without specific banks
+        /from\s+[\w\s*\/]+\s+to\s+([A-Z0-9][A-Za-z0-9\s&.'\-]{2,40}?)(?:\s+on|\s+ref|\.|$)/i,
         // "at XYZ" (not followed by a time)
         /\bat\s+(?!\d{1,2}:\d{2})([A-Za-z][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\s+via|\s+dt|\.|\s*$)/i,
     ];
@@ -782,7 +786,7 @@ function calculateConfidence(fields: {
 // ─── Read financial SMS ───────────────────────────────────────────────────────
 // Passes minDate watermark to the native layer; the native module does the
 // isFinancialSms() filtering for us, so we can safely scan a large window.
-export const readFinancialSMS = async (minDate = 0, limit = 10_000): Promise<RawSmsMessage[]> => {
+export const readFinancialSMS = async (minDate = 0, limit = 2500): Promise<RawSmsMessage[]> => {
     const hasPermission = await checkSMSPermission();
     if (!hasPermission) {
         console.log('[SMS::Parser] READ_SMS permission not granted. Skipping SMS sync.');

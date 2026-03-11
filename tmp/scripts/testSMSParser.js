@@ -1,23 +1,11 @@
+"use strict";
 // scripts/testSMSParser.ts
 // Standalone test for the SMS parser — run with: npx ts-node scripts/testSMSParser.ts
 // Tests bank detection, amount+type extraction, merchant extraction, and confidence scoring.
-
-import { extractTransactionFromSMS } from '../services/smsParser';
-
-interface TestCase {
-    label: string;
-    sender: string;
-    body: string;
-    expect: {
-        type?: string;
-        amountRange?: [number, number];
-        merchant?: string;
-        bank?: string;
-        confidenceMin?: number;
-    };
-}
-
-const TESTS: TestCase[] = [
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+var smsParser_1 = require("../services/smsParser");
+var TESTS = [
     {
         label: 'HDFC UPI debit',
         sender: 'VM-HDFCBK',
@@ -103,68 +91,61 @@ const TESTS: TestCase[] = [
         expect: { type: 'expense', amountRange: [998, 1000], merchant: 'RENT PAYMENT', confidenceMin: 0.4 },
     }
 ];
-
 // ─── Simple assertion helper ──────────────────────────────────────────────────
-let passed = 0;
-let failed = 0;
-
-function check(label: string, condition: boolean, detail: string) {
+var passed = 0;
+var failed = 0;
+function check(label, condition, detail) {
     if (condition) {
-        console.log(`  ✅ ${label}: ${detail}`);
+        console.log("  \u2705 ".concat(label, ": ").concat(detail));
         passed++;
-    } else {
-        console.error(`  ❌ ${label}: ${detail}`);
+    }
+    else {
+        console.error("  \u274C ".concat(label, ": ").concat(detail));
         failed++;
     }
 }
-
 // ─── Run tests ────────────────────────────────────────────────────────────────
 console.log('\n🧪 SMS Parser Test Suite\n' + '─'.repeat(60));
-
-for (const t of TESTS) {
-    console.log(`\n[${t.label}]`);
-    console.log(`  Sender: ${t.sender}`);
-    console.log(`  Body:   ${t.body.slice(0, 80)}...`);
-
-    const result = extractTransactionFromSMS(t.body, t.sender);
-
+for (var _i = 0, TESTS_1 = TESTS; _i < TESTS_1.length; _i++) {
+    var t = TESTS_1[_i];
+    console.log("\n[".concat(t.label, "]"));
+    console.log("  Sender: ".concat(t.sender));
+    console.log("  Body:   ".concat(t.body.slice(0, 80), "..."));
+    var result = (0, smsParser_1.extractTransactionFromSMS)(t.body, t.sender);
     if (t.expect.type === undefined) {
         // Non-financial — expect null
-        check('returns null for non-financial', result === null, result === null ? 'null ✓' : `got ${JSON.stringify(result)}`);
+        check('returns null for non-financial', result === null, result === null ? 'null ✓' : "got ".concat(JSON.stringify(result)));
         continue;
     }
-
     if (!result) {
         console.error('  ❌ No result returned (expected a transaction)');
         failed += 4;
         continue;
     }
-
-    console.log(`  → type=${result.type} amount=${result.amount} merchant="${result.merchant}" bank="${result.bank}" conf=${result.confidence.toFixed(2)}`);
-
+    console.log("  \u2192 type=".concat(result.type, " amount=").concat(result.amount, " merchant=\"").concat(result.merchant, "\" bank=\"").concat(result.bank, "\" conf=").concat(result.confidence.toFixed(2)));
     if (t.expect.type) {
-        check('type', result.type === t.expect.type, `${result.type} === ${t.expect.type}`);
+        check('type', result.type === t.expect.type, "".concat(result.type, " === ").concat(t.expect.type));
     }
     if (t.expect.amountRange) {
-        const [lo, hi] = t.expect.amountRange;
-        check('amount', result.amount >= lo && result.amount <= hi, `${result.amount} in [${lo}, ${hi}]`);
+        var _b = t.expect.amountRange, lo = _b[0], hi = _b[1];
+        check('amount', result.amount >= lo && result.amount <= hi, "".concat(result.amount, " in [").concat(lo, ", ").concat(hi, "]"));
     }
     if (t.expect.merchant) {
-        check('merchant', (result.merchant ?? '').toLowerCase().includes(t.expect.merchant.toLowerCase()), `"${result.merchant}" includes "${t.expect.merchant}"`);
+        check('merchant', ((_a = result.merchant) !== null && _a !== void 0 ? _a : '').toLowerCase().includes(t.expect.merchant.toLowerCase()), "\"".concat(result.merchant, "\" includes \"").concat(t.expect.merchant, "\""));
     }
     if (t.expect.bank) {
-        check('bank', result.bank === t.expect.bank, `"${result.bank}" === "${t.expect.bank}"`);
+        check('bank', result.bank === t.expect.bank, "\"".concat(result.bank, "\" === \"").concat(t.expect.bank, "\""));
     }
     if (t.expect.confidenceMin !== undefined) {
-        check('confidence', result.confidence >= t.expect.confidenceMin, `${result.confidence.toFixed(2)} >= ${t.expect.confidenceMin}`);
+        check('confidence', result.confidence >= t.expect.confidenceMin, "".concat(result.confidence.toFixed(2), " >= ").concat(t.expect.confidenceMin));
     }
 }
-
 console.log('\n' + '─'.repeat(60));
-console.log(`🏁 Results: ${passed} passed, ${failed} failed out of ${passed + failed} assertions`);
+console.log("\uD83C\uDFC1 Results: ".concat(passed, " passed, ").concat(failed, " failed out of ").concat(passed + failed, " assertions"));
 if (failed === 0) {
     console.log('✅ All tests passed!\n');
-} else {
-    console.log(`⚠️  ${failed} assertion(s) need review\n`);
+}
+else {
+    console.log("\u26A0\uFE0F  ".concat(failed, " assertion(s) need review\n"));
     process.exit(1);
 }
