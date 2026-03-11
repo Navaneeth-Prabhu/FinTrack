@@ -25,17 +25,12 @@ const { SmsModule: _SmsModule } = NativeModules as { SmsModule: SmsModuleInterfa
 
 // ─── DIAGNOSTIC: Warn loudly if module is missing in release ─────────────────
 // If you see this warning, your proguard-rules.pro is missing the SMS keep rules.
-if (Platform.OS === 'android') {
-    if (!_SmsModule) {
-        console.error(
-            '[SmsModule] ❌ CRITICAL: NativeModules.SmsModule is undefined!\n' +
-            'This means the native module was stripped by R8/ProGuard in release build.\n' +
-            'Fix: Add -keep class com.fintrack.FinTrack.SmsModule { *; } to proguard-rules.pro\n' +
-            'All SMS parsing will be skipped until this is fixed.'
-        );
-    } else {
-        console.log('[SmsModule] ✅ Native module loaded successfully');
-    }
+if (Platform.OS === 'android' && !_SmsModule) {
+    console.error(
+        '[SmsModule] ❌ NativeModules.SmsModule is undefined! ' +
+        'R8/ProGuard stripped it in this release build. ' +
+        'Fix: proguard-rules.pro is missing -keep class com.fintrack.FinTrack.** { *; }'
+    );
 }
 
 export async function readSmsMessages(

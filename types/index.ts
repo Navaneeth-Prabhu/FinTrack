@@ -1,4 +1,20 @@
 // src/types.ts
+
+export type TransactionType = 'income' | 'expense' | 'transfer' | 'investment' | 'all';
+export type AccountType = 'bank' | 'cash' | 'credit_card' | 'wallet' | 'investment' | 'other' | 'all';
+
+export interface ActiveFilter {
+  id: string;
+  label: string;
+  type: string;
+  value: string;
+}
+
+export interface DateRange {
+  start: Date | string | number;
+  end: Date | string | number;
+}
+
 export interface Transaction {
   id: string;
   amount: number;

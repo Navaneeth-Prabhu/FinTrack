@@ -31,6 +31,23 @@ export const normaliseSMSBody = (body: string): string => {
         .trim();
 };
 
+// ─── Promotional / Spam Filter ────────────────────────────────────────────────
+// Industry standard filter: explicitly drop marketing/reminder SMS based on
+// strict keywords before they even hit the main extraction engine.
+export function isPromotionalSms(body: string): boolean {
+    const lower = body.toLowerCase();
+    const spamKeywords = [
+        'loan limit', 'credit limit', 'approved loan', 'limit up to',
+        'is consumed', 'pack has expired', 'recharge now',
+        'save flat', 'processing fee', 'convenience fee',
+        'reminder', 'offer', 'win ', 'discount', 'cashback of',
+        'apply now', 'pre-approved', 'pre approved', 'personal loan',
+        'get 2gb', 'get 1gb', 'till midnight', 'waiting for',
+        'hurry', 'limited time'
+    ];
+    return spamKeywords.some(kw => lower.includes(kw));
+}
+
 export type TxType = 'income' | 'expense' | 'transfer' | 'investment';
 
 export interface ParsedSMS {
@@ -179,6 +196,8 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
             /to\s+([A-Z0-9][A-Za-z0-9\s&.\-']{2,40}?)(?:\s+on|\s+ref|\s+dated|\.|,|$)/i,
             // VPA handle fallback
             /(?:to|by)\s+VPA\s+([\w.\-]+)@/i,
+            // HDFC explicit format: "To MERCHANT On" 
+            /To\s+([A-Z0-9][A-Za-z0-9\s&.\-']{2,40}?)\s+On\s+\d{2}\/\d{2}\/\d{2}/i,
         ],
         date: [
             /on\s+(\d{2}[-\/](?:[A-Za-z]{3}|\d{2})[-\/]\d{2,4})/i,
@@ -379,6 +398,7 @@ const GENERIC_DEBIT_PATTERNS: RegExp[] = [
     /(?:debited|deducted|withdrawn|spent|paid)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:Dr\.?|DR)\b/i,
     /amount\s+(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)\s+(?:debited|deducted)/i,
+    /(?:Sent)\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:From)/i,
 ];
 
 const GENERIC_CREDIT_PATTERNS: RegExp[] = [
@@ -500,6 +520,13 @@ function refineType(body: string, amountType: TxType | null): TxType {
     if (creditScore > debitScore) return 'income';
     if (debitScore > 0) return 'expense';
 
+    // Industry Standard: If NO financial verbs were found (debit/credit/transfer is 0)
+    // AND the original extraction could not classify it (e.g. matched a generic amount without verbs)
+    // then we reject it instead of blindly defaulting to 'expense'.
+    if (amountType === null && debitScore === 0 && creditScore === 0 && transferScore === 0) {
+        return null as any; // Trick the compiler, caller must handle null
+    }
+
     // Fall back to what amount extraction found, else expense
     return amountType ?? 'expense';
 }
@@ -567,8 +594,11 @@ function normalizeMerchant(raw: string): string {
 
     // Title-case if all-caps (common in bank SMS)
     if (cleaned === cleaned.toUpperCase() && cleaned.length > 1) {
-        return cleaned.charAt(0) + cleaned.slice(1).toLowerCase()
-            .replace(/\b(\w)/g, c => c.toUpperCase());
+        return cleaned
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
     }
 
     return cleaned;
@@ -617,6 +647,8 @@ function extractMerchant(body: string, bankKey: string | null, type: TxType): st
         /received\s+from\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+via|\.|\s*$)/i,
         // Generic from ... to Merchant ... on ... pattern without specific banks
         /from\s+[\w\s*\/]+\s+to\s+([A-Z0-9][A-Za-z0-9\s&.'\-]{2,40}?)(?:\s+on|\s+ref|\.|$)/i,
+        // HDFC / strict "To MERCHANT" pattern
+        /To\s+([A-Z0-9][A-Za-z0-9\s&.'\-]{2,40}?)(?:\s+On|\.|$)/i,
         // "at XYZ" (not followed by a time)
         /\bat\s+(?!\d{1,2}:\d{2})([A-Za-z][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\s+via|\s+dt|\.|\s*$)/i,
     ];
@@ -827,6 +859,12 @@ export const extractTransactionFromSMS = (
     // Multiline HDFC/SBI UPI SMS were silently failing before this.
     const body = normaliseSMSBody(smsBody);
 
+    // Guard against promotional/marketing spam
+    if (isPromotionalSms(body)) {
+        console.log(`[SMS::Parser] Filtered promotional SMS from ${sender}`);
+        return null;
+    }
+
     const bankKey = detectBank(sender);
     const bankName = bankKey ? BANK_DISPLAY_NAMES[bankKey] ?? null : null;
 
@@ -834,6 +872,10 @@ export const extractTransactionFromSMS = (
     if (!amount) return null;
 
     const type = refineType(body, rawType);
+    if (!type) {
+        console.log(`[SMS::Parser] Filtered vague transaction (amount but no intent) from ${sender}`);
+        return null;
+    }
     let merchant = extractMerchant(body, bankKey, type);
     let paidBy: string | null = null;
 

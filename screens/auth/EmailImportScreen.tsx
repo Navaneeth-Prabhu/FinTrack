@@ -63,25 +63,25 @@ export const EmailImportScreen: React.FC = () => {
     const renderTransactionItem = ({ item }: { item: Transaction }) => (
         <View style={styles.transactionItem}>
             <View style={styles.transactionHeader}>
-                <Text style={styles.transactionTitle}>{item.title}</Text>
+                <Text style={styles.sectionTitle}>{item.paidTo || item.category.name}</Text>
                 <Text
                     style={[
                         styles.transactionAmount,
-                        item.type === 'expense' ? styles.expenseText : styles.incomeText
+                        item.type === 'expense' ? { color: '#D32F2F' } : { color: '#4CAF50' }
                     ]}
                 >
                     {item.type === 'expense' ? '-' : '+'}{item.amount}
                 </Text>
             </View>
-            <View style={styles.transactionDetails}>
-                <Text style={styles.transactionCategory}>{item.category.name}</Text>
-                <Text style={styles.transactionDate}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                <Text style={{ fontSize: 14, color: '#666' }}>{item.category.name}</Text>
+                <Text style={{ fontSize: 14, color: '#999' }}>
                     {new Date(item.date).toLocaleDateString()}
                 </Text>
             </View>
-            {item.description && (
-                <Text style={styles.transactionDescription} numberOfLines={2}>
-                    {item.description}
+            {item.note && (
+                <Text style={{ fontSize: 14, color: '#666', marginTop: 8 }} numberOfLines={2}>
+                    {item.note}
                 </Text>
             )}
         </View>
@@ -220,6 +220,23 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginBottom: 12,
         color: '#333333',
+    },
+    transactionItem: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    transactionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    transactionAmount: {
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     authSection: {
         backgroundColor: '#FFFFFF',

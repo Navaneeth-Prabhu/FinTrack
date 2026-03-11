@@ -18,7 +18,7 @@
 //   parseStockSell()     — named export (Day 8, patterns ready)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { normaliseSMSBody } from './smsParser';
+import { normaliseSMSBody, isPromotionalSms } from './smsParser';
 
 // ─── AMC Sender Code Map ──────────────────────────────────────────────────────
 // Indian AMCs and RTAs use 6-char SS7 sender codes. We identify them from the
@@ -783,6 +783,11 @@ export function classifySMSIntent(rawBody: string, sender?: string): SMSIntent {
 
     // Normalise multiline SMS before classification
     const body = normaliseSMSBody(rawBody);
+
+    if (isPromotionalSms(body)) {
+        console.log(`[SMS::Intent] Filtered promotional SMS: ${rawBody.slice(0, 30)}...`);
+        return { kind: 'unknown' };
+    }
 
     const sip = classifySIPConfirmation(body, sender);
     if (sip) return sip;

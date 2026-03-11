@@ -1,7 +1,7 @@
 // src/hooks/useTransactionFilters.ts
 import { useState, useMemo } from 'react';
 import { isWithinInterval } from 'date-fns';
-import { AccountType, ActiveFilter, DateRange, Transaction, TransactionType } from '@/src/types';
+import { AccountType, ActiveFilter, DateRange, Transaction, TransactionType } from '@/types';
 
 interface FilterState {
   transactionType: TransactionType;
@@ -99,7 +99,7 @@ export const useTransactionFilters = (transactions: Transaction[], dateRange: Da
 
   // Clear all filters
   const handleClearFilters = () => {
-    const clearedState = {
+    const clearedState: FilterState = {
       transactionType: 'all',
       accountType: 'all',
       categories: []
@@ -120,8 +120,8 @@ export const useTransactionFilters = (transactions: Transaction[], dateRange: Da
         newAppliedState.categories = appliedFilterState.categories.filter(c => c !== filter.value);
         newTempState.categories = tempFilterState.categories.filter(c => c !== filter.value);
       } else {
-        newAppliedState[filter.type] = 'all';
-        newTempState[filter.type] = 'all';
+        (newAppliedState as any)[filter.type] = 'all';
+        (newTempState as any)[filter.type] = 'all';
       }
 
       setAppliedFilterState(newAppliedState);
