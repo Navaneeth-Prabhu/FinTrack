@@ -135,7 +135,7 @@ class SmsModule(private val reactContext: ReactApplicationContext) :
             return false
         }
 
-        private const val MAX_SCAN_ROWS = MAX_SCAN_ROWS_VAL
+        private const val MAX_SCAN_ROWS = 10000
     }
 
     override fun getName(): String = "SmsModule"

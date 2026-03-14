@@ -833,6 +833,12 @@ export const getNewTransactionsFromSMS = async (
         console.error('[SMS::Util] Intent routing error for one SMS:', routeErr);
       }
     }
+    // STEP 4: Parse the remaining generic transactions
+    const smsTransactions = transactionMessages
+      .map(msg => {
+        const smsId = msg._id?.toString();
+        const parsed = extractTransactionFromSMS(msg.body, msg.address);
+        if (!parsed) return null;
         //   â†’ In both cases fall back to the native receive timestamp instead.
         const receiveTs = msg.date ? new Date(msg.date).toISOString() : new Date().toISOString();
         let date = receiveTs; // safe default
