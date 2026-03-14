@@ -1,10 +1,11 @@
 // utils/SMSTransactionUtil.ts
-// Converts parsed SMS transactions → app Transaction format.
+// Converts parsed SMS transactions â†’ app Transaction format.
 // Uses the 3-tier smsCategorizationService for intelligent categorization.
 
 import { getTransactionsFromSMS, ParsedSMS, readFinancialSMS, extractTransactionFromSMS } from '@/services/smsParser';
 import { classifySMSIntent, SIPConfirmationIntent, EMIDeductionIntent, AccountBalanceIntent, LoanAlertIntent, parseNACHMFDebit } from '@/services/smsAlertParser';
 import { smsAlertExistsBySmSId } from '@/db/repository/alertRepository';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   categorizeWithContext,
   CategorizationOptions,
@@ -17,6 +18,7 @@ import { useLoanStore } from '@/stores/loanStore';
 import { useAlertStore } from '@/stores/alertStore';
 import { useSmsSyncStore } from '@/stores/smsSyncStore';
 import { supabase } from '@/services/supabaseClient';
+import { categoryConstants } from '@/constants/categories';
 import {
   getProcessedSmsIdsFromDb,
   saveProcessedSmsIdsToDb,
@@ -24,7 +26,10 @@ import {
   setSmsWatermarkInDb,
 } from '@/db/services/sqliteService';
 
-// ─── Deduplication / Watermark helpers ─────────────────────────────────────────
+const SMS_HISTORICAL_RECOVERY_FLAG = 'sms_historical_recovery_v1';
+const SMS_HISTORICAL_RECOVERY_CURSOR = 'sms_historical_recovery_cursor_v1';
+
+// â”€â”€â”€ Deduplication / Watermark helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Gets the timestamp of the newest processed SMS */
 export const getSmsWatermark = async (): Promise<number> => {
@@ -39,16 +44,91 @@ export const updateSmsWatermark = async (newDateTs: number): Promise<void> => {
   if (!newDateTs || isNaN(newDateTs)) return;
   try {
     const current = await getSmsWatermarkFromDb();
+    const nowWithBuffer = Date.now() + 3600000; // 1 hour safety margin
+
     if (newDateTs > current) {
-      await setSmsWatermarkInDb(newDateTs);
-      console.log(`[SMS::Watermark] Advanced to ${new Date(newDateTs).toISOString()}`);
+      // Safety: Never advance watermark more than 1 hour into the future
+      const safeWatermark = Math.min(newDateTs, nowWithBuffer);
+      await setSmsWatermarkInDb(safeWatermark);
+      console.log(`[SMS::Watermark] Advanced to ${new Date(safeWatermark).toISOString()}`);
     }
   } catch (err) {
     console.error('[SMS::Watermark] Error updating watermark:', err);
   }
 };
 
-// ─── Payment method detection ──────────────────────────────────────────────────
+const buildFallbackSmsKey = (msg: { date?: number; address?: string; body?: string }): string => {
+  const snippet = (msg.body ?? '').slice(0, 48);
+  return `${msg.date ?? 0}|${msg.address ?? ''}|${snippet}`;
+};
+
+import { ReadSmsResult, RawSmsMessage } from '@/services/nativeSmsModule';
+type FinancialSmsMessages = RawSmsMessage[];
+
+const collectFinancialSmsBatches = async (
+  minDate: number,
+  limitPerBatch: number,
+  maxBatches: number,
+  upperDateBound = 0,
+): Promise<{
+  messages: FinancialSmsMessages;
+  oldestDate: number;
+  hasMoreOlder: boolean;
+}> => {
+  const all: FinancialSmsMessages = [];
+  const seen = new Set<string>();
+  let beforeDate = upperDateBound;
+  let oldestDate = 0;
+  let hasMoreOlder = false;
+
+  for (let i = 0; i < maxBatches; i++) {
+    const result = await readFinancialSMS(minDate, limitPerBatch, beforeDate);
+    const batch = result.messages;
+    if (batch.length === 0) {
+      // If we scanned a whole block with NO financial messages, 
+      // we MUST still advance oldestDate to prevent a junk blockade.
+      oldestDate = oldestDate === 0 ? result.oldestScannedDate : Math.min(oldestDate, result.oldestScannedDate);
+      hasMoreOlder = result.scannedCount >= limitPerBatch;
+      break;
+    }
+
+    for (const msg of batch) {
+      const key = msg._id?.toString() || buildFallbackSmsKey(msg);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      all.push(msg);
+    }
+
+    const oldestDateInBatch = batch.reduce((oldest, msg) => {
+      const ts = typeof msg.date === 'number' ? msg.date : Number.MAX_SAFE_INTEGER;
+      return ts < oldest ? ts : oldest;
+    }, Number.MAX_SAFE_INTEGER);
+
+    if (Number.isFinite(oldestDateInBatch) && oldestDateInBatch !== Number.MAX_SAFE_INTEGER) {
+      oldestDate = oldestDate === 0 ? oldestDateInBatch : Math.min(oldestDate, oldestDateInBatch);
+    }
+
+    if (!Number.isFinite(oldestDateInBatch) || oldestDateInBatch <= minDate) {
+      hasMoreOlder = false;
+      break;
+    }
+    if (batch.length < limitPerBatch) {
+      hasMoreOlder = false;
+      break;
+    }
+
+    // We exhausted this run's batch budget; more older messages may still exist.
+    if (i === maxBatches - 1) {
+      hasMoreOlder = true;
+    }
+
+    beforeDate = oldestDateInBatch;
+  }
+
+  return { messages: all, oldestDate, hasMoreOlder };
+};
+
+// â”€â”€â”€ Payment method detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function resolvePaymentMode(parsed: ParsedSMS & { smsId?: string }): string {
   if (parsed.paymentMethod) return parsed.paymentMethod;
   const body = (parsed.rawSMS ?? '').toLowerCase();
@@ -84,16 +164,61 @@ function resolveAccount(parsed: ParsedSMS & { smsId?: string }): string | undefi
 
   if (detectedBank) {
     parsed.bank = detectedBank;
-    if (parsed.accountLast4) return `${detectedBank} ••••${parsed.accountLast4}`;
+    if (parsed.accountLast4) return `${detectedBank} â€¢â€¢â€¢â€¢${parsed.accountLast4}`;
     return detectedBank;
   }
 
   // Fallback: if no bank detected but we have an account number
-  if (parsed.accountLast4) return `Account ••••${parsed.accountLast4}`;
+  if (parsed.accountLast4) return `Account â€¢â€¢â€¢â€¢${parsed.accountLast4}`;
   return undefined;
 }
 
-// ─── Convert a single parsed SMS to app Transaction ────────────────────────────
+// â”€â”€â”€ Convert a single parsed SMS to app Transaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const pickSafeCategory = (
+  txType: ParsedSMS['type'],
+  categories: Category[],
+  suggestedCategoryId: string | null,
+  suggestedCategoryName: string,
+): Category => {
+  const inMemoryCategories = categories.filter(c => c.type === txType);
+  const staticCategories = categoryConstants.filter(c => c.type === txType);
+  const pool = [...inMemoryCategories, ...staticCategories];
+
+  const byId = suggestedCategoryId
+    ? pool.find(c => c.id === suggestedCategoryId)
+    : undefined;
+  if (byId) return byId;
+
+  const normalizedSuggestedName = suggestedCategoryName?.trim().toLowerCase();
+  if (normalizedSuggestedName) {
+    const byName = pool.find(c => c.name.trim().toLowerCase() === normalizedSuggestedName);
+    if (byName) return byName;
+  }
+
+  const fallbackNamesByType: Record<ParsedSMS['type'], string[]> = {
+    income: ['Other Income', 'Credit', 'Salary'],
+    expense: ['Other', 'Bills & Utilities'],
+    transfer: ['Transfer'],
+    investment: ['Investment'],
+  };
+
+  const fallbackByName = fallbackNamesByType[txType]
+    .map(name => pool.find(c => c.name.trim().toLowerCase() === name.toLowerCase()))
+    .find(Boolean);
+  if (fallbackByName) return fallbackByName;
+
+  if (pool.length > 0) return pool[0];
+
+  // Last defensive fallback for impossible states (empty categories + failed constants lookup).
+  return {
+    id: '101',
+    name: 'Other',
+    icon: '❗',
+    type: 'expense',
+    color: '#888888',
+  };
+};
+
 export const convertToAppTransaction = async (
   parsed: ParsedSMS & { smsId?: string; date: string },
   categories: Category[],
@@ -101,7 +226,7 @@ export const convertToAppTransaction = async (
 ): Promise<Transaction> => {
   const now = new Date().toISOString();
 
-  // Categorize — uses raw SMS body for extra context if merchant alone doesn't match
+  // Categorize â€” uses raw SMS body for extra context if merchant alone doesn't match
   const categoryResult = await categorizeWithContext(
     parsed.merchant,
     parsed.rawSMS,
@@ -111,21 +236,21 @@ export const convertToAppTransaction = async (
     options,
   );
 
-  let matchedCategory: Category = categories.find(c => c.id === categoryResult.categoryId) ?? {
-    id: categoryResult.categoryId ?? (parsed.type === 'income' ? 'other_income' : 'other_expense'),
-    name: categoryResult.categoryName,
-    icon: '❗',
-    color: '#888888',
-    type: parsed.type === 'income' ? 'income' : 'expense',
-  };
+  let matchedCategory: Category = pickSafeCategory(
+    parsed.type,
+    categories,
+    categoryResult.categoryId,
+    categoryResult.categoryName,
+  );
 
   // Force UPI P2P Income to the "Credit" category by default unless the LLM gave a very strong override
   if (parsed.type === 'income' && parsed.paymentMethod === 'UPI' && parsed.paidBy) {
-    const creditCat = categories.find(c => c.name.toLowerCase() === 'credit' && c.type === 'income');
+    const creditCat = [...categories, ...categoryConstants]
+      .find(c => c.name.toLowerCase() === 'credit' && c.type === 'income');
     if (creditCat) matchedCategory = creditCat;
   }
 
-  // ── Auto-Link SIP / EMI (Phase 2) ──
+  // â”€â”€ Auto-Link SIP / EMI (Phase 2) â”€â”€
   let autoLinkNote: string | null = null;
 
   // 1. Regular SIP NACH Debit (extracted from generic bank SMS)
@@ -185,7 +310,7 @@ export const convertToAppTransaction = async (
     }
   }
 
-  // ── Auto-create and Link Account ──
+  // â”€â”€ Auto-create and Link Account â”€â”€
   let linkedAccount: Account | undefined = undefined;
   const accountName = resolveAccount(parsed);
 
@@ -239,7 +364,7 @@ export const convertToAppTransaction = async (
         currency: 'INR',
         isIncludeInNetWorth: true,
         color: '#ABDF75', // Default green-ish bank color
-        icon: '🏦', // Default bank icon
+        icon: 'ðŸ¦', // Default bank icon
         provider: parsed.bank ?? 'Unknown Bank',
         accountNumber: parsed.accountLast4 ?? undefined,
       };
@@ -248,7 +373,7 @@ export const convertToAppTransaction = async (
         linkedAccount = await accountStore.addAccount(newAccount);
         console.log(`[SMS::Account] Auto-created new account locally: ${newAccount.name}`);
 
-        // ── Push to Supabase optionally if online ──
+        // â”€â”€ Push to Supabase optionally if online â”€â”€
         if (options.isOnline && options.userId) {
           const { error } = await supabase.from('accounts').insert({
             id: newAccount.id, // Or omit if UUID is assigned by Supabase
@@ -285,7 +410,7 @@ export const convertToAppTransaction = async (
         updates.accountNumber = parsed.accountLast4;
         // Rename the adopted manually-created account so the user knows it was linked
         if (updates.name === parsed.bank) {
-          updates.name = `${parsed.bank} ····${parsed.accountLast4}`;
+          updates.name = `${parsed.bank} Â·Â·Â·Â·${parsed.accountLast4}`;
         }
         updated = true;
       }
@@ -333,17 +458,17 @@ export const convertToAppTransaction = async (
     note: [
       `Auto-import from SMS`,
       parsed.bank ? `Bank: ${parsed.bank}` : null,
-      parsed.accountLast4 ? `A/c: ••••${parsed.accountLast4}` : null,
+      parsed.accountLast4 ? `A/c: â€¢â€¢â€¢â€¢${parsed.accountLast4}` : null,
       `Source: ${parsed.sender ?? 'Unknown'}`,
       autoLinkNote
     ].filter(Boolean).join(' | '),
   };
 };
 
-// ─── Intent Handlers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Intent Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
- * SIP Confirmation — auto-create SIP plan if one with same fundName doesn't exist,
+ * SIP Confirmation â€” auto-create SIP plan if one with same fundName doesn't exist,
  * or update totalInvested + units + nav + nextDueDate on an existing plan.
  */
 async function handleSIPConfirmation(
@@ -398,11 +523,11 @@ async function handleSIPConfirmation(
 
   await alertStore.addAlert({
     type: 'sip_confirmation',
-    title: `SIP Processed — ${intent.fundName}`,
+    title: `SIP Processed â€” ${intent.fundName}`,
     body: [
-      `Amount: ₹${intent.amount.toLocaleString('en-IN')}`,
+      `Amount: â‚¹${intent.amount.toLocaleString('en-IN')}`,
       intent.units ? `Units: ${intent.units.toFixed(4)}` : null,
-      intent.nav ? `NAV: ₹${intent.nav}` : null,
+      intent.nav ? `NAV: â‚¹${intent.nav}` : null,
       intent.folio ? `Folio: ${intent.folio}` : null,
     ].filter(Boolean).join(' | '),
     amount: intent.amount,
@@ -413,7 +538,7 @@ async function handleSIPConfirmation(
 }
 
 /**
- * EMI Deduction — reduce outstanding balance on the matched loan,
+ * EMI Deduction â€” reduce outstanding balance on the matched loan,
  * or auto-create a loan stub if none matches.
  */
 async function handleEMIDeduction(
@@ -441,9 +566,9 @@ async function handleEMIDeduction(
     const newOutstanding = Math.max(0, existing.outstanding - intent.emiAmount);
     await updateLoan({ ...existing, outstanding: newOutstanding, lastModified: now });
     await fetchLoans();
-    console.log(`[SMS::EMI] Updated loan "${existing.lender}" outstanding: ${existing.outstanding} → ${newOutstanding}`);
+    console.log(`[SMS::EMI] Updated loan "${existing.lender}" outstanding: ${existing.outstanding} â†’ ${newOutstanding}`);
   } else if (intent.emiAmount > 0) {
-    // Auto-create a stub loan — user can fill in total later
+    // Auto-create a stub loan â€” user can fill in total later
     await addLoan({
       id: '',
       lender: intent.lenderHint || bank || 'Unknown Lender',
@@ -456,7 +581,7 @@ async function handleEMIDeduction(
       startDate: now.split('T')[0],
       status: 'active',
       source: 'sms',
-      notes: `Auto-created from SMS${intent.loanAccountHint ? ` | Loan A/c: ••••${intent.loanAccountHint}` : ''}`,
+      notes: `Auto-created from SMS${intent.loanAccountHint ? ` | Loan A/c: â€¢â€¢â€¢â€¢${intent.loanAccountHint}` : ''}`,
       createdAt: now,
       lastModified: now,
     });
@@ -466,8 +591,8 @@ async function handleEMIDeduction(
 
   await alertStore.addAlert({
     type: 'emi_deduction',
-    title: `EMI Paid — ${intent.lenderHint || bank || 'Loan'}`,
-    body: `EMI of ₹${intent.emiAmount.toLocaleString('en-IN')} debited${intent.loanAccountHint ? ` (Loan ••••${intent.loanAccountHint})` : ''}`,
+    title: `EMI Paid â€” ${intent.lenderHint || bank || 'Loan'}`,
+    body: `EMI of â‚¹${intent.emiAmount.toLocaleString('en-IN')} debited${intent.loanAccountHint ? ` (Loan â€¢â€¢â€¢â€¢${intent.loanAccountHint})` : ''}`,
     amount: intent.emiAmount,
     bank: bank ?? undefined,
     accountLast4: intent.accountLast4 ?? undefined,
@@ -476,7 +601,7 @@ async function handleEMIDeduction(
 }
 
 /**
- * Account Balance — update the matching account's balance in accountStore.
+ * Account Balance â€” update the matching account's balance in accountStore.
  */
 async function handleAccountBalance(
   intent: AccountBalanceIntent,
@@ -498,15 +623,15 @@ async function handleAccountBalance(
 
   if (matched) {
     await editAccount({ ...matched, balance: intent.balance });
-    console.log(`[SMS::Balance] Updated account "${matched.name}" balance → ₹${intent.balance}`);
+    console.log(`[SMS::Balance] Updated account "${matched.name}" balance â†’ â‚¹${intent.balance}`);
   } else {
     console.log(`[SMS::Balance] No matching account found for last4=${intent.accountLast4} bank=${bank}`);
   }
 
   await alertStore.addAlert({
     type: 'account_balance',
-    title: `Balance Update — ${bank || 'Account'}${intent.accountLast4 ? ` ••••${intent.accountLast4}` : ''}`,
-    body: `Available balance: ₹${intent.balance.toLocaleString('en-IN')}`,
+    title: `Balance Update â€” ${bank || 'Account'}${intent.accountLast4 ? ` â€¢â€¢â€¢â€¢${intent.accountLast4}` : ''}`,
+    body: `Available balance: â‚¹${intent.balance.toLocaleString('en-IN')}`,
     amount: intent.balance,
     bank: bank ?? undefined,
     accountLast4: intent.accountLast4 ?? undefined,
@@ -515,7 +640,7 @@ async function handleAccountBalance(
 }
 
 /**
- * Loan Alert — save the due reminder to the alert store (no store write).
+ * Loan Alert â€” save the due reminder to the alert store (no store write).
  */
 async function handleLoanAlert(
   intent: LoanAlertIntent,
@@ -527,7 +652,7 @@ async function handleLoanAlert(
   if (smsId && await smsAlertExistsBySmSId(smsId)) return;
 
   const duePart = intent.dueAmount
-    ? `₹${intent.dueAmount.toLocaleString('en-IN')}`
+    ? `â‚¹${intent.dueAmount.toLocaleString('en-IN')}`
     : 'payment';
   const datePart = intent.dueDate
     ? ` due on ${new Date(intent.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -535,7 +660,7 @@ async function handleLoanAlert(
 
   await alertStore.addAlert({
     type: 'loan_alert',
-    title: `Loan Due — ${intent.lenderHint || bank || 'Loan'}`,
+    title: `Loan Due â€” ${intent.lenderHint || bank || 'Loan'}`,
     body: `${duePart}${datePart}`,
     amount: intent.dueAmount,
     bank: bank ?? undefined,
@@ -545,7 +670,7 @@ async function handleLoanAlert(
   console.log(`[SMS::LoanAlert] Saved due alert for "${intent.lenderHint}" amount=${intent.dueAmount}`);
 }
 
-// ─── Main: get new transactions from SMS ──────────────────────────────────────
+// â”€â”€â”€ Main: get new transactions from SMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const getNewTransactionsFromSMS = async (
   categories: Category[],
   userId: string | null,
@@ -553,33 +678,83 @@ export const getNewTransactionsFromSMS = async (
   force = false,
 ): Promise<{
   transactions: (Transaction & { smsId?: string, rawDateMs?: number, nativeReceiveMs?: number })[];
-  maxProcessedDateMs: number;
+  maxHandledDateMs: number;
 }> => {
   try {
     const aiEnabled = await getSMSAIPreference();
     const options: CategorizationOptions = { aiEnabled, isOnline, userId };
+    const processedIds = await getProcessedSmsIdsFromDb();
+    const processedIdSet = new Set(processedIds);
+    const hasProcessedSmsIds = processedIds.some(id => id !== 'WATERMARK');
 
     const watermark = force ? 0 : await getSmsWatermarkFromDb();
-    console.log(`[SMS::Util] Fetching from watermark: ${watermark > 0 ? new Date(watermark).toISOString() : 'beginning'}`);
+    const now = Date.now();
+    const effectiveWatermark = (!force && watermark > now + 24 * 60 * 60 * 1000) ? 0 : watermark;
+    const ignoreWatermarkForRecovery = !force && effectiveWatermark > 0 && !hasProcessedSmsIds;
+    const scanWatermark = ignoreWatermarkForRecovery ? 0 : effectiveWatermark;
+    if (effectiveWatermark !== watermark) {
+      console.warn(`[SMS::Util] Ignoring invalid future watermark: ${watermark}`);
+    }
+    if (ignoreWatermarkForRecovery) {
+      console.warn('[SMS::Util] Watermark exists without processed SMS IDs. Starting recovery scan from beginning.');
+    }
+    console.log(`[SMS::Util] Fetching from watermark: ${scanWatermark > 0 ? new Date(scanWatermark).toISOString() : 'beginning'}`);
+    const historicalRecoveryDone = force
+      ? true
+      : (await AsyncStorage.getItem(SMS_HISTORICAL_RECOVERY_FLAG)) === '1';
+    const historicalRecoveryCursor = force
+      ? 0
+      : Number(await AsyncStorage.getItem(SMS_HISTORICAL_RECOVERY_CURSOR) || 0);
 
     // If we have a watermark, only grab messages newer than it.
     // We add a tiny 1ms buffer to avoid re-fetching the exact last message.
-    const minDate = watermark > 0 && !force ? watermark + 1 : 0;
+    const minDate = scanWatermark > 0 && !force ? scanWatermark + 1 : 0;
 
-    // The parser now accepts minDate to pass down to native ContentResolver.
-    // STEP 1: Read raw financial SMS
-    const rawMessages = await readFinancialSMS(minDate);
+    // STEP 1: Read raw financial SMS in deterministic date batches.
+    // Increased batch size (900→1500) and count (4→6) to handle users with
+    // 1000+ financial SMS since the last watermark without missing any messages.
+    const recentBatchLimit = 1500;
+    const recentBatchCount = force ? 12 : 6;
+    const recentResult = await collectFinancialSmsBatches(minDate, recentBatchLimit, recentBatchCount);
+    let rawMessages = recentResult.messages;
+
+    // One-time reconciliation pass for existing installs:
+    // if a stale/high watermark exists, scan older messages once so pre-install
+    // history is not permanently skipped.
+    if (!force && scanWatermark > 0 && !historicalRecoveryDone) {
+      const recoveryUpperBound = historicalRecoveryCursor > 0 ? historicalRecoveryCursor : scanWatermark;
+      const recoveryResult = await collectFinancialSmsBatches(0, 1000, 5, recoveryUpperBound);
+      if (recoveryResult.messages.length > 0) {
+        const seen = new Set(rawMessages.map(m => m._id?.toString() || buildFallbackSmsKey(m)));
+        for (const msg of recoveryResult.messages) {
+          const key = msg._id?.toString() || buildFallbackSmsKey(msg);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          rawMessages.push(msg);
+        }
+      }
+
+      try {
+        if (recoveryResult.hasMoreOlder && recoveryResult.oldestDate > 0) {
+          await AsyncStorage.setItem(SMS_HISTORICAL_RECOVERY_CURSOR, String(recoveryResult.oldestDate));
+        } else {
+          await AsyncStorage.setItem(SMS_HISTORICAL_RECOVERY_FLAG, '1');
+          await AsyncStorage.removeItem(SMS_HISTORICAL_RECOVERY_CURSOR);
+        }
+      } catch (flagErr) {
+        console.warn('[SMS::Util] Failed to persist historical recovery flag:', flagErr);
+      }
+    }
 
     if (rawMessages.length === 0) {
       console.log('[SMS::Util] No new SMS messages.');
-      return { transactions: [], maxProcessedDateMs: 0 };
+      return { transactions: [], maxHandledDateMs: 0 };
     }
+
+    console.log(`[SMS::Util] Loaded ${rawMessages.length} deduplicated financial SMS for parsing`);
 
     // Start global progress UI if processing a bulk batch
     useSmsSyncStore.getState().startSync(rawMessages.length, `Analyzing ${rawMessages.length} messages...`);
-
-    // STEP 2: Get already-processed IDs for dedup
-    const processedIds = await getProcessedSmsIdsFromDb();
 
     // STEP 3: Route non-transaction SMS through intent handlers FIRST
     // These are handled in parallel (account balance, SIP, EMI, loan alerts)
@@ -587,17 +762,26 @@ export const getNewTransactionsFromSMS = async (
     const transactionMessages: typeof rawMessages = [];
     // FIX (Blocker 2): track intent-handled IDs separately so we can flush them
     // to SQLite at the end. Previously they were only pushed to the in-memory
-    // processedIds array and never persisted — causing re-processing on restart.
+    // processedIds array and never persisted â€” causing re-processing on restart.
     const intentHandledIds: string[] = [];
 
-    let maxDateExperienced = 0;
+    let maxHandledDateMs = 0;
 
-    await Promise.allSettled(rawMessages.map(async (msg) => {
+    let analyzed = 0;
+    for (const msg of rawMessages) {
+      analyzed++;
+      if (analyzed === 1 || analyzed % 100 === 0 || analyzed === rawMessages.length) {
+        useSmsSyncStore.getState().updateProgress(
+          analyzed,
+          `Analyzing messages (${analyzed}/${rawMessages.length})`
+        );
+      }
+
+      try {
       const msgDate = msg.date || 0;
-      if (msgDate > maxDateExperienced) maxDateExperienced = msgDate;
 
       const smsId = msg._id?.toString();
-      if (!force && smsId && processedIds.includes(smsId)) return; // already processed
+      if (!force && smsId && processedIdSet.has(smsId)) continue; // already processed
 
       const intent = classifySMSIntent(msg.body, msg.address);
 
@@ -615,55 +799,41 @@ export const getNewTransactionsFromSMS = async (
       switch (intent.kind) {
         case 'sip_confirmation':
           await handleSIPConfirmation(intent, smsId, bankFromSender);
-          // Mark AFTER successful handler — if handler throws, ID stays unprocessed (safe retry)
-          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
+          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+          // Mark AFTER successful handler â€” if handler throws, ID stays unprocessed (safe retry)
+          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
           break;
         case 'emi_deduction':
           await handleEMIDeduction(intent, smsId, bankFromSender);
-          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
+          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
           break;
         case 'account_balance':
           await handleAccountBalance(intent, smsId, bankFromSender);
-          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
+          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
           break;
         case 'loan_alert':
           await handleLoanAlert(intent, smsId, bankFromSender);
-          if (smsId) { processedIds.push(smsId); intentHandledIds.push(smsId); }
+          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
           break;
         case 'transaction':
           transactionMessages.push(msg); // pass to existing pipeline
           break;
+        case 'unknown':
+          // Safety net: still try generic transaction parsing. classifySMSIntent is
+          // conservative by design and can return unknown for uncommon valid formats.
+          transactionMessages.push(msg);
+          break;
         default:
-          break; // unknown — skip
+          break; // unknown â€” skip
       }
-    }));
-
-    // FIX (Blocker 2): Flush intent-handled IDs to SQLite immediately.
-    // Previously these were never saved to the DB, so they'd re-process on every restart.
-    if (intentHandledIds.length > 0) {
-      await saveProcessedSmsIdsToDb(intentHandledIds);
-      console.log(`[SMS::Util] Flushed ${intentHandledIds.length} intent-handled IDs to SQLite`);
+      } catch (routeErr) {
+        console.error('[SMS::Util] Intent routing error for one SMS:', routeErr);
+      }
     }
-
-    console.log(`[SMS::Util] Intent routing: ${rawMessages.length} raw → ${transactionMessages.length} transactions`);
-
-    // STEP 4: Parse transaction-intent messages through the existing parser
-    const smsTransactions = transactionMessages
-      .map(msg => {
-        const parsed = extractTransactionFromSMS(msg.body, msg.address);
-        if (!parsed) return null;
-        const smsId = msg._id?.toString();
-
-        // ── Industry-standard date resolution (Axio/Walnut pattern) ─────────
-        // Priority 1: Date explicitly mentioned in the SMS body (e.g. "On 05/02/26").
-        //             This is the ACTUAL transaction date, not the delivery date.
-        // Priority 2: Native msg.date (Android ContentResolver delivery timestamp).
-        //             Used only when no date is present in the SMS body.
-        //
-        // Sanity checks (prevents misclassification of marketing/reminder SMS):
-        //   • Reject body dates more than 6 months in the past (likely spam/promo)
-        //   • Reject future body dates  (those are "due date" reminders, not debits)
-        //   → In both cases fall back to the native receive timestamp instead.
+        //   â†’ In both cases fall back to the native receive timestamp instead.
         const receiveTs = msg.date ? new Date(msg.date).toISOString() : new Date().toISOString();
         let date = receiveTs; // safe default
 
@@ -672,15 +842,15 @@ export const getNewTransactionsFromSMS = async (
           const now = Date.now();
           const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
           if (bodyDateMs > now) {
-            // Future date → this is a "due date" alert, not a debit; skip using body date
+            // Future date â†’ this is a "due date" alert, not a debit; skip using body date
             console.log(`[SMS::Date] Body date is in the future (${parsed.date}), using receive date`);
             date = receiveTs;
           } else if (now - bodyDateMs > SIX_MONTHS_MS) {
-            // Very old body date → probably a marketing promo; fall back
+            // Very old body date â†’ probably a marketing promo; fall back
             console.log(`[SMS::Date] Body date is >6 months old (${parsed.date}), using receive date`);
             date = receiveTs;
           } else {
-            date = parsed.date; // ✅ Valid body date — use it
+            date = parsed.date; // âœ… Valid body date â€” use it
           }
         }
 
@@ -690,13 +860,13 @@ export const getNewTransactionsFromSMS = async (
 
     if (smsTransactions.length === 0) {
       console.log('[SMS::Util] No new SMS transactions.');
-      return { transactions: [], maxProcessedDateMs: maxDateExperienced };
+      return { transactions: [], maxHandledDateMs };
     }
 
     // STEP 5: Dedup and filter by confidence
     const newTransactions = force
       ? smsTransactions
-      : smsTransactions.filter(t => t.smsId && !processedIds.includes(t.smsId));
+      : smsTransactions.filter(t => t.smsId && !processedIdSet.has(t.smsId));
 
     const MIN_CONFIDENCE_THRESHOLD = 0.35;
     const highConfidenceTransactions = newTransactions.filter(t => t.confidence >= MIN_CONFIDENCE_THRESHOLD);
@@ -705,6 +875,7 @@ export const getNewTransactionsFromSMS = async (
     // STEP 6: Convert to app transactions sequentially to prevent DB race conditions
     // (e.g., auto-creating duplicate accounts)
     const appTransactions: (Transaction & { smsId?: string, rawDateMs?: number, nativeReceiveMs?: number })[] = [];
+    let maxTransactionDateMs = 0;
 
     let processedCount = 0;
     for (const t of highConfidenceTransactions) {
@@ -722,16 +893,23 @@ export const getNewTransactionsFromSMS = async (
         rawDateMs: new Date(t.date).getTime(),
         nativeReceiveMs: t.nativeReceiveMs
       });
+
+      if (typeof t.nativeReceiveMs === 'number' && t.nativeReceiveMs > maxTransactionDateMs) {
+        maxTransactionDateMs = t.nativeReceiveMs;
+      }
     }
 
-    return { transactions: appTransactions, maxProcessedDateMs: maxDateExperienced };
+    return {
+      transactions: appTransactions,
+      maxHandledDateMs: Math.max(maxHandledDateMs, maxTransactionDateMs),
+    };
   } catch (err) {
     console.error('[SMS::Util] Error getting transactions:', err);
-    return { transactions: [], maxProcessedDateMs: 0 };
+    return { transactions: [], maxHandledDateMs: 0 };
   }
 };
 
-// ─── Import to store ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Import to store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const importSMSTransactionsToStore = async (
   categories: Category[],
   saveBulkTransactionsFn: (txs: Transaction[]) => Promise<Transaction[]>,
@@ -740,7 +918,7 @@ export const importSMSTransactionsToStore = async (
   force = false,
 ): Promise<number> => {
   try {
-    const { transactions, maxProcessedDateMs } = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
+    const { transactions, maxHandledDateMs } = await getNewTransactionsFromSMS(categories, userId, isOnline, force);
 
     if (transactions.length > 0) {
       useSmsSyncStore.getState().startSync(transactions.length, 'Saving to Database...');
@@ -748,23 +926,36 @@ export const importSMSTransactionsToStore = async (
 
     let savedCount = 0;
     const successfullySavedSmsIds: string[] = [];
+    let maxSavedDateMs = 0;
 
-    const validTransactionsToSave: Transaction[] = [];
+    const validTransactionsToSave: (Transaction & { smsId?: string, rawDateMs?: number, nativeReceiveMs?: number })[] = [];
 
     for (let i = 0; i < transactions.length; i++) {
       const tx = transactions[i];
       validTransactionsToSave.push(tx);
-      if (tx.smsId) {
-        successfullySavedSmsIds.push(tx.smsId);
-      }
       useSmsSyncStore.getState().updateProgress(i + 1, `Preparing transaction ${i + 1} of ${transactions.length}...`);
     }
 
     if (validTransactionsToSave.length > 0) {
       try {
-        useSmsSyncStore.getState().updateProgress(transactions.length, `Saving ${validTransactionsToSave.length} transactions to database...`);
-        await saveBulkTransactionsFn(validTransactionsToSave);
-        savedCount = validTransactionsToSave.length;
+        const SAVE_BATCH_SIZE = 200;
+        for (let i = 0; i < validTransactionsToSave.length; i += SAVE_BATCH_SIZE) {
+          const batch = validTransactionsToSave.slice(i, i + SAVE_BATCH_SIZE);
+          const end = Math.min(i + batch.length, validTransactionsToSave.length);
+          useSmsSyncStore.getState().updateProgress(
+            transactions.length,
+            `Saving to database (${end}/${validTransactionsToSave.length})...`
+          );
+          await saveBulkTransactionsFn(batch);
+          savedCount += batch.length;
+          for (const tx of batch) {
+            if (tx.smsId) successfullySavedSmsIds.push(tx.smsId);
+            const msgDate = tx.nativeReceiveMs ?? tx.rawDateMs ?? 0;
+            if (msgDate > maxSavedDateMs) {
+              maxSavedDateMs = msgDate;
+            }
+          }
+        }
       } catch (err) {
         console.error('[SMS::Util] Bulk save error:', err);
         // Abort saving watermark if transactions fail to commit
@@ -779,8 +970,9 @@ export const importSMSTransactionsToStore = async (
     }
 
     const currentWatermark = await getSmsWatermarkFromDb();
-    if (maxProcessedDateMs > currentWatermark) {
-      await updateSmsWatermark(maxProcessedDateMs);
+    const watermarkCandidate = Math.max(maxHandledDateMs, maxSavedDateMs);
+    if (watermarkCandidate > currentWatermark) {
+      await updateSmsWatermark(watermarkCandidate);
     }
 
     console.log(`[SMS::Util] Saved ${savedCount}/${transactions.length} transactions`);
@@ -793,3 +985,5 @@ export const importSMSTransactionsToStore = async (
     useSmsSyncStore.getState().endSync();
   }
 };
+
+

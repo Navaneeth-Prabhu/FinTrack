@@ -297,7 +297,7 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   return db;
 };
 
-// ─── SMS Deduplication helpers ────────────────────────────────────────────────
+// â”€â”€â”€ SMS Deduplication helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const saveProcessedSmsIdsToDb = async (ids: string[], processedAt: number = Date.now()): Promise<void> => {
   if (!db || ids.length === 0) return;
@@ -335,6 +335,20 @@ export const getProcessedSmsIdsFromDb = async (): Promise<string[]> => {
   }
 };
 
+export const isSmsProcessedInDb = async (id: string): Promise<boolean> => {
+  if (!db || !id) return false;
+  try {
+    const row = await db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM processed_sms_ids WHERE id = ? LIMIT 1',
+      id
+    );
+    return !!row?.id;
+  } catch (err) {
+    console.error('[SQLite] Error checking SMS ID:', err);
+    return false;
+  }
+};
+
 /** 
  * We use the 'WATERMARK' special row in the processed_sms_ids table 
  * to track the global last-processed timestamp.
@@ -349,6 +363,18 @@ export const setSmsWatermarkInDb = async (timestamp: number): Promise<void> => {
     );
   } catch (err) {
     console.error('[SQLite] Error setting SMS watermark:', err);
+  }
+};
+
+export const advanceSmsWatermarkInDb = async (timestamp: number): Promise<void> => {
+  if (!db || isNaN(timestamp) || timestamp <= 0) return;
+  try {
+    const current = await getSmsWatermarkFromDb();
+    if (timestamp > current) {
+      await setSmsWatermarkInDb(timestamp);
+    }
+  } catch (err) {
+    console.error('[SQLite] Error advancing SMS watermark:', err);
   }
 };
 
@@ -376,7 +402,7 @@ export const resetSmsProcessedIds = async (): Promise<void> => {
   }
 };
 
-// ─── Wipe All Local Data ──────────────────────────────────────────────────────
+// â”€â”€â”€ Wipe All Local Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /**
  * Deletes ALL user data from every local SQLite table, then re-seeds the
  * default category list so the app starts fresh without needing a reinstall.

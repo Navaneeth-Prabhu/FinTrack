@@ -17,13 +17,17 @@ interface DateRange {
 interface CacheState {
     transactions: Record<string, Transaction[]>;
     totals: Record<string, { income: number, expense: number } | null>;
+    hasMore: Record<string, boolean>;
 }
 
 // Module-level cache to persist across component unmounts
 let globalCache: CacheState = {
     transactions: {},
-    totals: {}
+    totals: {},
+    hasMore: {},
 };
+
+const PAGE_SIZE_ALL_TIME = 250;
 
 // In-flight prefetch guards so tapping arrows quickly never fires duplicate SQLite queries
 const inFlightPrefetches = new Set<string>();
@@ -54,6 +58,7 @@ const buildStateFromCache = (dateRange: DateRange | null, filters: TimelineFilte
         isCurrentMonth,
         lastMonthTotals,
         loading: !cachedTx,
+        hasMore: !!globalCache.hasMore[cacheKey],
     };
 };
 
@@ -70,6 +75,7 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
     const [, forceRender] = useState({});
     const [fetchTrigger, setFetchTrigger] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
 
     const storeTransactions = useTransactionStore(s => s.transactions);
 
@@ -77,7 +83,9 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
     useEffect(() => {
         globalCache.transactions = {};
         globalCache.totals = {};
+        globalCache.hasMore = {};
         inFlightPrefetches.clear();
+        setIsFetchingMore(false);
         setFetchTrigger(t => t + 1); // Triggers main effect to fetch with current closures!
     }, [storeTransactions]);
 
@@ -90,13 +98,19 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
         const cacheKey = getCacheKey(range, currentFilters);
 
         if (!globalCache.transactions[cacheKey]) {
+            const typeFilter = currentFilters.transactionType.length > 0 ? currentFilters.transactionType : undefined;
+            const categoryFilter = currentFilters.categories.length > 0 ? currentFilters.categories : undefined;
+            const limit = range ? undefined : PAGE_SIZE_ALL_TIME;
             const txData = await fetchTimelineTransactionsFromDB(
                 range?.start,
                 range?.end,
-                currentFilters.transactionType.length > 0 ? currentFilters.transactionType : undefined,
-                currentFilters.categories.length > 0 ? currentFilters.categories : undefined
+                typeFilter,
+                categoryFilter,
+                limit,
+                0,
             );
             globalCache.transactions[cacheKey] = txData;
+            globalCache.hasMore[cacheKey] = range ? false : txData.length === PAGE_SIZE_ALL_TIME;
         }
 
         if (range?.start && isSameMonth(new Date(range.start), new Date())) {
@@ -170,6 +184,7 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
                     setError(err instanceof Error ? err.message : 'Unknown error');
                     // Prevent infinite loading state by setting the cache to an empty result
                     globalCache.transactions[cacheKey] = [];
+                    globalCache.hasMore[cacheKey] = false;
                     forceRender({});
                 }
             });
@@ -191,12 +206,55 @@ export const useTimelineData = (dateRange: DateRange | null, filters: TimelineFi
         forceRender({});
     }, [dateRange?.start, dateRange?.end, filters]);
 
+    const fetchMore = useCallback(async () => {
+        if (dateRange) return; // Only needed in "All" mode.
+
+        const cacheKey = getCacheKey(dateRange, filters);
+        const canFetchMore = globalCache.hasMore[cacheKey];
+        if (isFetchingMore || !canFetchMore) return;
+
+        setIsFetchingMore(true);
+        try {
+            const typeFilter = filters.transactionType.length > 0 ? filters.transactionType : undefined;
+            const categoryFilter = filters.categories.length > 0 ? filters.categories : undefined;
+            const current = globalCache.transactions[cacheKey] ?? [];
+
+            const nextPage = await fetchTimelineTransactionsFromDB(
+                undefined,
+                undefined,
+                typeFilter,
+                categoryFilter,
+                PAGE_SIZE_ALL_TIME,
+                current.length,
+            );
+
+            if (nextPage.length > 0) {
+                globalCache.transactions[cacheKey] = [...current, ...nextPage];
+            }
+            globalCache.hasMore[cacheKey] = nextPage.length === PAGE_SIZE_ALL_TIME;
+            forceRender({});
+        } catch (err) {
+            console.error('[Timeline] fetchMore failed:', err);
+        } finally {
+            setIsFetchingMore(false);
+        }
+    }, [
+        dateRange?.start,
+        dateRange?.end,
+        filters.transactionType.join(','),
+        filters.categories.join(','),
+        isFetchingMore,
+    ]);
+
     return {
         data: currentState.data ?? [],
         lastMonthTotals: currentState.lastMonthTotals,
         isCurrentMonth: currentState.isCurrentMonth,
         loading: currentState.loading,
+        hasMore: currentState.hasMore,
+        isFetchingMore,
         error,
         refetch,
+        fetchMore,
     };
 };

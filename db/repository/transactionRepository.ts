@@ -322,7 +322,9 @@ export const fetchTimelineTransactionsFromDB = async (
     startDate?: string,
     endDate?: string,
     types?: string[],
-    categories?: string[]
+    categories?: string[],
+    limit?: number,
+    offset: number = 0,
 ): Promise<Transaction[]> => {
     const db = await initDatabase();
     let query = `${baseSelectQuery} WHERE 1=1`;
@@ -352,6 +354,11 @@ export const fetchTimelineTransactionsFromDB = async (
     }
 
     query += ` ORDER BY t.date DESC`;
+
+    if (limit !== undefined) {
+        query += ` LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+    }
 
     const transactions = await db.getAllAsync(query, ...params);
     return transactions.map(mapRowToTransaction);

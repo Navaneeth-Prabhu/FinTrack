@@ -11,6 +11,11 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { supabase } from '@/services/supabaseClient';
 import {
+    isSmsProcessedInDb,
+    saveProcessedSmsIdsToDb,
+    advanceSmsWatermarkInDb,
+} from '@/db/services/sqliteService';
+import {
     startNativeSmsObserver,
     stopNativeSmsObserver,
     SmsModuleEmitter,
@@ -24,10 +29,30 @@ export function useSMSObserver() {
     useEffect(() => {
         if (Platform.OS !== 'android') return;
 
+        const resolveTransactionDate = (parsedDate: string | null, receiveMs?: number): string => {
+            const receiveTs = receiveMs ? new Date(receiveMs).toISOString() : new Date().toISOString();
+            if (!parsedDate) return receiveTs;
+
+            const bodyDateMs = new Date(parsedDate).getTime();
+            const now = Date.now();
+            const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+
+            if (bodyDateMs > now) return receiveTs;
+            if (now - bodyDateMs > SIX_MONTHS_MS) return receiveTs;
+            return parsedDate;
+        };
+
         const handleNewSms = async (rawJson: string) => {
             try {
                 console.log('[SMS::Observer] New SMS event received');
                 const raw: RawSmsMessage = JSON.parse(rawJson);
+                const smsId = raw._id?.toString();
+
+                if (smsId && await isSmsProcessedInDb(smsId)) {
+                    console.log(`[SMS::Observer] SMS ${smsId} already processed, skipping.`);
+                    return;
+                }
+
                 const parsed = extractTransactionFromSMS(raw.body, raw.address);
 
                 if (!parsed) {
@@ -35,9 +60,7 @@ export function useSMSObserver() {
                     return;
                 }
 
-                const transactionDate = raw.date
-                    ? new Date(raw.date).toISOString()
-                    : new Date().toISOString();
+                const transactionDate = resolveTransactionDate(parsed.date, raw.date);
 
                 const { data } = await supabase.auth.getSession();
                 const userId = data?.session?.user?.id ?? null;
@@ -46,13 +69,21 @@ export function useSMSObserver() {
 
                 const currentCategories = useCategoryStore.getState().categories;
                 const appTransaction = await convertToAppTransaction(
-                    { ...parsed, smsId: raw._id, date: transactionDate },
+                    { ...parsed, smsId, date: transactionDate },
                     currentCategories.length > 0 ? currentCategories : categories,
                     options,
                 );
 
                 await saveTransaction(appTransaction);
-                console.log(`[SMS::Observer] ✅ Real-time import: ${appTransaction.amount} from ${parsed.bank ?? parsed.sender}`);
+
+                if (smsId) {
+                    await saveProcessedSmsIdsToDb([smsId], raw.date || Date.now());
+                }
+                if (raw.date) {
+                    await advanceSmsWatermarkInDb(raw.date);
+                }
+
+                console.log(`[SMS::Observer] Real-time import: ${appTransaction.amount} from ${parsed.bank ?? parsed.sender}`);
             } catch (err) {
                 console.error('[SMS::Observer] Error processing realtime SMS:', err);
             }
@@ -82,5 +113,5 @@ export function useSMSObserver() {
             stopNativeSmsObserver();
             console.log('[SMS::Observer] ContentObserver stopped');
         };
-    }, []);  // Empty deps — we use .getState() getters inside to avoid stale closures
+    }, []);  // Empty deps - we use .getState() getters inside to avoid stale closures
 }

@@ -22,6 +22,10 @@ interface TransactionListProps {
     isFetching?: boolean;
     isCurrentMonth?: boolean;
     lastMonthTotals?: { income: number; expense: number } | null;
+    paginationMode?: 'store' | 'external' | 'none';
+    onLoadMore?: () => void | Promise<void>;
+    externalHasMore?: boolean;
+    externalIsFetchingMore?: boolean;
 }
 
 // ─── Item type union ─────────────────────────────────────────────────────────
@@ -70,6 +74,10 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     isFetching = false,
     isCurrentMonth = false,
     lastMonthTotals = null,
+    paginationMode,
+    onLoadMore,
+    externalHasMore = false,
+    externalIsFetchingMore = false,
 }) => {
     // ── Hooks (always at top, no early returns before this) ──────────────────
     const { colors } = useTheme();
@@ -79,6 +87,10 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     const categories = useCategoryStore(state => state.categories);
     const { saveBulkTransactions, fetchMoreTransactions, isFetchingMore, hasMore, isLoading } = useTransactionStore();
     const [loading, setLoading] = React.useState(false);
+    const effectivePaginationMode = paginationMode ?? (overView ? 'none' : 'store');
+    const shouldPaginate = effectivePaginationMode !== 'none';
+    const effectiveIsFetchingMore = effectivePaginationMode === 'external' ? externalIsFetchingMore : isFetchingMore;
+    const effectiveHasMore = effectivePaginationMode === 'external' ? externalHasMore : hasMore;
 
     // Derived once, not recalculated in every renderItem call
     const sectionBg = theme === 'dark' ? darkTheme.background : lightTheme.card;
@@ -158,8 +170,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
     ), [overView, totals, isCurrentMonth, lastMonthTotals]);
 
     const ListFooterComponent = useCallback(() => (
-        <ListFooter totals={totals} count={transactions.length} isFetchingMore={isFetchingMore} />
-    ), [totals, transactions.length, isFetchingMore]);
+        <ListFooter totals={totals} count={transactions.length} isFetchingMore={effectiveIsFetchingMore} />
+    ), [totals, transactions.length, effectiveIsFetchingMore]);
 
     // ── FlashList stable callbacks ────────────────────────────────────────────
     const overrideItemLayout = useCallback((layout: any, item: ListItem) => {
@@ -222,10 +234,24 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
 
     // ── Pagination Handler ────────────────────────────────────────────────────
     const handleEndReached = useCallback(() => {
-        if (!isFetchingMore && hasMore) {
+        if (!shouldPaginate || effectiveIsFetchingMore || !effectiveHasMore) return;
+
+        if (effectivePaginationMode === 'store') {
             fetchMoreTransactions().catch(console.error);
+            return;
         }
-    }, [isFetchingMore, hasMore, fetchMoreTransactions]);
+
+        if (effectivePaginationMode === 'external' && onLoadMore) {
+            Promise.resolve(onLoadMore()).catch(console.error);
+        }
+    }, [
+        shouldPaginate,
+        effectiveIsFetchingMore,
+        effectiveHasMore,
+        effectivePaginationMode,
+        fetchMoreTransactions,
+        onLoadMore,
+    ]);
 
     // ── Conditional renders (after all hooks) ─────────────────────────────────
     if (Platform.OS !== 'android') return null;
@@ -250,8 +276,8 @@ export const TransactionList: React.FC<TransactionListProps> = memo(({
                 onRefresh={handleRefresh}
                 refreshing={loading}
                 // Pagination props
-                onEndReached={handleEndReached}
-                onEndReachedThreshold={0.5} // Trigger when half a screen from bottom
+                onEndReached={shouldPaginate ? handleEndReached : undefined}
+                onEndReachedThreshold={shouldPaginate ? 0.5 : undefined} // Trigger when half a screen from bottom
                 // Performance tuning - explicit hints skip measuring phases
                 overrideItemLayout={overrideItemLayout}
             />

@@ -1,28 +1,60 @@
 import { AppRegistry } from 'react-native';
-import { extractTransactionFromSMS, ParsedSMS } from './smsParser';
+import { extractTransactionFromSMS } from './smsParser';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { convertToAppTransaction } from '@/utils/SMSTransactionUtil';
 import { getSMSAIPreference, CategorizationOptions } from './smsCategorizationService';
 import { supabase } from '@/services/supabaseClient';
+import {
+    isSmsProcessedInDb,
+    saveProcessedSmsIdsToDb,
+    advanceSmsWatermarkInDb,
+} from '@/db/services/sqliteService';
 
-// Helper to reliably push the headless transaction 
+const buildHeadlessSmsId = (body: string, sender: string | undefined, timestamp: number): string => {
+    // Stable lightweight hash to dedup repeated headless callbacks for the same SMS.
+    let hash = 0;
+    for (let i = 0; i < body.length; i++) {
+        hash = (hash * 31 + body.charCodeAt(i)) >>> 0;
+    }
+    const senderPart = (sender || 'unknown').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+    return `headless_${timestamp}_${senderPart}_${hash.toString(16)}`;
+};
+
+const resolveTransactionDate = (parsedDate: string | null, receiveMs: number): string => {
+    const receiveTs = new Date(receiveMs).toISOString();
+    if (!parsedDate) return receiveTs;
+
+    const bodyDateMs = new Date(parsedDate).getTime();
+    const now = Date.now();
+    const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+
+    if (bodyDateMs > now) return receiveTs;
+    if (now - bodyDateMs > SIX_MONTHS_MS) return receiveTs;
+    return parsedDate;
+};
+
+// Helper to reliably push the headless transaction
 const processSmsHeadless = async (taskData: { body: string; sender?: string; timestamp: number }) => {
     console.log(`[SMS::Headless] Received SMS from ${taskData.sender}`);
 
     try {
+        const smsId = buildHeadlessSmsId(taskData.body, taskData.sender, taskData.timestamp);
+        if (await isSmsProcessedInDb(smsId)) {
+            console.log(`[SMS::Headless] SMS ${smsId} already processed, skipping.`);
+            return;
+        }
+
         const parsedSMS = extractTransactionFromSMS(taskData.body, taskData.sender);
         if (!parsedSMS) {
             console.log('[SMS::Headless] Ignored non-financial or unparseable SMS.');
             return;
         }
 
-        const transactionDate = new Date(taskData.timestamp).toISOString();
+        const transactionDate = resolveTransactionDate(parsedSMS.date, taskData.timestamp);
         console.log(`[SMS::Headless] Parsed transaction for ${parsedSMS.amount} at ${transactionDate}`);
 
-        // Wait until Zustand stores are hydrated if possible, or force fetch them
-        // Note: in a headless task, Zustand might not be fully initialized or hydrated if it relies on async storage
-        // We fetch categories explicitly
+        // Wait until Zustand stores are hydrated if possible, or force fetch them.
         let categories = useCategoryStore.getState().categories;
         if (categories.length === 0) {
             console.log('[SMS::Headless] Waiting for categories to hydrate...');
@@ -34,20 +66,19 @@ const processSmsHeadless = async (taskData: { body: string; sender?: string; tim
         const userId = data?.session?.user?.id ?? null;
         const aiEnabled = await getSMSAIPreference();
 
-        // We assume online is true as best effort for categorization. 
-        // It will gracefully degrade to local if network fails.
+        // Best effort: if network fails categorization already degrades safely.
         const options: CategorizationOptions = { aiEnabled, isOnline: true, userId };
 
         const appTransaction = await convertToAppTransaction(
-            { ...parsedSMS, smsId: `headless_${taskData.timestamp}`, date: transactionDate },
+            { ...parsedSMS, smsId, date: transactionDate },
             categories,
             options
         );
 
         await useTransactionStore.getState().saveTransaction(appTransaction);
+        await saveProcessedSmsIdsToDb([smsId], taskData.timestamp || Date.now());
+        await advanceSmsWatermarkInDb(taskData.timestamp || Date.now());
         console.log(`[SMS::Headless] Successfully saved transaction ${appTransaction.id}`);
-
-        // TODO: Consider emitting a DeviceEventEmitter event here so the UI can toast it if the app is alive 
 
     } catch (err) {
         console.error('[SMS::Headless] Error processing SMS', err);

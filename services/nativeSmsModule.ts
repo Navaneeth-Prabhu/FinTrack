@@ -1,6 +1,6 @@
 // services/nativeSmsModule.ts
 // Typed TypeScript bridge for the custom SmsModule native module.
-// This is the ONLY file that touches NativeModules — all other SMS code imports from here.
+// This is the ONLY file that touches NativeModules - all other SMS code imports from here.
 
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
@@ -12,7 +12,7 @@ export interface RawSmsMessage {
 }
 
 interface SmsModuleInterface {
-    getTransactionSms(maxCount: number, minDate: number): Promise<string>;
+    getTransactionSms(maxCount: number, minDate: number, maxDate: number): Promise<string>;
     startSmsObserver(): void;
     stopSmsObserver(): void;
     addListener(eventName: string): void;
@@ -21,15 +21,15 @@ interface SmsModuleInterface {
 
 const { SmsModule: _SmsModule } = NativeModules as { SmsModule: SmsModuleInterface | undefined };
 
-// ─── DIAGNOSTIC: Catch R8/ProGuard stripping or New Arch registration failure ─
+// Diagnostic: Catch R8/ProGuard stripping or New Arch registration failure
 // In release builds, if SmsModule is undefined it means either:
 //   1. proguard-rules.pro is missing -keep class com.fintrack.FinTrack.** { *; }
 //   2. newArchEnabled=true in gradle.properties (breaks old-style ReactContextBaseJavaModule)
-// Run: adb logcat | grep "\[SmsModule\]" to see this on device
+// Run: adb logcat | grep "[SmsModule]" to see this on device
 if (Platform.OS === 'android') {
     if (!_SmsModule) {
         console.error(
-            '[SmsModule] ❌ CRITICAL: NativeModules.SmsModule is undefined!\n' +
+            '[SmsModule] CRITICAL: NativeModules.SmsModule is undefined!\n' +
             'Checklist:\n' +
             '  1. proguard-rules.pro must have: -keep class com.fintrack.FinTrack.** { *; }\n' +
             '  2. gradle.properties must have: newArchEnabled=false\n' +
@@ -37,33 +37,55 @@ if (Platform.OS === 'android') {
             'All SMS parsing is silently disabled until this is resolved.'
         );
     } else {
-        console.log('[SmsModule] ✅ Native module registered successfully');
+        console.log('[SmsModule] Native module registered successfully');
     }
+}
+
+export interface ReadSmsResult {
+    messages: RawSmsMessage[];
+    oldestScannedDate: number;
+    scannedCount: number;
 }
 
 /**
  * Read financial SMS messages from the inbox.
- * Returns an empty array on iOS or if the native module is unavailable.
+ * Returns metadata and messages.
  */
 export async function readSmsMessages(
     maxCount = 300,
     minDate = 0,
-): Promise<RawSmsMessage[]> {
+    maxDate = 0,
+): Promise<ReadSmsResult> {
+    const fallback: ReadSmsResult = { messages: [], oldestScannedDate: maxDate || Date.now(), scannedCount: 0 };
+    
     if (Platform.OS !== 'android' || !_SmsModule) {
         if (Platform.OS === 'android') {
-            console.warn('[SmsModule] readSmsMessages called but module is unavailable — returning []');
+            console.warn('[SmsModule] readSmsMessages called but module is unavailable');
         }
-        return [];
+        return fallback;
     }
 
     try {
-        const raw = await _SmsModule.getTransactionSms(maxCount, minDate);
-        const parsed = JSON.parse(raw) as RawSmsMessage[];
-        console.log(`[SmsModule] ✅ Read ${parsed.length} financial SMS messages`);
-        return parsed;
+        const raw = await _SmsModule.getTransactionSms(maxCount, minDate, maxDate);
+        const parsed = JSON.parse(raw);
+        
+        // Handle both new {messages, oldestScannedDate} and legacy [...] formats
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return {
+                messages: parsed.messages || [],
+                oldestScannedDate: parsed.oldestScannedDate || 0,
+                scannedCount: parsed.scannedCount || 0
+            };
+        } else if (Array.isArray(parsed)) {
+            // Legacy fallback
+            const oldest = parsed.length > 0 ? Math.min(...parsed.map((m: any) => m.date)) : (maxDate || 0);
+            return { messages: parsed, oldestScannedDate: oldest, scannedCount: parsed.length };
+        }
+        
+        return fallback;
     } catch (error) {
-        console.error('[SmsModule] ❌ getTransactionSms failed:', error);
-        return [];
+        console.error('[SmsModule] getTransactionSms failed:', error);
+        return fallback;
     }
 }
 

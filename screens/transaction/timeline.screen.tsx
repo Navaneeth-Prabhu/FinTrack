@@ -78,7 +78,10 @@ export default function TimeLineScreen() {
         data: filteredTransactions,
         lastMonthTotals,
         isCurrentMonth,
-        loading: dbLoading
+        loading: dbLoading,
+        hasMore: timelineHasMore,
+        isFetchingMore: timelineIsFetchingMore,
+        fetchMore: fetchMoreTimelineTransactions,
     } = useTimelineData(dateRange, appliedFilters);
 
     // ── Active filter chips (unchanged) ──────────────────────────────────────
@@ -247,6 +250,10 @@ export default function TimeLineScreen() {
                 isFetching={dbLoading}
                 isCurrentMonth={isCurrentMonth}
                 lastMonthTotals={lastMonthTotals}
+                paginationMode={timePreset === 'All' ? 'external' : 'none'}
+                onLoadMore={fetchMoreTimelineTransactions}
+                externalHasMore={timelineHasMore}
+                externalIsFetchingMore={timelineIsFetchingMore}
             />
 
             {/* ── Filter bottom sheet ───────────────────────────────────────── */}

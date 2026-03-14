@@ -1,10 +1,10 @@
 // services/smsParser.ts
 // Industry-level SMS transaction parser.
 // Architecture mirrors the web email-parser:
-//   1. Detect bank from SMS sender code (e.g. "VM-HDFCBK" → hdfc)
+//   1. Detect bank from SMS sender code (e.g. "VM-HDFCBK" Ã¢â€ â€™ hdfc)
 //   2. Apply bank-specific regex for amount / type / merchant / date
 //   3. Fall back to generic INR patterns for unknown senders
-//   4. Calculate a per-field confidence score (0–1)
+//   4. Calculate a per-field confidence score (0Ã¢â‚¬â€œ1)
 
 import { PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,10 +16,10 @@ import {
     handleStockBuySMS,
 } from './investmentSmsHandler';
 
-// ─── Storage keys ─────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Storage keys Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const LAST_SMS_SCAN_KEY = 'last_sms_scan_timestamp';
 
-// ─── SMS body normalisation ───────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ SMS body normalisation Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Some banks (HDFC, SBI) send multiline SMS that span 2-3 lines.
 // Collapsing them to a single line ensures regex patterns work reliably.
 export const normaliseSMSBody = (body: string): string => {
@@ -31,23 +31,75 @@ export const normaliseSMSBody = (body: string): string => {
         .trim();
 };
 
-// ─── Promotional / Spam Filter ────────────────────────────────────────────────
-// Industry standard filter: explicitly drop marketing/reminder SMS based on
-// strict keywords before they even hit the main extraction engine.
-export function isPromotionalSms(body: string): boolean {
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Promotional / Spam Filter Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+/**
+ * JS-level spam/promo guard Ã¢â‚¬â€ the last line of defence before extracting a transaction.
+ * This mirrors the CRED/Axio approach: positive transaction signals MUST be present,
+ * and known promo phrases MUST be absent.
+ *
+ * Returns true if the SMS should be REJECTED (is spam/promo/alert, not a real transaction).
+ */
+export function isSpamOrPromoSMS(body: string, sender?: string): boolean {
     const lower = body.toLowerCase();
-    const spamKeywords = [
-        'loan limit', 'credit limit', 'approved loan', 'limit up to',
-        'is consumed', 'pack has expired', 'recharge now',
-        'save flat', 'processing fee', 'convenience fee',
-        'reminder', 'offer', 'win ', 'discount', 'cashback of',
-        'apply now', 'pre-approved', 'pre approved', 'personal loan',
-        'get 2gb', 'get 1gb', 'till midnight', 'waiting for',
-        'hurry', 'limited time'
-    ];
-    return spamKeywords.some(kw => lower.includes(kw));
-}
 
+    // Positive transaction signals. We intentionally combine keyword checks with
+    // structural checks to avoid dropping valid bank formats.
+    const TRANSACTION_SIGNALS = [
+        'debited', 'credited', 'withdrawn', 'deducted', 'spent', 'used', 'purchased',
+        'upi ref', 'upi txn', 'neft ref', 'imps ref', 'utr', 'rrn',
+        'txn of', 'transaction of',
+        'sent rs', 'sent inr', 'paid rs', 'paid inr', 'received rs', 'received inr',
+        'available bal', 'avl bal', 'available balance',
+        'a/c *', 'a/c no', 'xxxx', 'xx', 'acct', 'ending with',
+        'txn id', 'transaction id', 'ref no:', 'ref:', 'vpa', 'card ending',
+        'nach debit', 'emi deducted', 'emi paid',
+        'folio', 'nav:', 'units allotted',
+    ];
+
+    const hasKeywordSignal = TRANSACTION_SIGNALS.some(s => lower.includes(s));
+    const hasAmount = /(?:rs\.?|inr|Ã¢â€šÂ¹)\s*[x*]*\s*[\d,]+(?:\.\d{1,2})?/i.test(body);
+    const hasActionVerb = /\b(?:debited|credited|withdrawn|deducted|spent|paid|sent|received|transferred|purchased|used|dr\.?|cr\.?)\b/i.test(body);
+    const hasFinancialContext = /\b(?:a\/c|account|acct|card|upi|vpa|utr|rrn|imps|neft|rtgs|ref(?:erence)?(?:\s*no)?|txn(?:\s*id)?)\b/i.test(body);
+    const hasStructuredSignal = hasAmount && hasActionVerb && hasFinancialContext;
+
+    // Sender-aware fallback: business/alphanumeric senders with amount + financial context.
+    const isAlphanumericSender = !!sender && !/^[+0-9]+$/.test(sender);
+    const hasSenderHeuristic = isAlphanumericSender && hasAmount && hasFinancialContext;
+
+    if (!hasKeywordSignal && !hasStructuredSignal && !hasSenderHeuristic) {
+        return true;
+    }
+
+    const SPAM_PHRASES = [
+        'get your approved', 'pre-approved loan', 'pre approved loan',
+        'offer valid', 'use code', 'promo code', 'coupon code',
+        'click here', 'tap here', 'download app', 'download now',
+        'expires today', 'expires soon', 'limited time offer',
+        'recharge now', 'recharge with', 'pack expired', 'pack has expired',
+        '% data consumed', 'data balance low', 'gb data', 'gb at rs',
+        'unlimited calls', 'data/day', 'sms/day',
+        'credit limit upto', 'credit limit up to', 'credit card offer',
+        'loan limit of rs', 'loan offer',
+        // NOTE: 'mandate registration', 'autopay mandate', 'e-mandate' removed —
+        //       they appear in valid SIP NACH debit confirmation SMS.
+        // NOTE: 'collect request', 'upi collect' removed —
+        //       they appear in valid UPI P2P incoming credit SMS.
+        // NOTE: 'save rs', 'save flat rs' removed —
+        //       they appear in valid cashback / refund credited SMS.
+        // NOTE: 'apply now', 'apply for' removed (too broad) —
+        //       use specific variants below.
+        'apply now for loan', 'apply for personal loan', 'apply for credit card',
+        'processing fee waived', 'get upto rs', 'get up to rs',
+        'cashback offer', 'win rs', 'earn rs',
+        'kyc update required', 'update your kyc', 'link your aadhaar',
+        // URL shorteners only appear in promo SMS
+        'bit.ly/', 't.ly/', 'fb.fbe', 'i.airtel.in', 'tiny.cc',
+    ];
+
+    if (SPAM_PHRASES.some(s => lower.includes(s))) return true;
+
+    return false;
+}
 export type TxType = 'income' | 'expense' | 'transfer' | 'investment';
 
 export interface ParsedSMS {
@@ -67,10 +119,10 @@ export interface ParsedSMS {
     availableBalance?: number;    // Extracted available balance if present
     units?: number;               // Extracted units for SIPs
     nav?: number;                 // Extracted NAV for SIPs
-    confidence: number;           // 0–1
+    confidence: number;           // 0Ã¢â‚¬â€œ1
 }
 
-// ─── Permission helpers ───────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Permission helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export const requestSMSPermission = async (): Promise<boolean> => {
     try {
         const granted = await PermissionsAndroid.request(
@@ -99,9 +151,9 @@ export const checkSMSPermission = async (): Promise<boolean> => {
     }
 };
 
-// ─── Bank sender map ──────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Bank sender map Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Indian bank SMS senders follow patterns like "VM-HDFCBK", "VK-ICICIB", "JD-SBINB"
-// The prefix (VM/VK/JD/BP etc.) is the telecom operator code — ignore it.
+// The prefix (VM/VK/JD/BP etc.) is the telecom operator code Ã¢â‚¬â€ ignore it.
 // We match the suffix after the hyphen.
 
 const BANK_SENDER_MAP: Record<string, string[]> = {
@@ -151,7 +203,7 @@ const BANK_DISPLAY_NAMES: Record<string, string> = {
 
 function detectBank(sender: string | undefined): string | null {
     if (!sender) return null;
-    // Extract part after last hyphen: "VM-HDFCBK" → "HDFCBK"
+    // Extract part after last hyphen: "VM-HDFCBK" Ã¢â€ â€™ "HDFCBK"
     const parts = sender.toUpperCase().split('-');
     const code = parts[parts.length - 1];
     for (const [bank, codes] of Object.entries(BANK_SENDER_MAP)) {
@@ -160,7 +212,7 @@ function detectBank(sender: string | undefined): string | null {
     return null;
 }
 
-// ─── Bank-specific pattern sets ───────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Bank-specific pattern sets Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Each bank entry has debit[], credit[], merchant[], date[], account[] regex arrays.
 // Patterns are ordered by specificity (most specific first).
 
@@ -175,6 +227,12 @@ interface BankPatterns {
 const BANK_PATTERNS: Record<string, BankPatterns> = {
     hdfc: {
         debit: [
+            // Ã¢Å“â€¦ NEW: "Sent Rs.250.00 From HDFC Bank A/C *1088 To MERCHANT On 09/03/26"
+            /^Sent\s+(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s+From\s+HDFC/i,
+            /Sent\s+(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s+From/i,
+            /(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s*(?:spent|paid|used)\b/i,
+
+            // Existing patterns (keep these)
             /(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s*(?:has been|is)\s*debited/i,
             /debited[\s\S]*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
             /(?:spent|paid|sent)[\s\S]*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
@@ -186,24 +244,30 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
             /received.*?(?:Rs\.?|INR)\s*([\d,]+\.?\d*)/i,
         ],
         merchant: [
-            // UPI with name after VPA: "to VPA xx@yy MERCHANT NAME on"
+            // Ã¢Å“â€¦ NEW: "Sent Rs.X From HDFC Bank A/C *XXXX To MERCHANT NAME On DATE"
+            /Sent\s+(?:Rs\.?|INR)[\d,.]+\s+From\s+HDFC\s+Bank\s+A\/C\s+\*\d+\s+To\s+(.+?)\s+On\s+/i,
+
+            // Existing patterns (keep these)
             /to\s+VPA\s+[\w.\-]+@[\w.\-]+\s+([A-Z0-9][A-Za-z0-9\s&.'\-]{1,40}?)\s+on\s+/i,
             /by\s+VPA\s+[\w.\-]+@[\w.\-]+\s+([A-Z][A-Z\s]{2,40}?)\s+on\s+/i,
             /to\s+VPA\s+[\w@.\-]+\s+\(([^)]+)\)/i,
             /at\s+([A-Z][A-Z0-9\s\-\.&,']{2,40}?)(?:\s+on|\s+dated|\.|,|$)/i,
             /NACH.*?(?:to|for)\s+([A-Z][A-Za-z0-9\s\-\.&]{2,40}?)(?:\s+on|\s+dated|\.|$)/i,
-            // New explicit To MERCHANT format
-            /to\s+([A-Z0-9][A-Za-z0-9\s&.\-']{2,40}?)(?:\s+on|\s+ref|\s+dated|\.|,|$)/i,
-            // VPA handle fallback
             /(?:to|by)\s+VPA\s+([\w.\-]+)@/i,
-            // HDFC explicit format: "To MERCHANT On" 
-            /To\s+([A-Z0-9][A-Za-z0-9\s&.\-']{2,40}?)\s+On\s+\d{2}\/\d{2}\/\d{2}/i,
         ],
         date: [
-            /on\s+(\d{2}[-\/](?:[A-Za-z]{3}|\d{2})[-\/]\d{2,4})/i,
+            // Ã¢Å“â€¦ NEW: "On 09/03/26" format used in HDFC UPI SMS
+            /\bOn\s+(\d{2}\/\d{2}\/\d{2,4})\b/i,
+
+            // Existing patterns (keep these)
+            /on\s+(\d{2}-(?:[A-Za-z]{3}|\d{2})-\d{2,4})/i,
             /dated?\s+(\d{2}[-\/]\d{2}[-\/]\d{2,4})/i,
         ],
         account: [
+            // Ã¢Å“â€¦ NEW: "A/C *1088" format
+            /A\/C\s+\*(\d{3,4})\b/i,
+
+            // Existing patterns (keep these)
             /(?:a\/c|account|acct)[\s\w]*?(?:ending\s+(?:with\s+)?)?(X+|\*+)(\d{3,4})\b/i,
             /\b[Xx]{3,}(\d{3,4})\b/,
         ],
@@ -216,8 +280,8 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
             /(?:Rs\.?|INR)\s*([\d,]+\.?\d*)\s*is debited/i,
         ],
         credit: [
-            /(?:credited|deposited).*?(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i,
             /(?:INR|Rs\.?)\s*([\d,]+\.?\d*)\s*credited/i,
+            /(?:credited|deposited).*?(?:INR|Rs\.?)\s*([\d,]+\.?\d*)/i,
         ],
         merchant: [
             /to\s+VPA\s+[\w.\-]+@[\w.\-]+\s+([A-Z][A-Z\s]{2,40}?)\s+on\s+/i,
@@ -272,6 +336,7 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
         merchant: [
             /to\s+VPA\s+[\w.\-]+@[\w.\-]+\s+([A-Z][A-Z\s]{2,40}?)\s+on\s+/i,
             /(?:at|to)\s+([A-Z][A-Z0-9\s\-\.&]{2,40}?)(?:\s+on|\.|\s*$)/i,
+            /for\s+([A-Z][A-Z0-9\s\-\.&]{2,40}?)(?:\s+on|\.|\s*$)/i,
             /to\s+VPA\s+([\w.\-]+)@/i,
         ],
         date: [/on\s+(\d{2}[-\/]\d{2}[-\/]\d{2,4})/i],
@@ -337,11 +402,11 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
 
     paytm: {
         debit: [
-            /(?:paid|sent|debited).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
-            /(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)\s*(?:paid|sent|debited)/i,
+            /(?:paid|sent|debited).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
+            /(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)\s*(?:paid|sent|debited)/i,
         ],
         credit: [
-            /(?:received|added|credited).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
+            /(?:received|added|credited).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
         ],
         merchant: [
             /(?:to|from)\s+([A-Z@][A-Za-z0-9\s\-\.@]{2,40}?)(?:\s+on|\s+for|\.|\s*$)/i,
@@ -355,11 +420,11 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
 
     phonepe: {
         debit: [
-            /(?:paid|sent|debited).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
-            /(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)\s*(?:paid|sent)/i,
+            /(?:paid|sent|debited).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
+            /(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)\s*(?:paid|sent)/i,
         ],
         credit: [
-            /(?:received|credited).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
+            /(?:received|credited).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
         ],
         merchant: [
             /(?:to|from)\s+([A-Z@][A-Za-z0-9\s\-\.@]{2,40}?)(?:\s+on|\s+using|\.|\s*$)/i,
@@ -374,11 +439,11 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
 
     gpay: {
         debit: [
-            /(?:paid|sent).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
-            /(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)\s*(?:paid|sent)/i,
+            /(?:paid|sent).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
+            /(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)\s*(?:paid|sent)/i,
         ],
         credit: [
-            /(?:received).*?(?:INR|Rs\.?|₹)\s*([\d,]+\.?\d*)/i,
+            /(?:received).*?(?:INR|Rs\.?|Ã¢â€šÂ¹)\s*([\d,]+\.?\d*)/i,
         ],
         merchant: [
             /(?:to|from)\s+([A-Z@][A-Za-z0-9\s\-\.@]{2,40}?)(?:\s+on|\s+using|\.|\s*$)/i,
@@ -392,37 +457,44 @@ const BANK_PATTERNS: Record<string, BankPatterns> = {
     },
 };
 
-// ─── Generic fallback patterns ────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Generic fallback patterns Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const GENERIC_DEBIT_PATTERNS: RegExp[] = [
-    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has been|is|been)?\s*(?:debited|deducted|withdrawn)/i,
-    /(?:debited|deducted|withdrawn|spent|paid)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:Dr\.?|DR)\b/i,
-    /amount\s+(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)\s+(?:debited|deducted)/i,
-    /(?:Sent)\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:From)/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has been|is|been)?\s*(?:debited|deducted|withdrawn)/i,
+    /(?:debited|deducted|withdrawn|spent|paid)\s+(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:spent|paid|used|purchased|debited|deducted|withdrawn)\b/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:Dr\.?|DR)\b/i,
+    /amount\s+(?:of\s+)?(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)\s+(?:debited|deducted)/i,
+    /(?:Sent)\s*(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:From)/i,
+    /(?:sent|transferred)\s+(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?).*?\bto\b/i,
+    /(?:txn|transaction)\s+of\s+(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?).*?\b(?:at|on|using|via)\b/i,
 ];
 
 const GENERIC_CREDIT_PATTERNS: RegExp[] = [
-    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has been|is|been)?\s*credited/i,
-    /(?:credited|deposited|received)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:Cr\.?|CR)\b/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has been|is|been)?\s*credited/i,
+    /(?:credited|deposited|received)\s+(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:Cr\.?|CR)\b/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:received|credited|deposited)\b/i,
+    /(?:salary|refund|cashback)\s+(?:of\s+)?(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)\b/i,
 ];
 
 const GENERIC_AMOUNT_PATTERNS: RegExp[] = [
-    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:Rs\.?|INR|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)/i,
     /([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR)/i,
-    /amount[:\s]+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /amount[:\s]+(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
 ];
 
 const GENERIC_REF_PATTERNS: RegExp[] = [
     /(?:UPI Ref No|UPI Ref|Ref No|Ref\.?|UTR|txn id|transaction id)[:\-\s]+([a-zA-Z0-9]{6,20})\b/i,
+    /\b(?:RRN|UTR)\s*(?:No\.?|#|:)?\s*([A-Z0-9]{6,30})\b/i,
+    /\b(?:UPI|IMPS|NEFT|RTGS)\/([A-Z0-9]{6,30})\b/i,
 ];
 
-// ─── Financial keyword filter ─────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Financial keyword filter Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const FINANCIAL_KEYWORDS = [
     'bank', 'credit', 'debit', 'transaction', 'account', 'spent',
     'payment', 'transfer', 'balance', 'card', 'upi', 'atm', 'paid',
     'credited', 'debited', 'withdrawn', 'deposit', 'purchase',
-    'inr', 'rs', 'rupee', '₹', 'refund', 'cashback', 'emi',
+    'inr', 'rs', 'rupee', 'Ã¢â€šÂ¹', 'refund', 'cashback', 'emi',
     'neft', 'rtgs', 'imps', 'nach', 'mandate',
 ];
 
@@ -431,7 +503,7 @@ function isFinancialSms(body: string): boolean {
     return FINANCIAL_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// ─── Extract amount ───────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Extract amount Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function parseAmountStr(raw: string): number {
     const value = parseFloat(raw.replace(/,/g, ''));
     return isNaN(value) || value <= 0 ? 0 : value;
@@ -481,7 +553,7 @@ function extractAmount(
         }
     }
 
-    // Last resort — just find any INR amount
+    // Last resort Ã¢â‚¬â€ just find any INR amount
     for (const p of GENERIC_AMOUNT_PATTERNS) {
         const m = combined.match(p);
         if (m?.[1]) {
@@ -493,17 +565,17 @@ function extractAmount(
     return { amount: 0, type: null };
 }
 
-// ─── Transaction type refinement ──────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Transaction type refinement Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Runs AFTER amount extraction to refine type via keyword scoring.
 // Uses word-boundary patterns to avoid false positives.
 
-function refineType(body: string, amountType: TxType | null): TxType {
+function refineType(body: string, amountType: TxType | null): TxType | null {
     const lower = body.toLowerCase();
 
     const debitScore = [
         /\bdebited\b/, /\bdebit\b/, /\bdr\.?\b/, /\bspent\b/, /\bpaid\b/,
         /\bpayment\b/, /\bpurchase\b/, /\bcard\s+used\b/, /\bwithdrawn\b/,
-        /\bcharged\b/, /\bdeducted\b/, /\bsent\b/,
+        /\bcharged\b/, /\bdeducted\b/, /\bsent\b/, /\bused\b/, /\btxn\b/,
     ].reduce((s, p) => s + (p.test(lower) ? 1 : 0), 0);
 
     const creditScore = [
@@ -512,11 +584,21 @@ function refineType(body: string, amountType: TxType | null): TxType {
     ].reduce((s, p) => s + (p.test(lower) ? 1 : 0), 0);
 
     const transferScore = [
-        /\btransferred\b/, /\bneft\b/, /\brtgs\b/, /\bimps\b/, /\bupi\s+ref\b/,
+        /\btransferred\b/, /\btransfer\b/, /\bneft\b/, /\brtgs\b/, /\bimps\b/, /\bupi\s+ref\b/,
     ].reduce((s, p) => s + (p.test(lower) ? 1 : 0), 0);
 
-    // Transfer: only if clear transfer signal with no competing debit/credit
-    if (transferScore > 0 && debitScore === 0 && creditScore === 0) return 'transfer';
+    // Transfer: only if this looks like account-to-account movement.
+    if (transferScore > 0 && debitScore === 0 && creditScore === 0) {
+        const hasAccountToAccountContext =
+            /\b(?:from|to)\s+(?:a\/c|account|acct)\b/.test(lower) ||
+            /\b(?:imps|neft|rtgs)\b/.test(lower);
+        const looksLikeMerchantPayment =
+            /\bto\s+[a-z][a-z0-9\s&.'\-]{2,40}\b/.test(lower) &&
+            !/\bto\s+(?:a\/c|account|acct)\b/.test(lower);
+
+        if (hasAccountToAccountContext && !looksLikeMerchantPayment) return 'transfer';
+        return 'expense';
+    }
     if (creditScore > debitScore) return 'income';
     if (debitScore > 0) return 'expense';
 
@@ -524,21 +606,27 @@ function refineType(body: string, amountType: TxType | null): TxType {
     // AND the original extraction could not classify it (e.g. matched a generic amount without verbs)
     // then we reject it instead of blindly defaulting to 'expense'.
     if (amountType === null && debitScore === 0 && creditScore === 0 && transferScore === 0) {
-        return null as any; // Trick the compiler, caller must handle null
+        return null;
     }
 
     // Fall back to what amount extraction found, else expense
     return amountType ?? 'expense';
 }
 
-// ─── Payment method detection ─────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Payment method detection Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function detectPaymentMethod(body: string): string | null {
     const lower = body.toLowerCase();
-    if (lower.includes('upi') || lower.includes('vpa') || /@ok(axis|icici|sbi|hdfc)/i.test(body)) return 'UPI';
+    if (
+        lower.includes('upi') ||
+        lower.includes('vpa') ||
+        /@ok(axis|icici|sbi|hdfc|yesbank|paytm|ibl|ybl)/i.test(body) ||
+        /\brrn\b/i.test(body)
+    ) return 'UPI';
     if (lower.includes('credit card')) return 'Credit Card';
     if (lower.includes('debit card')) return 'Debit Card';
+    if (lower.includes('card ending') || lower.includes('card xx') || lower.includes('card x')) return 'Card';
     if (lower.includes('net banking') || lower.includes('netbanking')) return 'Net Banking';
-    if (lower.includes('nach') || lower.includes('mandate')) return 'NACH';
+    if (lower.includes('nach') || lower.includes('mandate') || lower.includes('ecs')) return 'NACH';
     if (lower.includes('imps')) return 'IMPS';
     if (lower.includes('neft')) return 'NEFT';
     if (lower.includes('rtgs')) return 'RTGS';
@@ -547,7 +635,7 @@ function detectPaymentMethod(body: string): string | null {
     return null;
 }
 
-// ─── Account extraction ───────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Account extraction Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function extractAccount(body: string, bankKey: string | null): string | null {
     if (bankKey && BANK_PATTERNS[bankKey]) {
         for (const p of BANK_PATTERNS[bankKey].account) {
@@ -558,11 +646,22 @@ function extractAccount(body: string, bankKey: string | null): string | null {
             }
         }
     }
-    const generic = body.match(/(?:[Xx*]{1,}|a\/c\s*(?:no\.?\s*)?[Xx*]+|a\/c\s*\*+)([0-9]{3,5})\b/i) || body.match(/(?:[Xx*]{3,}|[Xx]-?)[0-9]{3,5}\b/i);
-    return generic?.[1] ?? body.match(/(?:a\/c|account)[\s\w]*?\*?([0-9]{3,5})\b/i)?.[1] ?? null;
+    const genericPatterns = [
+        /(?:[Xx*]{1,}|a\/c\s*(?:no\.?\s*)?[Xx*]+|a\/c\s*\*+)\s*([0-9]{3,6})\b/i,
+        /\b(?:xx|x{2,}|\*{2,})(\d{3,6})\b/i,
+        /\b(?:ending|ending with|ending in)\s*(\d{3,6})\b/i,
+        /(?:a\/c|account|card)[\s\w]*?\*?(\d{3,6})\b/i,
+    ];
+
+    for (const p of genericPatterns) {
+        const m = body.match(p);
+        if (m?.[1]) return m[1];
+    }
+
+    return null;
 }
 
-// ─── Merchant extraction ──────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Merchant extraction Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const NOISE_WORDS = new Set([
     'your', 'account', 'hdfc', 'icici', 'sbi', 'axis', 'kotak', 'bank', 'ltd',
     'nearest', 'branch', 'atm', 'upi', 'ref', 'reference', 'transaction',
@@ -637,11 +736,14 @@ function extractMerchant(body: string, bankKey: string | null, type: TxType): st
 
     // Generic fallback patterns based on type
     const genericPatterns: RegExp[] = [
-        /(?:sent|transferred)\s+[₹Rs.INR\d,.]+(?:[\s\S]*?)\sto\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\s+via|\.|\s*$)/i,
+        /(?:sent|transferred)\s+[Ã¢â€šÂ¹Rs.INR\d,.]+(?:[\s\S]*?)\sto\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\s+via|\.|\s*$)/i,
         /purchase\s+at\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\.|$)/i,
         /spent\s+at\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\.|$)/i,
+        /(?:spent|used|charged)\s+(?:on\s+)?(?:your\s+)?(?:credit|debit)?\s*card[\s\S]*?\bat\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\.|$)/i,
+        /(?:txn|transaction)\s+of\s+[Ã¢â€šÂ¹Rs.INR\d,.]+[\s\S]*?\bat\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\.|$)/i,
         /paid\s+(?:to|at)\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\.|$)/i,
-        /payment\s+(?:of\s+[₹Rs.INR\d,.]+\s+)?to\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\.|$)/i,
+        /payment\s+(?:of\s+[Ã¢â€šÂ¹Rs.INR\d,.]+\s+)?to\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+for|\.|$)/i,
+        /for\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\.|$)/i,
         /towards\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)\s+(?:bill|emi|loan|due)/i,
         /credited\s+by\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+via|\.|\s*$)/i,
         /received\s+from\s+([A-Za-z0-9][A-Za-z0-9\s&.'\-]{1,40}?)(?:\s+on|\s+via|\.|\s*$)/i,
@@ -656,7 +758,7 @@ function extractMerchant(body: string, bankKey: string | null, type: TxType): st
     return tryPatterns(genericPatterns);
 }
 
-// ─── Extract Payer VPA (For Income / Credit) ──────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Extract Payer VPA (For Income / Credit) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function extractPayerVPA(body: string): { paidBy: string | null; merchant: string | null } {
     const tryPatterns = (patterns: RegExp[]): string | null => {
         for (const p of patterns) {
@@ -697,7 +799,7 @@ function extractPayerVPA(body: string): { paidBy: string | null; merchant: strin
     return { paidBy, merchant: merchantName };
 }
 
-// ─── Date extraction ──────────────────────────────────────────────────────────
+// ─── Date extraction ────────────────────────────────────────────────────────
 const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 function monthIndex(name: string): number {
@@ -706,14 +808,21 @@ function monthIndex(name: string): number {
 
 function tryParseDate(d: number, m: number, y: number): Date | null {
     const now = new Date();
+    // Pivot year: y < 50 => 2000+y, else 1900+y. So 26 -> 2026.
     const year = y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y;
     if (d < 1 || d > 31 || m < 1 || m > 12 || year < 2000) return null;
+    
+    // Create candidate at midnight local time
     const candidate = new Date(year, m - 1, d);
-    return candidate <= now ? candidate : null;
+    
+    // 10-minute future buffer (600,000 ms) for clock drift 
+    const nowWithBuffer = new Date(Date.now() + 600000); 
+    
+    return candidate.getTime() <= nowWithBuffer.getTime() ? candidate : null;
 }
 
 function extractDate(body: string, bankKey: string | null): Date | null {
-    const now = new Date();
+    const _now = new Date();
 
     // Try bank-specific date patterns first
     if (bankKey && BANK_PATTERNS[bankKey]) {
@@ -739,19 +848,24 @@ function extractDate(body: string, bankKey: string | null): Date | null {
     for (const p of patterns) {
         const m = body.match(p);
         if (!m) continue;
+        if (m.groups?.d && m.groups?.y) {
+            const day = parseInt(m.groups.d);
+            const year = parseInt(m.groups.y);
+            let month: number | undefined;
 
-        if (m.groups?.d && m.groups?.m && m.groups?.y) {
-            const d = tryParseDate(parseInt(m.groups.d), parseInt(m.groups.m), parseInt(m.groups.y));
-            if (d) return d;
-        }
+            if (m.groups.m) {
+                month = parseInt(m.groups.m);
+            } else {
+                const monthStr = m[1] || m[2];
+                if (monthStr) {
+                    month = monthIndex(monthStr) + 1;
+                }
+            }
 
-        if (m.groups?.d && m.groups?.y && !m.groups?.m) {
-            // Alpha month — captured as m[1] or m[2] in named group patterns
-            const monthStr = m[1] || m[2];
-            if (!monthStr) continue;
-            const mIdx = monthIndex(monthStr) + 1;
-            const d = tryParseDate(parseInt(m.groups.d), mIdx, parseInt(m.groups.y));
-            if (d) return d;
+            if (month) {
+                const d = tryParseDate(day, month, year);
+                if (d) return d;
+            }
         }
     }
 
@@ -770,7 +884,7 @@ function parseRawDateStr(s: string): Date | null {
     return null;
 }
 
-// ─── Extract Ref Number ───────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Extract Ref Number Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function extractRefNumber(body: string): string | null {
     for (const p of GENERIC_REF_PATTERNS) {
         const m = body.match(p);
@@ -781,12 +895,12 @@ function extractRefNumber(body: string): string | null {
     return null;
 }
 
-// ─── Extract Available Balance ────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Extract Available Balance Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function extractAvailableBalance(body: string): number | undefined {
     // Patterns for available balance, e.g., "Avl bal:INR 7,239.16", "Available Balance: Rs. 1000", "Bal Rs.123.45"
     const patterns = [
-        /(?:avl(?:\.|iable)?\s*bal(?:ance)?|available\s*balance)[\s:;\-]*?(?:inr|rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-        /bal(?:ance)?[\s:;\-]*?(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i
+        /(?:avl(?:\.|iable)?\s*bal(?:ance)?|available\s*balance)[\s:;\-]*?(?:inr|rs\.?|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+        /bal(?:ance)?[\s:;\-]*?(?:inr|rs\.?|Ã¢â€šÂ¹)\s*([\d,]+(?:\.\d{1,2})?)/i
     ];
     for (const p of patterns) {
         const m = body.match(p);
@@ -798,7 +912,7 @@ function extractAvailableBalance(body: string): number | undefined {
     return undefined;
 }
 
-// ─── Confidence scoring ───────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Confidence scoring Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function calculateConfidence(fields: {
     amount: number;
     merchant: string | null;
@@ -815,40 +929,43 @@ function calculateConfidence(fields: {
     return Math.min(score, 1.0);
 }
 
-// ─── Read financial SMS ───────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Read financial SMS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Passes minDate watermark to the native layer; the native module does the
 // isFinancialSms() filtering for us, so we can safely scan a large window.
-export const readFinancialSMS = async (minDate = 0, limit = 2500): Promise<RawSmsMessage[]> => {
-    const hasPermission = await checkSMSPermission();
+export const readFinancialSMS = async (minDate = 0, limit = 2500, maxDate = 0): Promise<ReadSmsResult> => {
+    let hasPermission = await checkSMSPermission();
+    if (!hasPermission) {
+        hasPermission = await requestSMSPermission();
+    }
     if (!hasPermission) {
         console.log('[SMS::Parser] READ_SMS permission not granted. Skipping SMS sync.');
         return [];
     }
 
     // Native layer already filters to financial-only messages, so we do NOT
-    // re-apply isFinancialSms() here — that would be redundant and wasteful.
-    const messages = await readSmsMessages(limit, minDate);
-    console.log(`[SMS::Parser] Received ${messages.length} financial SMS from native (minDate=${minDate})`);
+    // re-apply isFinancialSms() here Ã¢â‚¬â€ that would be redundant and wasteful.
+    const result = await readSmsMessages(limit, minDate, maxDate);
+    console.log(`[SMS::Parser] Received ${result.messages.length} financial SMS from native (scanned=${result.scannedCount}, oldestScannedDate=${result.oldestScannedDate})`);
 
     await AsyncStorage.setItem(LAST_SMS_SCAN_KEY, Date.now().toString());
-    return messages;
+    return result;
 };
 
-// ─── Debug helper ─────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Debug helper Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export const debugReadSMS = async (): Promise<RawSmsMessage[]> => {
     const hasPermission = await requestSMSPermission();
     if (!hasPermission) {
         console.log('[SMS::Parser] Permission not granted');
         return [];
     }
-    const messages = await readSmsMessages(20, 0);
-    messages.slice(0, 5).forEach((m, i) => {
+    const result = await readSmsMessages(20, 0);
+    result.messages.slice(0, 5).forEach((m, i) => {
         console.log(`[SMS::Debug] #${i + 1}: from=${m.address} body=${m.body?.slice(0, 80)}`);
     });
-    return messages;
+    return result.messages;
 };
 
-// ─── Main extraction function ─────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main extraction function Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export const extractTransactionFromSMS = (
     smsBody: string,
     sender?: string,
@@ -859,9 +976,9 @@ export const extractTransactionFromSMS = (
     // Multiline HDFC/SBI UPI SMS were silently failing before this.
     const body = normaliseSMSBody(smsBody);
 
-    // Guard against promotional/marketing spam
-    if (isPromotionalSms(body)) {
-        console.log(`[SMS::Parser] Filtered promotional SMS from ${sender}`);
+    // Ã¢Å“â€¦ NEW: JS-level spam guard Ã¢â‚¬â€ reject promos/alerts before any further parsing
+    if (isSpamOrPromoSMS(body, sender)) {
+        console.log(`[SMS::Parser] Ã¢â€ºâ€ Rejected spam/promo SMS from ${sender ?? 'unknown'}: "${body.slice(0, 60)}..."`);
         return null;
     }
 
@@ -911,7 +1028,7 @@ export const extractTransactionFromSMS = (
         subType = 'sip';
 
         // Extract NAV
-        const navMatch = body.match(/(?:NAV|Price)[\s:;-]*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d+)?)/i);
+        const navMatch = body.match(/(?:NAV|Price)[\s:;-]*(?:Rs\.?|INR|Ã¢â€šÂ¹)?\s*([\d,]+(?:\.\d+)?)/i);
         if (navMatch && navMatch[1]) nav = parseFloat(navMatch[1].replace(/,/g, ''));
 
         // Extract Units
@@ -950,7 +1067,7 @@ export const extractTransactionFromSMS = (
 // Backwards-compatible alias
 export const extractTransactionDetails = extractTransactionFromSMS;
 
-// ─── Combine SMS body date with SMS metadata time ─────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Combine SMS body date with SMS metadata time Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function combineDateWithTime(iso: string, smsTimestamp: number): Date {
     try {
         const content = new Date(iso);
@@ -965,25 +1082,25 @@ function combineDateWithTime(iso: string, smsTimestamp: number): Date {
     }
 }
 
-// ─── Full pipeline: read SMS → parse → return structured list ─────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Full pipeline: read SMS Ã¢â€ â€™ parse Ã¢â€ â€™ return structured list Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
     try {
-        const messages = await readFinancialSMS(minDate, limit);
+        const result = await readFinancialSMS(minDate, limit);
         const transactions: (ParsedSMS & { smsId: string | undefined; date: string })[] = [];
 
-        for (const message of messages) {
+        for (const message of result.messages) {
             const smsId = message._id?.toString();
             const normBody = normaliseSMSBody(message.body);
 
-            // ── Investment SMS routing (BEFORE generic transaction parser) ──────
+            // Ã¢â€â‚¬Ã¢â€â‚¬ Investment SMS routing (BEFORE generic transaction parser) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             const sipAllotment = parseSIPAllotment(normBody);
             if (sipAllotment) {
                 try {
                     await handleSIPAllotmentSMS(sipAllotment, smsId);
-                    // ✅ CORRECT: mark AFTER successful write
+                    // Ã¢Å“â€¦ CORRECT: mark AFTER successful write
                     if (smsId) await markSMSProcessed(smsId);
                 } catch (err) {
-                    // SMS stays unprocessed — will retry on next app open
+                    // SMS stays unprocessed Ã¢â‚¬â€ will retry on next app open
                     console.warn('[SMS::Pipeline] SIP allotment insert failed, will retry:', smsId, err);
                 }
                 continue;
@@ -1011,7 +1128,7 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
                 continue;
             }
 
-            // ── Generic transaction parsing ───────────────────────────────────
+            // Ã¢â€â‚¬Ã¢â€â‚¬ Generic transaction parsing Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             const parsed = extractTransactionFromSMS(normBody, message.address);
             if (!parsed || parsed.amount <= 0) continue;
 
@@ -1027,7 +1144,7 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
             });
             // NOTE: For regular transactions, markSMSProcessed is called by the
             // caller (smsInitService / useSMSObserver) AFTER saveTransaction succeeds.
-            // Do NOT mark here — we return the list and let the caller decide.
+            // Do NOT mark here Ã¢â‚¬â€ we return the list and let the caller decide.
         }
 
         return transactions;
@@ -1037,7 +1154,7 @@ export const getTransactionsFromSMS = async (minDate = 0, limit = 300) => {
     }
 };
 
-// ─── Helper: mark SMS as processed in AsyncStorage ───────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helper: mark SMS as processed in AsyncStorage Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const PROCESSED_SMS_KEY = 'processed_sms_ids';
 
 async function markSMSProcessed(smsId: string): Promise<void> {
@@ -1052,7 +1169,7 @@ async function markSMSProcessed(smsId: string): Promise<void> {
         }
     } catch (err) {
         console.warn('[SMS::Pipeline] Failed to mark SMS processed:', smsId, err);
-        // Non-fatal — worst case the SMS gets re-processed (idempotent inserts handle this)
+        // Non-fatal Ã¢â‚¬â€ worst case the SMS gets re-processed (idempotent inserts handle this)
     }
 }
 
