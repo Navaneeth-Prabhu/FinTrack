@@ -706,18 +706,20 @@ export const getNewTransactionsFromSMS = async (
       ? 0
       : Number(await AsyncStorage.getItem(SMS_HISTORICAL_RECOVERY_CURSOR) || 0);
 
+    const FIRST_INSTALL_LOOKBACK_MS = 15 * 30 * 24 * 60 * 60 * 1000; // ~15 months
+    const firstInstallFloor = Date.now() - FIRST_INSTALL_LOOKBACK_MS;
     // If we have a watermark, only grab messages newer than it.
     // We add a tiny 1ms buffer to avoid re-fetching the exact last message.
-    const minDate = scanWatermark > 0 && !force ? scanWatermark + 1 : 0;
-
+    const minDate = (watermark > 0 && !force)
+      ? watermark + 1
+      : firstInstallFloor;
     // STEP 1: Read raw financial SMS in deterministic date batches.
     // Increased batch size (900→1500) and count (4→6) to handle users with
     // 1000+ financial SMS since the last watermark without missing any messages.
     const recentBatchLimit = 1500;
     const recentBatchCount = force ? 12 : 6;
     const recentResult = await collectFinancialSmsBatches(minDate, recentBatchLimit, recentBatchCount);
-    let rawMessages = recentResult.messages;
-
+    const rawMessages = [...recentResult.messages];
     // One-time reconciliation pass for existing installs:
     // if a stale/high watermark exists, scan older messages once so pre-install
     // history is not permanently skipped.
@@ -778,57 +780,57 @@ export const getNewTransactionsFromSMS = async (
       }
 
       try {
-      const msgDate = msg.date || 0;
+        const msgDate = msg.date || 0;
 
-      const smsId = msg._id?.toString();
-      if (!force && smsId && processedIdSet.has(smsId)) continue; // already processed
+        const smsId = msg._id?.toString();
+        if (!force && smsId && processedIdSet.has(smsId)) continue; // already processed
 
-      const intent = classifySMSIntent(msg.body, msg.address);
+        const intent = classifySMSIntent(msg.body, msg.address);
 
-      // Detect bank display name from body heuristic for enrichment
-      const bankFromSender = (() => {
-        const lower = (msg.address ?? '').toUpperCase();
-        if (lower.includes('HDFC')) return 'HDFC Bank';
-        if (lower.includes('ICICI')) return 'ICICI Bank';
-        if (lower.includes('SBI')) return 'SBI';
-        if (lower.includes('AXIS')) return 'Axis Bank';
-        if (lower.includes('KOTAK')) return 'Kotak Mahindra Bank';
-        return null;
-      })();
+        // Detect bank display name from body heuristic for enrichment
+        const bankFromSender = (() => {
+          const lower = (msg.address ?? '').toUpperCase();
+          if (lower.includes('HDFC')) return 'HDFC Bank';
+          if (lower.includes('ICICI')) return 'ICICI Bank';
+          if (lower.includes('SBI')) return 'SBI';
+          if (lower.includes('AXIS')) return 'Axis Bank';
+          if (lower.includes('KOTAK')) return 'Kotak Mahindra Bank';
+          return null;
+        })();
 
-      switch (intent.kind) {
-        case 'sip_confirmation':
-          await handleSIPConfirmation(intent, smsId, bankFromSender);
-          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
-          // Mark AFTER successful handler â€” if handler throws, ID stays unprocessed (safe retry)
-          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
-          break;
-        case 'emi_deduction':
-          await handleEMIDeduction(intent, smsId, bankFromSender);
-          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
-          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
-          break;
-        case 'account_balance':
-          await handleAccountBalance(intent, smsId, bankFromSender);
-          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
-          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
-          break;
-        case 'loan_alert':
-          await handleLoanAlert(intent, smsId, bankFromSender);
-          if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
-          if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
-          break;
-        case 'transaction':
-          transactionMessages.push(msg); // pass to existing pipeline
-          break;
-        case 'unknown':
-          // Safety net: still try generic transaction parsing. classifySMSIntent is
-          // conservative by design and can return unknown for uncommon valid formats.
-          transactionMessages.push(msg);
-          break;
-        default:
-          break; // unknown â€” skip
-      }
+        switch (intent.kind) {
+          case 'sip_confirmation':
+            await handleSIPConfirmation(intent, smsId, bankFromSender);
+            if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+            // Mark AFTER successful handler â€” if handler throws, ID stays unprocessed (safe retry)
+            if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
+            break;
+          case 'emi_deduction':
+            await handleEMIDeduction(intent, smsId, bankFromSender);
+            if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+            if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
+            break;
+          case 'account_balance':
+            await handleAccountBalance(intent, smsId, bankFromSender);
+            if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+            if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
+            break;
+          case 'loan_alert':
+            await handleLoanAlert(intent, smsId, bankFromSender);
+            if (msgDate > maxHandledDateMs) maxHandledDateMs = msgDate;
+            if (smsId) { processedIds.push(smsId); processedIdSet.add(smsId); intentHandledIds.push(smsId); }
+            break;
+          case 'transaction':
+            transactionMessages.push(msg); // pass to existing pipeline
+            break;
+          case 'unknown':
+            // Safety net: still try generic transaction parsing. classifySMSIntent is
+            // conservative by design and can return unknown for uncommon valid formats.
+            transactionMessages.push(msg);
+            break;
+          default:
+            break; // unknown â€” skip
+        }
       } catch (routeErr) {
         console.error('[SMS::Util] Intent routing error for one SMS:', routeErr);
       }
